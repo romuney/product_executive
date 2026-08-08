@@ -1647,11 +1647,15 @@ function rect(x,y,w,h,fill,r,extra){
     +(r?' rx="'+r+'"':'')+' fill="'+fill+'"'+(extra||'')+'/>';
 }
 /* ---------- Скругление: правило одно на весь отчёт ----------
-   Марка, ПРИЛИПАЮЩАЯ к оси, скругляется только с дальнего от оси края:
-   у нуля край ровный, потому что там марка обрезана осью, а не заканчивается.
-   Марка, висящая В ВОЗДУХЕ (шаг водопада, сегмент стопки, часть разложения),
-   скругляется со всех сторон: она ничем не обрезана, и полуобрезанный угол
-   заставляет искать причину, которой нет. */
+   Скругление отвечает на вопрос «марка здесь заканчивается или обрезана».
+
+   · Край, упирающийся в ось или в соседний сегмент стопки, — РОВНЫЙ:
+     марка там обрезана, а не закончилась. Поэтому у занятой части под
+     квотой верх ровный, а у найма под входом ровный верх.
+   · Край, которым марка заканчивается, — СКРУГЛЁН. В стопке это только
+     внешний край плеча, и он переезжает сам, когда серию выключают.
+   · Марка, висящая В ВОЗДУХЕ целиком (шаг водопада, часть разложения),
+     скруглена со всех сторон: её ничто не обрезает. */
 function barFloat(x,y,w,h,fill,extra){
   h=Math.max(0,h);
   if(h<=0.5)return'';
@@ -1903,11 +1907,6 @@ function drawStackDiverge(a,w,h){
   h=h||o.h||320;
   const top=hh+LBL_ROOM, bot=h-AXIS_H;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
-  /* Зазор между сегментами стопки: без него скругления соседних кубиков
-     сливаются в один бар, и структура пропадает ровно там, где её и надо
-     показать. Два пикселя на двух-трёх сегментах искажают высоту плеча
-     меньше, чем толщина линии, — а состав становится виден. */
-  const SEG_GAP=2;
   const sumAt=(arr,i)=>arr.reduce((s,x)=>s+x.series[i],0);
   const upT=ticks.map((_,i)=>sumAt(up,i)), dnT=ticks.map((_,i)=>sumAt(dn,i));
   const zero=top+(bot-top)/2;
@@ -1933,42 +1932,47 @@ function drawStackDiverge(a,w,h){
        график в таблицу: двенадцать периодов по четыре числа читать всё равно
        никто не станет, а итог плеча — то, ради чего сюда смотрят. Состав
        разбирается наведением или выключением серии в легенде. */
+    /* Стопка — ОДИН бар, разрезанный на части, а не набор кубиков. Поэтому
+       ни зазоров между сегментами, ни скруглений внутри: скруглён только
+       ВНЕШНИЙ край плеча — тот, которым бар заканчивается. Всё остальное
+       обрезано соседним сегментом или осью.
+
+       Край определяется по факту отрисовки, а не по порядку в массиве:
+       выключил вход — верхним становится найм, и скругление переезжает
+       к нему само. Ровно так же ведёт себя занятая часть под квотой. */
+    const segU=up.map(x=>(x.series[i]/max)*arm);
+    const segD=dn.map(x=>(x.series[i]/max)*arm);
+    let lastU=-1;segU.forEach((v,k)=>{if(v>0.5)lastU=k});
+    let lastD=-1;segD.forEach((v,k)=>{if(v>0.5)lastD=k});
+
     s+='<g class="barg"'+tip(tipUp)+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(zero-hh)+'"/>';
     let acc=0;
     up.forEach((x,k)=>{
-      const seg=(x.series[i]/max)*arm;
+      const seg=segU[k];
       if(seg>0.5){
-        const y=zero-acc-seg;
-        /* Сегмент у самой оси обрезан ею — у него ровный нижний край.
-           Остальные висят в воздухе и скруглены со всех сторон. */
-        s+=(acc<0.01
-             ? barUp(cx-bw/2,y,bw,seg,x.color,' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"')
-             : barFloat(cx-bw/2,y,bw,seg,x.color,' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"'));
-        acc+=seg+SEG_GAP;
+        const y=zero-acc-seg, ex=' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"';
+        s+=(k===lastU?barUp(cx-bw/2,y,bw,seg,x.color,ex):rect(cx-bw/2,y,bw,seg,x.color,0,ex));
+        acc+=seg;
       }
     });
-    const topUp=acc>0?acc-SEG_GAP:0;
     s+='</g>';
     s+='<g class="barg"'+tip(tipDn)+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(zero)+'" width="'+num(bandW)+'" height="'+num(bot-zero)+'"/>';
     acc=0;
     dn.forEach((x,k)=>{
-      const seg=(x.series[i]/max)*arm;
+      const seg=segD[k];
       if(seg>0.5){
-        const y=zero+acc;
-        s+=(acc<0.01
-             ? barDown(cx-bw/2,y,bw,seg,x.color,' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"')
-             : barFloat(cx-bw/2,y,bw,seg,x.color,' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"'));
-        acc+=seg+SEG_GAP;
+        const y=zero+acc, ex=' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"';
+        s+=(k===lastD?barDown(cx-bw/2,y,bw,seg,x.color,ex):rect(cx-bw/2,y,bw,seg,x.color,0,ex));
+        acc+=seg;
       }
     });
-    const botDn=acc>0?acc-SEG_GAP:0;
     s+='</g>';
     /* Итог прихода стоит НАД стопкой, итог ухода — ПОД ней: число уходит
        в ту же сторону, в какую растёт плечо. */
-    if(upT[i]>0)s+=txt(cx,zero-topUp-VAL_DY,fv(o,upT[i]),valOpt({delay:240+i*26}));
-    if(dnT[i]>0)s+=txt(cx,Math.min(zero+botDn+VAL_DY+4,bot-2),fv(o,dnT[i]),valOpt({delay:240+i*26}));
+    if(upT[i]>0)s+=txt(cx,zero-hUp-VAL_DY,fv(o,upT[i]),valOpt({delay:240+i*26}));
+    if(dnT[i]>0)s+=txt(cx,Math.min(zero+hDn+VAL_DY+4,bot-2),fv(o,dnT[i]),valOpt({delay:240+i*26}));
   });
   return svg(w,h,s);
 }
