@@ -416,13 +416,21 @@ function drawStackDiverge(a,w,h){
    ========================================================================== */
 function drawBreakdown(a,w,h){
   const o=a.opt||{}, parts=a.parts, tot=a.total;
+  /* compact — вариант для KPI-карточки. Целое там уже написано главным
+     числом карточки, поэтому столбец итога не рисуется: он повторил бы
+     то же значение рядом. Каскад всё равно начинается с вершины шкалы —
+     от неё и отсчитываются части. */
+  const compact=!!o.compact;
+  const lz=compact?9.5:10.5;
   const hh=headH(o.title,o.legend);
   h=h||o.h||300;
-  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H-12;
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/(parts.length+1);
+  const axisH=compact?(AXIS_H-8):AXIS_H;
+  const plotTop=hh+(compact?14:LBL_ROOM), plotBot=h-axisH-(compact?0:12);
+  const n=parts.length+(compact?0:1);
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/n;
   const max=niceMax([tot.value]);
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
-  const bw=Math.min(78,bandW*0.6);
+  const bw=Math.min(compact?54:78,bandW*(compact?0.66:0.6));
   const anyOn=parts.some(p=>p.on);
 
   let s=header(w,o.title,o.legend,{lock:true});
@@ -433,34 +441,42 @@ function drawBreakdown(a,w,h){
     g+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
     g+=barUp(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),color,' class="bar up" style="animation-delay:'+(i*34)+'ms"');
     g+='</g>';
-    g+=txt(cx,yTop-VAL_DY,CD.fmtInt(val),valOpt({delay:240+i*34}));
-    wrap(name,Math.max(8,bandW-6)).forEach((ln,k)=>{
-      g+=txt(cx,plotBot+15+k*11,ln,{size:10.5,fill:C_AXIS});
+    /* Кегль подписи значения не меняется даже в компактном варианте: это
+       ЕДИНСТВЕННЫЙ кегль цифры на графике во всём отчёте. Ужимается
+       геометрия — отступ подписи от марки, — а не сама цифра. */
+    g+=txt(cx,yTop-(compact?6:VAL_DY),CD.fmtInt(val),valOpt({delay:240+i*34}));
+    wrap(name,Math.max(8,bandW-4),2,lz).forEach((ln,k)=>{
+      g+=txt(cx,plotBot+(compact?12:15)+k*(lz+1),ln,{size:lz,fill:C_AXIS});
     });
     return g;
   };
-  s+=cell(0,tot.name,tot.value,0,tot.value,C_TOTAL,false,
-    tip({title:tot.name,rows:[{label:'Всего',value:CD.fmtInt(tot.value),color:C_TOTAL}],
-         note:'разбирается на части справа: человек попадает ровно в одну'}));
+  let idx=0;
+  if(!compact){
+    s+=cell(0,tot.name,tot.value,0,tot.value,C_TOTAL,false,
+      tip({title:tot.name,rows:[{label:'Всего',value:CD.fmtInt(tot.value),color:C_TOTAL}],
+           note:'разбирается на части справа: человек попадает ровно в одну'}));
+    idx=1;
+  }
   let rem=tot.value;
   parts.forEach((p,i)=>{
     const from=rem, to=rem-p.value;
     const share=tot.value?p.value/tot.value*100:0;
     /* Пунктирная связка от остатка предыдущего столбца к началу следующего:
-       без неё пять столбцов разной высоты читаются как пять независимых
-       величин, а не как разбор целого на части. */
-    s+=line(x0+bandW*(i+0.5)+bw/2,Y(from),x0+bandW*(i+1.5)-bw/2,Y(from),C_DIV,1,'3 2');
-    s+=cell(i+1,p.name,p.value,from,to,p.color,anyOn&&!p.on,
+       без неё столбцы разной высоты читаются как независимые величины,
+       а не как разбор целого на части. */
+    if(i+idx>0)s+=line(x0+bandW*(i+idx-0.5)+bw/2,Y(from),x0+bandW*(i+idx+0.5)-bw/2,Y(from),C_DIV,1,'3 2');
+    s+=cell(i+idx,(compact&&p.short)||p.name,p.value,from,to,p.color,anyOn&&!p.on,
       tip({title:p.name,
         rows:[{label:'Сотрудников',value:CD.fmtInt(p.value),color:p.color},
               {label:'Доля',value:CD.fmtPct(share,share<10?1:0)}],
-        note:[p.hint||null,'клик по столбцу фильтрует отчёт']})+
+        note:[p.hint||null,'клик фильтрует отчёт']})+
       ' data-seg="'+p.key+'" tabindex="0" role="button"'+
       ' aria-pressed="'+(p.on?'true':'false')+'"');
     /* Доля стоит под именем: она отвечает на «какая это часть целого»,
        а число сверху — на «сколько это людей». Два разных вопроса. */
-    s+=txt(x0+bandW*(i+1.5),plotBot+15+wrap(p.name,Math.max(8,bandW-6)).length*11,
-      CD.fmtPct(share,share<10?1:0),{size:10.5,weight:700,fill:C_AXIS});
+    s+=txt(x0+bandW*(i+idx+0.5),
+      plotBot+(compact?12:15)+wrap((compact&&p.short)||p.name,Math.max(8,bandW-4),2,lz).length*(lz+1),
+      CD.fmtPct(share,share<10?1:0),{size:lz,weight:700,fill:C_AXIS});
     rem=to;
   });
   return svg(w,h,s);

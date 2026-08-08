@@ -19,6 +19,17 @@ function periodName(st){
   return D.MONTHS[st.i0].label+' '+D.MONTHS[st.i0].y+' — '+D.MONTHS[st.i1].label+' '+D.MONTHS[st.i1].y;
 }
 
+/* ---------- Полоса KPI ----------
+   Пять карточек, но первая — двойной ширины: в ней живёт разложение состава.
+   Раньше это была отдельная панель во всю ширину экрана, и парт-таймеры
+   занимали столько же места, сколько всё движение аллокаций. Разложение —
+   не самостоятельный сюжет, а ответ на вопрос «из кого состоят эти 581»,
+   поэтому оно стоит внутри той самой карточки, число которой разбирает.
+
+   Здоровье аллокаций по той же причине сжалось до карточки с риской:
+   вопрос «в порядке ли данные» требует одного числа и сигнала, а не
+   таблицы на треть экрана. Подробности — по наведению и в трансформере
+   по разрезу «сегмент». */
 function kpis(m,st){
   const hc=m.head.hc, fte=m.head.fte, v=m.verify, v0=m.verifyStart;
   const openNow=m.supply.open[m.supply.open.length-1];
@@ -27,27 +38,51 @@ function kpis(m,st){
   const fillPct=plan?filled/plan*100:0;
   const perHead=hc.end?fte.end/hc.end:0;
   const mode=st.mode;
-  const cur=mode==='fte'?fte:hc;
-  const avg=(cur.begin+cur.end)/2;
-  const turnover=avg?(cur.hire+cur.inp+cur.out+cur.attr)/avg*100:0;
 
-  return '<div class="kpis n5">'+
-    U.kpi({label:'Уникальные сотрудники',tag:'Люди',cls:mode==='hc'?'lead-card':'',
+  const COL={direct:G.C_LINE,shared:G.C_IN,partial:G.C_UP,part:G.C_QUOTA};
+  const parts=m.segments.map(s=>({key:s.key,name:s.name,
+    short:D.SEG_BY_KEY[s.key].short,value:s.people,
+    color:COL[s.key],hint:s.hint,on:st.segs.indexOf(s.key)>=0}));
+  const breakdown=G.chart('breakdown',
+    {total:{name:'Все сотрудники',value:m.segTotal},parts},{compact:true,fill:true,h:126});
+
+  const hTotal=m.health.reduce((a,h)=>a+h.people,0);
+  const hNorm=m.health.filter(h=>h.key==='norm')[0].people;
+  const hBad=m.health.filter(h=>h.bad).reduce((a,h)=>a+h.people,0);
+  const hShare=hTotal?hNorm/hTotal*100:0;
+  const HCOL={norm:G.C_GREEN,over:G.C_RED,under:G.C_FLAT,low:G.C_RED,zero:G.C_RED};
+  const hItems=m.health.map(h=>({name:h.name,value:h.people,hint:h.hint,color:HCOL[h.key]}));
+
+  return '<div class="kpis n6">'+
+    U.kpi({label:'Уникальные сотрудники',cls:mode==='hc'?'lead-card':'',
       info:U.info({title:'Уникальные сотрудники',
         text:'Люди, у которых в выбранном срезе есть хотя бы одна аллокация. Человек, стоящий на трёх продуктах, посчитан один раз.',
         note:'Именно по этой метрике считаются HR-показатели: текучесть и оценки привязаны к человеку, а не к проценту его занятости.'}),
       value:D.fmtInt(hc.end),
       row1:U.delta('hc',hc.delta,{vs:'к началу периода',
         tip:{title:'Изменение за период',text:'Разница между концом и началом периода: '+periodName(st)+'.'}}),
-      row2:'<span class="k-sub">на начало '+D.fmtInt(hc.begin)+'</span>'})+
+      row2:'<span class="k-sub">на начало '+D.fmtInt(hc.begin)+'</span>',
+      aside:'<div class="h-cap">Состав команды'+
+        (st.segs.length?' · <b>'+st.segs.map(k=>U.esc(D.SEG_BY_KEY[k].name.toLowerCase())).join(', ')+'</b>':' · клик фильтрует')+
+        '</div>'+breakdown})+
 
-    U.kpi({label:'Сумма аллокаций, FTE',tag:'Аллокации',cls:mode==='fte'?'lead-card':'',
+    U.kpi({label:'Сумма аллокаций, FTE',cls:mode==='fte'?'lead-card':'',
       info:U.info({title:'Сумма аллокаций',
         text:'Сумма процентов занятости всех людей на продуктах среза, делённая на сто. Один человек на 50% и 50% даёт 1,0 FTE.',
         note:'Метрика отвечает на вопрос «сколько ставок стоит команда», а не «сколько в ней людей».'}),
       value:D.fmtFte(fte.end),
       row1:U.delta('fte',fte.delta,{vs:'к началу периода'}),
       row2:'<span class="k-sub">на человека '+D.fmtFte(perHead)+'</span>'})+
+
+    U.kpi({label:'Здоровье аллокаций',
+      info:U.info({title:'Здоровье аллокаций',
+        text:'Доля сотрудников, у которых сумма аллокаций по всем продуктам равна ровно ста процентам. Наведите на риску, чтобы увидеть остальные состояния.',
+        note:'Данные каталога продуктов идут в расчёт P&L, поэтому расхождения правятся в каталоге, а не в отчёте.'}),
+      value:D.fmtPct(hShare,0),
+      row1:hBad
+        ? '<span class="sig-chip bad">проблемных '+D.fmtInt(hBad)+'</span>'
+        : '<span class="sig-chip good">расхождений нет</span>',
+      row2:U.miniBar(hItems,hTotal)})+
 
     U.kpi({label:'Продуктов в срезе',
       info:U.info({title:'Верификация аллокаций',
@@ -66,21 +101,6 @@ function kpis(m,st){
       row1:'<span class="sig-chip '+(fillPct>=90?'good':fillPct<80?'bad':'neutral')+'">укомплектованность '+
         D.fmtPct(fillPct,0)+'</span>',
       row2:'<span class="k-sub">закрыто наймом за период '+D.fmtInt(m.head.hc.hire)+'</span>'})+
-
-    /* Пятая карточка раньше повторяла дельту из первых двух: то же число
-       в третий раз. Теперь она отвечает на вопрос, которого больше нигде нет, —
-       насколько подвижен состав. Оборот считается к среднему уровню периода,
-       потому что делить движение на конечную численность значит завышать
-       его у растущей команды и занижать у сокращающейся. */
-    U.kpi({label:'Оборот состава',
-      info:U.info({title:'Оборот состава',
-        text:'Всё движение за период (пришло плюс ушло), делённое на среднюю величину за период.',
-        note:'Метрика без «хорошо» и «плохо»: высокий оборот у растущего продукта и у разваливающегося выглядит одинаково.'}),
-      value:D.fmtPct(turnover,0),
-      row1:'<span class="k-sub">пришло '+D.fmtVal(mode,cur.hire+cur.inp)+
-        ' · ушло '+D.fmtVal(mode,cur.out+cur.attr)+'</span>',
-      row2:'<span class="k-sub">итог '+D.fmtDelta(mode,cur.delta)+', '+
-        D.fmtPct(cur.begin?cur.delta/cur.begin*100:0,1)+' к началу</span>'})+
   '</div>';
 }
 
@@ -114,7 +134,7 @@ function waterfall(m,st){
   /* fill:true — водопад берёт высоту из панели, а не из константы: он стоит
      рядом со стопкой из двух графиков, и колонки обязаны заканчиваться
      на одной линии. Иначе под узкой панелью копится серая пустота. */
-  return G.chart('waterfall',{steps},{mode,fill:true,h:640});
+  return G.chart('waterfall',{steps},{mode,fill:true,h:520});
 }
 
 /* ---------- Динамика ----------
@@ -129,8 +149,11 @@ function waterfall(m,st){
 function dynamics(m,st){
   const ticks=m.bks, mode=st.mode, f=m.flow;
   const view=st.moveView==='kinds'?'kinds':'io';
+  /* Высоты подобраны так, чтобы обе панели блока помещались в один экран
+     ноутбука вместе с полосой KPI: растянутый на всю страницу график не
+     сообщает больше, он просто заставляет крутить. */
   const top=G.chart('supply',{filled:m.supply.filled,open:m.supply.open,ticks},
-    {mode,h:250,title:'Ресурсообеспеченность: занято и открытые квоты',
+    {mode,h:196,title:'Ресурсообеспеченность: занято и открытые квоты',
      legend:[{name:'занято',color:G.C_TOTAL,sid:'filled'},
              {name:'открытые квоты',color:G.C_TOTAL,hollow:true,sid:'open'}]});
   let bottom;
@@ -140,7 +163,7 @@ function dynamics(m,st){
           {sid:'in',  name:'Вход на продукт',color:G.C_IN,  series:f.inp}],
       down:[{sid:'attr',name:'Отток из компании',color:G.C_ATTR,series:f.attr},
             {sid:'out', name:'Выход с продукта', color:G.C_OUT, series:f.out}]},
-      {mode,h:340,title:'Движение: пришло вверх, ушло вниз',
+      {mode,h:262,title:'Движение: пришло вверх, ушло вниз',
        legend:[{name:'найм',color:G.C_HIRE,sid:'hire'},
                {name:'вход',color:G.C_IN,sid:'in'},
                {name:'отток',color:G.C_ATTR,sid:'attr'},
@@ -157,7 +180,7 @@ function dynamics(m,st){
         series:f.up.map((v,i)=>v-f.dn[i]),color:G.C_UP,
         note:'рост минус снижение процентов у тех, кто остался на продукте'});
     }
-    bottom=G.chart('panels',{panels,ticks},{mode,h:panels.length*112});
+    bottom=G.chart('panels',{panels,ticks},{mode,h:panels.length*98});
   }
   const tabs=U.subTabs([
     ['io','Пришло и ушло',{title:'Пришло и ушло',text:'Один поток в двух направлениях: вверх приход, вниз уход. Каждое плечо — стопка из двух видов движения, ближе к оси стоит основное.'}],
@@ -170,58 +193,6 @@ function dynamics(m,st){
   return U.panel({title:'Динамика ресурсов и движения',
     sub:'гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
     tabs,body,cls:'p-dyn'});
-}
-
-/* ---------- Состав команды ----------
-   Не самостоятельная таблица, а ЛЕГЕНДА метрики «уникальные сотрудники»:
-   перевёрнутый водопад, где слева стоит целое, а справа оно разбирается
-   на части. Человек попадает ровно в один сегмент — по своей максимальной
-   аллокации внутри среза, — поэтому части складываются в целое точно.
-
-   Итог разложения считается БЕЗ фильтра по сегментам: когда категория
-   выбрана, на экране всё равно видно, частью чего она является. Своей
-   строки ИТОГО у блока нет — итог и есть первый столбец. */
-function segments(m,st){
-  const COL={direct:G.C_LINE,shared:G.C_IN,partial:G.C_UP,part:G.C_QUOTA};
-  const parts=m.segments.map(s=>({key:s.key,name:s.name,value:s.people,
-    color:COL[s.key],hint:s.hint,on:st.segs.indexOf(s.key)>=0}));
-  const body=G.chart('breakdown',
-      {total:{name:'Все сотрудники',value:m.segTotal},parts},{fill:true,h:330})+
-    U.note('Сегмент определяется максимальной аллокацией человека внутри среза: '+
-      'кто стоит на 70% и 30%, тот прямой ресурс, а не «прямой и парт-таймер сразу». '+
-      'Поэтому части складываются в целое точно. Состояние на '+D.mLabelFull(st.i1)+'.');
-  return U.panel({title:'Состав команды',
-    sub:'клик по столбцу фильтрует весь отчёт',body,cls:'p-seg',bodyCls:'fill-b'});
-}
-
-/* ---------- Здоровье аллокаций ----------
-   Считается по ЧЕЛОВЕКУ: перебор ставки возникает из суммы по всем
-   продуктам и на отдельной паре не виден. Проблемные состояния красные —
-   здесь оценка есть: сумма больше ста процентов это ошибка данных,
-   а не особенность команды. */
-function health(m,st){
-  const items=m.health.map(h=>({key:h.key,name:h.name,note:h.hint,value:h.people,
-    val1:D.fmtInt(h.people),
-    /* Здесь светофор уместен: сумма аллокаций больше ста процентов — это
-       ошибка данных, а не особенность команды. Цвета берутся из рисовального
-       слоя, литералов в экране нет. */
-    color:h.bad?G.C_RED:(h.key==='norm'?G.C_GREEN:G.C_FLAT)}));
-  const total=m.health.reduce((a,h)=>a+h.people,0);
-  const bad=m.health.filter(h=>h.bad).reduce((a,h)=>a+h.people,0);
-  const zero=m.health.filter(h=>h.key==='zero')[0].people;
-  /* Итог здесь БОЛЬШЕ числа уникальных сотрудников на продуктах, и это надо
-     сказать прямо в строке: люди без аллокации на продуктах не стоят, но
-     в отчёт попадают — иначе целая проблемная категория из него исчезает. */
-  let body=U.barTable({head:'Состояние',col1:'Человек',items,
-    totalVal1:D.fmtInt(total),
-    totalNote:D.fmtInt(total-zero)+' на продуктах + '+D.fmtInt(zero)+' без аллокации'});
-  body+=bad
-    ? '<div class="flag">Проблемных аллокаций: <b>'+D.fmtInt(bad)+'</b> из '+D.fmtInt(total)+
-      '. Данные каталога продуктов идут в расчёт P&amp;L, поэтому расхождения надо править в каталоге, а не в отчёте.</div>'
-    : '<div class="flag ok"><span class="ok-dot"></span>Проблемных аллокаций нет: у всех сотрудников среза сумма аллокаций равна ставке.</div>';
-  body+=U.note('Состояние на '+D.mLabelFull(st.i1)+'. Сотрудники без аллокаций попадают в отчёт '+
-    'по организационной привязке к продукту — иначе целая проблемная категория из отчёта исчезает.');
-  return U.panel({title:'Здоровье аллокаций',sub:'сумма по всем продуктам, по человеку',body});
 }
 
 /* ---------- Трансформер: один уровень детализации ----------
@@ -262,9 +233,12 @@ function render(st){
      сразу под карточками, потому что оно и есть легенда первой карточки,
      а движение и трансформер идут подряд: их читают одним взглядом,
      прокручивая экран. */
+  /* Динамика стоит слева и шире: это главный сюжет экрана, и читают его
+     первым. Водопад справа отвечает на следующий вопрос — «из чего
+     сложилось» — и потому уже. Обе панели одной высоты: график умеет занять
+     любую высоту, серой пустоте под колонкой взяться неоткуда. */
   return kpis(m,st)+'<div class="stack">'+
-    '<div class="grid-3-2">'+segments(m,st)+health(m,st)+'</div>'+
-    '<div class="grid-35-65">'+
+    '<div class="grid-60-40">'+dynamics(m,st)+
       U.panel({title:'Как изменилось за период',sub:'водопад движения',
         cls:'p-wf',bodyCls:'fill-b',
         body:waterfall(m,st)+U.note(
@@ -272,8 +246,7 @@ function render(st){
           'с другого продукта или выход со скамейки. <b>Выход</b> — ушёл с продукта, '+
           'но остался в компании. <b>Отток</b> — ушёл из компании.'+
           (st.mode==='fte'?' <b>Рост и снижение аллокации</b> — процент изменился у того, кто с продукта не уходил.':''))})+
-      dynamics(m,st)+'</div>'+
-    pivot(m,st)+'</div>';
+    '</div>'+pivot(m,st)+'</div>';
 }
 
 window.PXSCREEN=window.PXSCREEN||{};

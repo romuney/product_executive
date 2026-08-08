@@ -81,12 +81,40 @@ function info(o){
    в полосе нечего. Пустая строка воздуха не занимает — это делает
    .k-row:empty. Выравнивание держит subgrid, а не подбор высот. */
 function kpi(o){
-  return '<div class="kpi'+(o.cls?' '+o.cls:'')+'">'+
-    '<div class="k-label">'+(o.tag?'<span class="kpi-tag">'+esc(o.tag)+'</span>':'')+
+  const body='<div class="k-label">'+(o.tag?'<span class="kpi-tag">'+esc(o.tag)+'</span>':'')+
       esc(o.label)+(o.info||'')+'</div>'+
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
-    '<div class="k-row">'+(o.row2||'')+'</div></div>';
+    '<div class="k-row">'+(o.row2||'')+'</div>';
+  /* Широкая карточка выходит из subgrid и раскладывается на две колонки:
+     слева те же четыре строки, справа график. Строк по-прежнему четыре —
+     полоса выравнивается по ним, как и раньше. */
+  if(o.aside)return '<div class="kpi hero'+(o.cls?' '+o.cls:'')+'">'+
+    '<div class="h-left">'+body+'</div><div class="h-aside">'+o.aside+'</div></div>';
+  return '<div class="kpi'+(o.cls?' '+o.cls:'')+'">'+body+'</div>';
+}
+
+/* ---------- Мини-полоса состава ----------
+   Сегментированная риска в карточке KPI: показывает форму распределения,
+   не занимая места под таблицу. Числа живут в подсказке — здесь их читать
+   не по чему, и это осознанно: карточка отвечает на вопрос «в порядке ли
+   аллокации», а не «сколько человек в каждом состоянии».
+
+   Общий запрет на горизонтальный бар-чарт для разбивок это не нарушает:
+   там запрещён чарт ВМЕСТО таблицы, а тут одна риска ВМЕСТО ничего —
+   развёрнутая разбивка живёт в трансформере по разрезу «сегмент». */
+function miniBar(items,total){
+  const sum=total||items.reduce((a,x)=>a+x.value,0);
+  if(!sum)return '';
+  return '<span class="mini-bar">'+items.map(x=>{
+    const share=x.value/sum*100;
+    if(share<=0)return '';
+    return '<i style="flex:'+x.value.toFixed(3)+';background:'+x.color+'"'+
+      tip({title:x.name,
+        rows:[{label:'Сотрудников',value:D.fmtInt(x.value),color:x.color},
+              {label:'Доля',value:D.fmtPct(share,share<10?1:0)}],
+        note:x.hint||null})+'></i>';
+  }).join('')+'</span>';
 }
 
 /* ---------- Панель ---------- */
@@ -405,6 +433,6 @@ function empty(title,text){
   return '<div class="empty"><b>'+esc(title)+'</b>'+esc(text)+'</div>';
 }
 
-window.PXUI={esc,tip,delta,info,kpi,panel,subTabs,select,barTable,
+window.PXUI={esc,tip,delta,info,kpi,miniBar,panel,subTabs,select,barTable,
   pivot,COLS,colsFor,valOf,cellText,seriesTable,matrixTable,legend,note,empty,plural,heat};
 })();
