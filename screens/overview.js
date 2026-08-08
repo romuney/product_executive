@@ -28,6 +28,8 @@ function kpis(m,st){
   const perHead=hc.end?fte.end/hc.end:0;
   const mode=st.mode;
   const cur=mode==='fte'?fte:hc;
+  const avg=(cur.begin+cur.end)/2;
+  const turnover=avg?(cur.hire+cur.inp+cur.out+cur.attr)/avg*100:0;
 
   return '<div class="kpis n5">'+
     U.kpi({label:'Уникальные сотрудники',tag:'Люди',cls:mode==='hc'?'lead-card':'',
@@ -65,14 +67,20 @@ function kpis(m,st){
         D.fmtPct(fillPct,0)+'</span>',
       row2:'<span class="k-sub">закрыто наймом за период '+D.fmtInt(m.head.hc.hire)+'</span>'})+
 
-    U.kpi({label:'Прирост за период',
-      info:U.info({title:'Прирост',
-        text:'Разница между концом и началом периода. Складывается из найма, входа на продукт, выхода с продукта и оттока'+
-          (mode==='fte'?', а в аллокациях — ещё и из изменения процентов.':'.')}),
-      value:D.fmtDelta(mode,cur.delta),
-      row1:'<span class="k-sub">'+D.fmtPct(cur.begin?cur.delta/cur.begin*100:0,1)+' к началу</span>',
-      row2:'<span class="k-sub">пришло '+D.fmtVal(mode,cur.hire+cur.inp)+' · ушло '+
-        D.fmtVal(mode,cur.out+cur.attr)+'</span>'})+
+    /* Пятая карточка раньше повторяла дельту из первых двух: то же число
+       в третий раз. Теперь она отвечает на вопрос, которого больше нигде нет, —
+       насколько подвижен состав. Оборот считается к среднему уровню периода,
+       потому что делить движение на конечную численность значит завышать
+       его у растущей команды и занижать у сокращающейся. */
+    U.kpi({label:'Оборот состава',
+      info:U.info({title:'Оборот состава',
+        text:'Всё движение за период (пришло плюс ушло), делённое на среднюю величину за период.',
+        note:'Метрика без «хорошо» и «плохо»: высокий оборот у растущего продукта и у разваливающегося выглядит одинаково.'}),
+      value:D.fmtPct(turnover,0),
+      row1:'<span class="k-sub">пришло '+D.fmtVal(mode,cur.hire+cur.inp)+
+        ' · ушло '+D.fmtVal(mode,cur.out+cur.attr)+'</span>',
+      row2:'<span class="k-sub">итог '+D.fmtDelta(mode,cur.delta)+', '+
+        D.fmtPct(cur.begin?cur.delta/cur.begin*100:0,1)+' к началу</span>'})+
   '</div>';
 }
 
@@ -82,81 +90,108 @@ function kpis(m,st){
    существует только в режиме аллокаций — в людях оно бессмысленно. */
 function waterfall(m,st){
   const t=m.tot, mode=st.mode;
+  /* Короткое имя стоит на оси, полное живёт в подсказке: восемь шагов в узкой
+     панели не оставляют места на «Снижение аллокации» в одну строку, а резать
+     подпись многоточием хуже, чем назвать шаг коротко и объяснить наведением. */
   const steps=[
-    {name:'На начало',total:true,value:t.begin,hint:periodName(st)},
-    {name:'Найм на продукт',value:t.hire,color:G.C_HIRE,hint:'человек новый и в компании, и на продукте'},
-    {name:'Вход на продукт',value:t.inp,color:G.C_IN,hint:'перевод с другого продукта или выход со скамейки'}
+    {name:'На начало периода',short:'На начало',total:true,value:t.begin,hint:periodName(st)},
+    {name:'Найм на продукт',short:'Найм',value:t.hire,color:G.C_HIRE,
+     hint:'человек новый и в компании, и на продукте'},
+    {name:'Вход на продукт',short:'Вход',value:t.inp,color:G.C_IN,
+     hint:'перевод с другого продукта или выход со скамейки'}
   ];
   if(mode==='fte'){
-    steps.push({name:'Рост аллокации',value:t.up,color:G.C_UP,hint:'человек остался, его процент занятости вырос'});
-    steps.push({name:'Снижение аллокации',value:-t.dn,color:G.C_DN,hint:'человек остался, его процент занятости снизился'});
+    steps.push({name:'Рост аллокации',short:'Рост аллокации',value:t.up,color:G.C_UP,
+      hint:'человек остался на продукте, его процент занятости вырос'});
+    steps.push({name:'Снижение аллокации',short:'Снижение аллокации',value:-t.dn,color:G.C_DN,
+      hint:'человек остался на продукте, его процент занятости снизился'});
   }
-  steps.push({name:'Выход с продукта',value:-t.out,color:G.C_OUT,hint:'человек остался в компании, но ушёл с продукта'});
-  steps.push({name:'Отток из компании',value:-t.attr,color:G.C_ATTR,hint:'аллокация закрылась вместе с увольнением'});
-  steps.push({name:'На конец',total:true,value:t.end});
-  return G.chart('waterfall',{steps},{mode,h:330});
+  steps.push({name:'Выход с продукта',short:'Выход',value:-t.out,color:G.C_OUT,
+    hint:'человек остался в компании, но ушёл с продукта'});
+  steps.push({name:'Отток из компании',short:'Отток',value:-t.attr,color:G.C_ATTR,
+    hint:'аллокация закрылась вместе с увольнением'});
+  steps.push({name:'На конец периода',short:'На конец',total:true,value:t.end});
+  /* fill:true — водопад берёт высоту из панели, а не из константы: он стоит
+     рядом со стопкой из двух графиков, и колонки обязаны заканчиваться
+     на одной линии. Иначе под узкой панелью копится серая пустота. */
+  return G.chart('waterfall',{steps},{mode,fill:true,h:640});
 }
 
 /* ---------- Динамика ----------
-   Три взгляда на одно и то же движение, поэтому это под-вкладки одной панели,
-   а не три панели подряд: одновременно нужен ровно один. */
+   Одна панель, два графика друг под другом с общей осью времени: сверху
+   уровень (сколько занято и сколько ещё открыто), снизу движение, которое
+   этот уровень меняет. Раньше это были разные блоки в разных местах экрана,
+   и связь «столько пришло — вот настолько вырос уровень» приходилось
+   держать в голове.
+
+   Отдельной под-вкладки «Уровень» больше нет: уровень теперь всегда стоит
+   верхней панелью, и переключать нечего. */
 function dynamics(m,st){
   const ticks=m.bks, mode=st.mode, f=m.flow;
-  const view=st.moveView;
-  let body;
+  const view=st.moveView==='kinds'?'kinds':'io';
+  const top=G.chart('supply',{filled:m.supply.filled,open:m.supply.open,ticks},
+    {mode,h:250,title:'Ресурсообеспеченность: занято и открытые квоты',
+     legend:[{name:'занято',color:G.C_TOTAL,sid:'filled'},
+             {name:'открытые квоты',color:G.C_TOTAL,hollow:true,sid:'open'}]});
+  let bottom;
   if(view==='io'){
-    const up=f.hire.map((v,i)=>v+f.inp[i]);
-    const dn=f.out.map((v,i)=>v+f.attr[i]);
-    body=G.chart('diverge',{up,down:dn,ticks},
-      {mode,h:330,upName:'Пришло на продукт',downName:'Ушло с продукта',
-       legend:[{name:'пришло: найм и вход',color:G.C_HIRE},{name:'ушло: выход и отток',color:G.C_ATTR}]});
-  }else if(view==='kinds'){
+    bottom=G.chart('sdiverge',{ticks,
+      up:[{sid:'hire',name:'Найм на продукт',color:G.C_HIRE,series:f.hire},
+          {sid:'in',  name:'Вход на продукт',color:G.C_IN,  series:f.inp}],
+      down:[{sid:'attr',name:'Отток из компании',color:G.C_ATTR,series:f.attr},
+            {sid:'out', name:'Выход с продукта', color:G.C_OUT, series:f.out}]},
+      {mode,h:340,title:'Движение: пришло вверх, ушло вниз',
+       legend:[{name:'найм',color:G.C_HIRE,sid:'hire'},
+               {name:'вход',color:G.C_IN,sid:'in'},
+               {name:'отток',color:G.C_ATTR,sid:'attr'},
+               {name:'выход',color:G.C_OUT,sid:'out'}]});
+  }else{
     const panels=[
       {name:'Найм на продукт',series:f.hire,color:G.C_HIRE},
       {name:'Вход на продукт',series:f.inp,color:G.C_IN},
-      {name:'Выход с продукта',series:f.out,color:G.C_OUT},
-      {name:'Отток из компании',series:f.attr,color:G.C_ATTR}
+      {name:'Отток из компании',series:f.attr,color:G.C_ATTR},
+      {name:'Выход с продукта',series:f.out,color:G.C_OUT}
     ];
     if(mode==='fte'){
       panels.push({name:'Изменение аллокации, сальдо',
         series:f.up.map((v,i)=>v-f.dn[i]),color:G.C_UP,
         note:'рост минус снижение процентов у тех, кто остался на продукте'});
     }
-    body=G.chart('panels',{panels,ticks},{mode,h:panels.length*118});
-  }else{
-    body=G.chart('line',{series:m.stock,ticks},
-      {mode,h:330,color:G.C_LINE,name:mode==='fte'?'Сумма аллокаций':'Сотрудники на продуктах'});
+    bottom=G.chart('panels',{panels,ticks},{mode,h:panels.length*112});
   }
   const tabs=U.subTabs([
-    ['io','Пришло и ушло',{title:'Пришло и ушло',text:'Один поток в двух направлениях: вверх приход, вниз уход. Шкала общая, поэтому плечи сравнимы.'}],
-    ['kinds','По видам движения',{title:'По видам движения',text:'Четыре вида движения отдельными панелями с общей осью времени и своей шкалой от нуля у каждой.'}],
-    ['level','Уровень',{title:'Уровень',text:mode==='fte'?'Сумма аллокаций на конец каждого периода.':'Сотрудники на продуктах на конец каждого периода.'}]
+    ['io','Пришло и ушло',{title:'Пришло и ушло',text:'Один поток в двух направлениях: вверх приход, вниз уход. Каждое плечо — стопка из двух видов движения, ближе к оси стоит основное.'}],
+    ['kinds','По видам движения',{title:'По видам движения',text:'Каждый вид движения отдельной панелью с общей осью времени и своей шкалой от нуля.'}]
   ],view,'move');
-  return U.panel({title:'Динамика движения',
+  const body='<div class="chart-stack">'+top+bottom+'</div>'+
+    U.note('Верхний график — уровень: серое занято, белое с обводкой — открытые квоты. '+
+      'Клик по легенде убирает серию с графика. Нижний график — движение, которое этот '+
+      'уровень меняет: ближе к оси найм и отток, дальше вход и выход.');
+  return U.panel({title:'Динамика ресурсов и движения',
     sub:'гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
-    tabs,body});
+    tabs,body,cls:'p-dyn'});
 }
 
-/* ---------- Сегменты аллокации ----------
-   Разбивка считается по ПАРАМ «человек × продукт»: один и тот же человек
-   бывает прямым ресурсом на одном продукте и парт-таймером на другом.
-   Строки кликаются — это и есть фильтр отчёта по сегменту. */
+/* ---------- Состав команды ----------
+   Не самостоятельная таблица, а ЛЕГЕНДА метрики «уникальные сотрудники»:
+   перевёрнутый водопад, где слева стоит целое, а справа оно разбирается
+   на части. Человек попадает ровно в один сегмент — по своей максимальной
+   аллокации внутри среза, — поэтому части складываются в целое точно.
+
+   Итог разложения считается БЕЗ фильтра по сегментам: когда категория
+   выбрана, на экране всё равно видно, частью чего она является. Своей
+   строки ИТОГО у блока нет — итог и есть первый столбец. */
 function segments(m,st){
-  const items=m.segments.map(s=>({key:s.key,name:s.name,note:s.hint,
-    value:st.mode==='fte'?s.fte:s.people,
-    val1:D.fmtInt(s.people),val2:D.fmtFte(s.fte),
-    color:{direct:G.C_LINE,shared:G.C_IN,partial:G.C_UP,part:G.C_QUOTA}[s.key]}));
-  const pp=m.segments.reduce((a,s)=>a+s.people,0);
-  const ff=m.segments.reduce((a,s)=>a+s.fte,0);
-  const body=U.barTable({head:'Сегмент',col1:'Аллокаций, чел',col2:'FTE',items,
-      rowAttr:'seg',pick:st.segs,
-      totalVal1:D.fmtInt(pp),totalVal2:D.fmtFte(ff)})+
-    U.note('Считается по парам «человек × продукт» на '+D.mLabelFull(st.i1)+
-      ': один человек может быть прямым ресурсом на одном продукте и парт-таймером на другом, '+
-      'поэтому сумма строк (<b>'+D.fmtInt(pp)+'</b>) больше числа уникальных сотрудников (<b>'+
-      D.fmtInt(m.head.hc.end)+'</b>).');
-  return U.panel({title:'Сегменты аллокации',
-    sub:'клик по строке фильтрует весь отчёт',body});
+  const COL={direct:G.C_LINE,shared:G.C_IN,partial:G.C_UP,part:G.C_QUOTA};
+  const parts=m.segments.map(s=>({key:s.key,name:s.name,value:s.people,
+    color:COL[s.key],hint:s.hint,on:st.segs.indexOf(s.key)>=0}));
+  const body=G.chart('breakdown',
+      {total:{name:'Все сотрудники',value:m.segTotal},parts},{fill:true,h:330})+
+    U.note('Сегмент определяется максимальной аллокацией человека внутри среза: '+
+      'кто стоит на 70% и 30%, тот прямой ресурс, а не «прямой и парт-таймер сразу». '+
+      'Поэтому части складываются в целое точно. Состояние на '+D.mLabelFull(st.i1)+'.');
+  return U.panel({title:'Состав команды',
+    sub:'клик по столбцу фильтрует весь отчёт',body,cls:'p-seg',bodyCls:'fill-b'});
 }
 
 /* ---------- Здоровье аллокаций ----------
@@ -173,8 +208,13 @@ function health(m,st){
     color:h.bad?G.C_RED:(h.key==='norm'?G.C_GREEN:G.C_FLAT)}));
   const total=m.health.reduce((a,h)=>a+h.people,0);
   const bad=m.health.filter(h=>h.bad).reduce((a,h)=>a+h.people,0);
+  const zero=m.health.filter(h=>h.key==='zero')[0].people;
+  /* Итог здесь БОЛЬШЕ числа уникальных сотрудников на продуктах, и это надо
+     сказать прямо в строке: люди без аллокации на продуктах не стоят, но
+     в отчёт попадают — иначе целая проблемная категория из него исчезает. */
   let body=U.barTable({head:'Состояние',col1:'Человек',items,
-    totalVal1:D.fmtInt(total)});
+    totalVal1:D.fmtInt(total),
+    totalNote:D.fmtInt(total-zero)+' на продуктах + '+D.fmtInt(zero)+' без аллокации'});
   body+=bad
     ? '<div class="flag">Проблемных аллокаций: <b>'+D.fmtInt(bad)+'</b> из '+D.fmtInt(total)+
       '. Данные каталога продуктов идут в расчёт P&amp;L, поэтому расхождения надо править в каталоге, а не в отчёте.</div>'
@@ -184,16 +224,6 @@ function health(m,st){
   return U.panel({title:'Здоровье аллокаций',sub:'сумма по всем продуктам, по человеку',body});
 }
 
-/* ---------- Ресурсообеспеченность ---------- */
-function supply(m,st){
-  const body=G.chart('supply',{filled:m.supply.filled,open:m.supply.open,ticks:m.bks},
-      {mode:st.mode,h:330,
-       legend:[{name:'занято',color:G.C_TOTAL},{name:'открытые квоты',color:G.C_QUOTA,hollow:true}]})+
-    U.note('Белая часть бара — то, что ещё не нанято. Открытые квоты показаны в штатных единицах '+
-      'и в режиме аллокаций тоже: квота открывается на ставку, а не на процент.');
-  return U.panel({title:'Ресурсообеспеченность',sub:'численность и открытые квоты',body});
-}
-
 /* ---------- Трансформер: один уровень детализации ----------
    На главном экране трансформер решает одну задачу — показать те же
    агрегированные метрики в разрезе. Три уровня и матрица живут на второй
@@ -201,17 +231,24 @@ function supply(m,st){
 function pivot(m,st){
   const rows=st.dimB?D.rows2(st,st.dimA,st.dimB):D.rows(st,st.dimA);
   const dimName=D.DIM_BY_KEY[st.dimA].name;
+  /* Итоговая квота всегда известна: она суммируется по продуктам среза
+     независимо от того, каким разрезом разложены строки. */
+  const total=Object.assign({},m.tot,{quota:m.quota});
   const dims=D.DIMS.map(d=>[d.key,d.name]);
   const tabs='<div class="h-ctl">'+
     U.select('dimA',dims,st.dimA,'Строки')+
     U.select('dimB',[['','без второго уровня']].concat(dims.filter(d=>d[0]!==st.dimA)),st.dimB,'Второй уровень')+
     '</div>';
-  const body='<div class="tbl-wrap">'+U.pivot({rows,total:m.tot,mode:st.mode,dimName,
+  const quotaSplit=!!D.DIM_BY_KEY[st.dimB||st.dimA].quota;
+  const body='<div class="tbl-wrap">'+U.pivot({rows,total,mode:st.mode,dimName,
       open:st.open,totalNote:'уникальные значения по всему срезу'})+'</div>'+
-    U.note('Строки раскрываются кареткой. Сумма по строкам больше итога, когда разрез '+
-      'привязан к продукту: человек, аллоцированный на несколько продуктов, попадает в несколько строк, '+
-      'а в итоге считается один раз. Переходы между продуктами внутри среза видны в строках '+
-      'и схлопываются в итоге — портфель они не меняют.');
+    U.note('Каретка у строки ИТОГО раскрывает и сворачивает всё дерево разом. '+
+      'Сумма по строкам больше итога, когда разрез привязан к продукту: человек, '+
+      'аллоцированный на несколько продуктов, попадает в несколько строк, а в итоге считается '+
+      'один раз. Переходы между продуктами внутри среза видны в строках и схлопываются в итоге — '+
+      'портфель они не меняют.'+
+      (quotaSplit?'':' Квота заводится на продукте, поэтому в этом разрезе колонки квот стоят '+
+        'с прочерком: раскладывать их по профессиям и грейдам не на чем.'));
   return U.panel({title:'Трансформер: движение в разрезе',
     sub:'за период '+periodName(st),tabs,body});
 }
@@ -220,13 +257,23 @@ function render(st){
   const m=D.model(st);
   if(!m.verify.total)return U.empty('На выбранных продуктах никого нет',
     'Снимите один из фильтров слева — например, сегмент аллокации или грейд.');
+  /* Порядок блоков — это порядок вопросов. Сколько людей → из кого они
+     состоят → как менялось → где именно менялось. Разложение состава стоит
+     сразу под карточками, потому что оно и есть легенда первой карточки,
+     а движение и трансформер идут подряд: их читают одним взглядом,
+     прокручивая экран. */
   return kpis(m,st)+'<div class="stack">'+
-    '<div class="grid2">'+supply(m,st)+
+    '<div class="grid-3-2">'+segments(m,st)+health(m,st)+'</div>'+
+    '<div class="grid-35-65">'+
       U.panel({title:'Как изменилось за период',sub:'водопад движения',
-        body:waterfall(m,st)+U.note('Уровни серые, движения — гаммой потоков. '+
-          'Отток сиреневый, а не красный: это категория, а не оценка.')})+'</div>'+
-    '<div class="grid-2-1">'+segments(m,st)+health(m,st)+'</div>'+
-    dynamics(m,st)+pivot(m,st)+'</div>';
+        cls:'p-wf',bodyCls:'fill-b',
+        body:waterfall(m,st)+U.note(
+          '<b>Найм</b> — новый и в компании, и на продукте. <b>Вход</b> — перевод '+
+          'с другого продукта или выход со скамейки. <b>Выход</b> — ушёл с продукта, '+
+          'но остался в компании. <b>Отток</b> — ушёл из компании.'+
+          (st.mode==='fte'?' <b>Рост и снижение аллокации</b> — процент изменился у того, кто с продукта не уходил.':''))})+
+      dynamics(m,st)+'</div>'+
+    pivot(m,st)+'</div>';
 }
 
 window.PXSCREEN=window.PXSCREEN||{};

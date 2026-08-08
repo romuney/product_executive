@@ -46,7 +46,7 @@ const CASES=[
 function st(over){
   const s=Object.assign({mode:'hc',tab:'overview',i0:D.N-12,i1:D.N-1,gran:'m',
     prods:[],segs:[],mainOnly:false,prof:'',grade:'',loc:'',emp:'',
-    dimA:'product',dimB:'',open:[],moveView:'io',
+    dimA:'domain',dimB:'product',open:[],moveView:'io',
     tview:'dyn',tmetric:'stock',t1:'domain',t2:'product',t3:'',topen:[],
     my:'prof',mxd:'grade'},over);
   s.prodSet=D.prodSet(s.prods);
@@ -75,9 +75,21 @@ CASES.forEach(c=>{
 head('2. Разбивки сходятся с итогом');
 CASES.forEach(c=>{
   const s=st(c.over), m=D.model(s);
+  /* Сегменты — легенда метрики «уникальные сотрудники», поэтому части обязаны
+     складываться в целое ТОЧНО, а не «не меньше». Проверяется против итога
+     без фильтра по сегментам: именно его показывает первый столбец блока. */
   const segPeople=m.segments.reduce((a,x)=>a+x.people,0);
-  ok('сегменты не меньше уникальных людей · '+c.name,
-    segPeople>=Math.round(m.head.hc.end)-1,segPeople+' < '+m.head.hc.end);
+  const segFte=m.segments.reduce((a,x)=>a+x.fte,0);
+  ok('сегменты складываются в уникальных сотрудников · '+c.name,
+    segPeople===Math.round(m.segTotal),segPeople+' != '+m.segTotal);
+  const fteAll=D.totals(Object.assign({},s,{segs:[],mode:'fte'})).end;
+  ok('FTE по сегментам = сумма аллокаций · '+c.name,
+    Math.abs(segFte-fteAll)<0.05,segFte.toFixed(2)+' != '+fteAll.toFixed(2));
+  const qSum=D.rows(Object.assign({},s,{segs:[]}),'product')
+    .reduce((a,r)=>a+(r.quota||0),0);
+  ok('квоты по продуктам не больше итоговых · '+c.name,qSum<=D.quotaTotal(s,s.i1));
+  ok('квоты не раскладываются по грейду · '+c.name,
+    D.rows(s,'grade').every(r=>r.quota==null));
   ok('здоровье покрывает всех аллоцированных · '+c.name,
     m.health.reduce((a,x)=>a+x.people,0)>=Math.round(m.head.hc.end)-1);
   ok('верифицировано не больше, чем всего · '+c.name,m.verify.ok<=m.verify.total);
@@ -125,7 +137,7 @@ head('4. Графики');
 const charts=[];
 CASES.forEach(c=>{
   const s=st(c.over);
-  ['io','kinds','level'].forEach(v=>{
+  ['io','kinds'].forEach(v=>{
     charts.push(SC.overview.render(Object.assign({},s,{moveView:v})));
   });
 });
@@ -208,6 +220,11 @@ CASES.forEach(c=>{
   ok('каждая карточка рисует четыре строки · '+c.name,
     (ov.match(/class="k-row"/g)||[]).length===10);
   ok('есть сноска о допущениях · '+c.name,ov.indexOf('tbl-note')>0);
+  ok('у ИТОГО трансформера есть каретка · '+c.name,ov.indexOf('data-pivot="*"')>0);
+  ok('легенда графика управляет сериями · '+c.name,ov.indexOf('class="lg"')>0);
+  ok('разложение состава кликается · '+c.name,ov.indexOf('data-seg="direct"')>0);
+  ok('в трансформере есть квоты и укомплектованность · '+c.name,
+    ov.indexOf('открытые сейчас')>0&&ov.indexOf('Укомплект.')>0);
   ok('раскрытие строк доступно с клавиатуры · '+c.name,
     tr.indexOf('data-srow')<0||tr.indexOf('tabindex="0"')>0);
 });

@@ -159,26 +159,48 @@ function valOpt(o){return Object.assign({size:VAL_SZ,weight:VAL_W,halo:true,cls:
 function fv(o,v){return CD.fmtVal(o&&o.mode==='fte'?'fte':'hc',v)}
 function fd(o,v){return CD.fmtDelta(o&&o.mode==='fte'?'fte':'hc',v)}
 
-/* ---------- Шапка: заголовок слева, легенда справа ---------- */
-function header(w,title,legend){
+/* ---------- Шапка: заголовок слева, легенда справа ----------
+   Легенда — не картинка, а УПРАВЛЕНИЕ сериями: наведение подсвечивает,
+   клик выключает. Выключенная серия уходит и из шкалы, и из подсказки:
+   просто спрятать марку, оставив её в расчёте максимума, — значит оставить
+   пустое место ни о чём. Последнюю включённую серию выключить нельзя.
+
+   Выключенная подпись ПЕРЕЧЁРКНУТА, а не просто бледная: бледное читается
+   как «малое значение», перечёркнутое — однозначно как «скрыто». */
+const NOSET={has:function(){return false},size:0};
+const C_OFF='#c7c8cc';
+function header(w,title,legend,ctx){
+  ctx=ctx||{};
+  const off=ctx.off||NOSET, lock=!!ctx.lock;
   let s='';
   if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
   if(legend&&legend.length){
     let x=w;
     for(let i=legend.length-1;i>=0;i--){
       const it=legend[i], tw=textW(it.name,11.5);
+      const dead=!!(it.sid&&off.has(it.sid));
+      const col=dead?C_OFF:it.color;
       x-=tw;
-      const mx=x-6-16;
-      s+=txt(x,12,it.name,{size:11.5,fill:C_LABEL,anchor:'start'});
-      s+=it.dash?line(mx,8.5,mx+16,8.5,it.color,2.2,'5 3')
-                :(it.hollow?'<rect x="'+num(mx)+'" y="4.5" width="16" height="8" rx="2" fill="#fff" stroke="'+it.color+'" stroke-width="1.2" stroke-dasharray="3 2"/>'
-                           :rect(mx,4.5,16,8,it.color,2));
+      const tx=x, mx=x-6-16;
+      let g=txt(tx,12,it.name,{size:11.5,fill:dead?C_AXIS:C_LABEL,anchor:'start'});
+      g+=it.dash?line(mx,8.5,mx+16,8.5,col,2.2,'5 3')
+                :(it.hollow?'<rect x="'+num(mx)+'" y="4.5" width="16" height="8" rx="2" fill="#fff" stroke="'+col+'" stroke-width="1.4"/>'
+                           :rect(mx,4.5,16,8,col,2));
+      if(dead)g+=line(tx-1,8.5,tx+tw+1,8.5,C_AXIS,1.2);
+      if(!it.sid||lock){s+=g;x-=16+14;continue}
+      /* По <text> клик ловится только по глифам — между буквами дыры.
+         Поэтому сверху лежит прозрачная ловушка на весь пункт. */
+      s+='<g class="lg" data-sid="'+it.sid+'" tabindex="0" role="button"'+
+         ' aria-pressed="'+(dead?'false':'true')+'"'+
+         ' aria-label="'+esc(it.name)+(dead?': показать':': скрыть')+'">'+g+
+         '<rect class="hit" x="'+num(mx-4)+'" y="0" width="'+num(tw+16+6+8)+'" height="18"/></g>';
       x-=16+14;
     }
   }
   return s;
 }
 function headH(title,legend){return (title||(legend&&legend.length))?24:0}
+function offOf(o){return (o&&o.off&&o.off.has)?o.off:NOSET}
 
 /* ---------- Ось X по вёдрам гранулярности ----------
    Одна функция на все виды и никаких режимов: раньше у верхних панелей год
@@ -214,7 +236,7 @@ function drawLine(a,w,h){
   const max=niceMax(all);
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
 
-  let s=header(w,o.title,o.legend);
+  let s=header(w,o.title,o.legend,{lock:true});
   s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
 
@@ -258,7 +280,10 @@ function drawLine(a,w,h){
    за смысл отвечает заливка.
    ========================================================================== */
 function drawSupply(a,w,h){
-  const filled=a.filled, open=a.open, ticks=a.ticks, o=a.opt||{};
+  const ticks=a.ticks, o=a.opt||{};
+  const off=offOf(o);
+  const showF=!off.has('filled'), showO=!off.has('open');
+  const filled=a.filled.map(v=>showF?v:0), open=a.open.map(v=>showO?v:0);
   const hh=headH(o.title,o.legend);
   h=h||o.h||300;
   const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
@@ -268,66 +293,175 @@ function drawSupply(a,w,h){
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
   const bw=Math.min(64,bandW*0.62);
 
-  let s=header(w,o.title,o.legend);
+  let s=header(w,o.title,o.legend,{off:o.off});
   s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
   filled.forEach((v,i)=>{
     const cx=x0+bandW*(i+0.5), yF=Y(v), yT=Y(total[i]);
-    const fill=total[i]?v/total[i]*100:0;
+    const plan=a.filled[i]+a.open[i];
+    const fill=plan?a.filled[i]/plan*100:0;
     s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
-      rows:[{label:'Занято',value:fv(o,v),color:C_TOTAL},
-            {label:'Открытые квоты',value:CD.fmtInt(open[i]),color:C_QUOTA}],
-      note:['план по продуктам: '+fv(o,total[i]),
+      rows:[showF?{label:'Занято',value:fv(o,a.filled[i]),color:C_TOTAL}:null,
+            showO?{label:'Открытые квоты',value:CD.fmtInt(a.open[i]),color:'#fff'}:null].filter(Boolean),
+      note:['план по продуктам: '+fv(o,plan),
             'укомплектованность: '+CD.fmtPct(fill,0)]})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
     /* Открытая часть рисуется первой и целиком до нуля: скруглять её снизу
-       нечего, снизу её накрывает занятая часть. */
+       нечего, снизу её накрывает занятая часть. Обводка сплошная и того же
+       цвета, что заливка занятой части: пунктир читался как «предварительные
+       данные», хотя квота — такой же факт, как человек на продукте. */
     if(open[i]>0){
       s+=barUp(cx-bw/2,yT,bw,plotBot-yT,'#fff',
-        ' class="bar up" data-s="open" stroke="'+C_QUOTA+'" stroke-width="1.2" stroke-dasharray="3 2"'
+        ' class="bar up" data-s="open" stroke="'+C_TOTAL+'" stroke-width="1.4"'
         +' style="animation-delay:'+(i*26)+'ms"');
     }
-    s+=barUp(cx-bw/2,yF,bw,plotBot-yF,C_TOTAL,
+    if(filled[i]>0)s+=barUp(cx-bw/2,yF,bw,plotBot-yF,C_TOTAL,
       ' class="bar up" data-s="filled" style="animation-delay:'+(i*26)+'ms"');
     s+='</g>';
     s+=txt(cx,yT-VAL_DY,fv(o,total[i]),valOpt({delay:240+i*26}));
-    if(plotBot-yF>18)s+=txt(cx,yF+15,fv(o,v),{size:VAL_SZ,weight:VAL_W,fill:'#3a3f4a',cls:'fade',delay:300+i*26});
+    if(showF&&showO&&plotBot-yF>18)
+      s+=txt(cx,yF+15,fv(o,v),{size:VAL_SZ,weight:VAL_W,fill:'#3a3f4a',cls:'fade',delay:300+i*26});
   });
   return svg(w,h,s);
 }
 
 /* ============================================================================
-   3. Дивергентные бары: пришло вверх, ушло вниз — в одной вертикали.
-      Не рядом: рядом стоящие бары читаются как две разные категории, а это
-      один поток в двух направлениях. Шкала одна на оба плеча.
+   2б. Встречные потоки со СТРУКТУРОЙ: пришло вверх, ушло вниз.
+   ------------------------------------------------------------------------
+   Каждое плечо — стопка: ближе к оси стоит то, что важнее прочитать первым
+   (найм сверху вниз к оси, отток снизу вверх к оси), дальше от оси —
+   вторичное движение. Итог плеча подписан снаружи стопки, состав читается
+   цветом и подсказкой.
+
+   Почему стопка, а не четыре бара рядом: рядом стоящие бары читаются как
+   четыре независимые категории, а это два потока, каждый из двух частей.
+   Итог «сколько всего пришло» в четырёх барах приходилось складывать в уме.
    ========================================================================== */
-function drawDiverge(a,w,h){
-  const up=a.up, down=a.down, ticks=a.ticks, o=a.opt||{};
+function drawStackDiverge(a,w,h){
+  const ticks=a.ticks, o=a.opt||{};
+  const off=offOf(o);
+  const up=a.up.filter(x=>!off.has(x.sid)), dn=a.down.filter(x=>!off.has(x.sid));
   const hh=headH(o.title,o.legend);
-  h=h||o.h||300;
+  h=h||o.h||320;
   const top=hh+LBL_ROOM, bot=h-AXIS_H;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
+  const sumAt=(arr,i)=>arr.reduce((s,x)=>s+x.series[i],0);
+  const upT=ticks.map((_,i)=>sumAt(up,i)), dnT=ticks.map((_,i)=>sumAt(dn,i));
   const zero=top+(bot-top)/2;
   const arm=Math.max(8,(bot-top)/2-LBL_ROOM);
-  const max=niceMax(up.concat(down));
+  const max=niceMax(upT.concat(dnT));
   const bw=Math.min(52,bandW*0.58);
 
-  let s=header(w,o.title,o.legend);
+  let s=header(w,o.title,o.legend,{off:o.off});
   s+=axisX(ticks,x0,bandW,top,bot,bot+15);
   s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
-  up.forEach((v,i)=>{
+  ticks.forEach((t,i)=>{
     const cx=x0+bandW*(i+0.5);
-    const hu=(v/max)*arm, hd=(down[i]/max)*arm;
-    s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
-      rows:[{label:o.upName||'Пришло',value:fv(o,v),color:C_HIRE},
-            {label:o.downName||'Ушло',value:fv(o,down[i]),color:C_ATTR}],
-      note:'сальдо: '+fd(o,v-down[i])})+'>';
-    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
-    s+=barUp(cx-bw/2,zero-hu,bw,hu,C_HIRE,' class="bar up" data-s="up" style="animation-delay:'+(i*26)+'ms"');
-    s+=barDown(cx-bw/2,zero,bw,hd,C_ATTR,' class="bar dn" data-s="dn" style="animation-delay:'+(i*26)+'ms"');
+    const hUp=(upT[i]/max)*arm, hDn=(dnT[i]/max)*arm;
+    /* Подсказка у каждого плеча своя: одна на восемь строк не помещается
+       и перестаёт объяснять точку — она начинает заменять таблицу. */
+    const tipUp={title:tickTitle(t),
+      rows:up.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
+      note:'всего пришло: '+fv(o,upT[i])};
+    const tipDn={title:tickTitle(t),
+      rows:dn.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
+      note:'всего ушло: '+fv(o,dnT[i])};
+    s+='<g class="barg"'+tip(tipUp)+'>';
+    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(zero-hh)+'"/>';
+    let acc=0;
+    up.forEach((x,k)=>{
+      const seg=(x.series[i]/max)*arm;
+      if(seg>0.5){
+        const y=zero-acc-seg;
+        /* Скругляется только дальний от нуля край стопки — верхний сегмент. */
+        s+=(k===up.length-1||acc+seg>=hUp-0.5
+             ? barUp(cx-bw/2,y,bw,seg,x.color,' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"')
+             : rect(cx-bw/2,y,bw,seg,x.color,0,' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"'));
+        if(seg>=15)s+=txt(cx,y+seg/2+4,fv(o,x.series[i]),{size:VAL_SZ,weight:VAL_W,fill:'#1f1f1f',cls:'fade',delay:300+i*26});
+      }
+      acc+=seg;
+    });
     s+='</g>';
-    s+=txt(cx,zero-hu-VAL_DY,fv(o,v),valOpt({delay:240+i*26}));
-    s+=txt(cx,Math.min(zero+hd+VAL_DY+4,bot-2),fv(o,down[i]),valOpt({delay:240+i*26}));
+    s+='<g class="barg"'+tip(tipDn)+'>';
+    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(zero)+'" width="'+num(bandW)+'" height="'+num(bot-zero)+'"/>';
+    acc=0;
+    dn.forEach((x,k)=>{
+      const seg=(x.series[i]/max)*arm;
+      if(seg>0.5){
+        const y=zero+acc;
+        s+=(k===dn.length-1||acc+seg>=hDn-0.5
+             ? barDown(cx-bw/2,y,bw,seg,x.color,' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"')
+             : rect(cx-bw/2,y,bw,seg,x.color,0,' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"'));
+        if(seg>=15)s+=txt(cx,y+seg/2+4,fv(o,x.series[i]),{size:VAL_SZ,weight:VAL_W,fill:'#fff',cls:'fade',delay:300+i*26});
+      }
+      acc+=seg;
+    });
+    s+='</g>';
+    if(upT[i]>0)s+=txt(cx,zero-hUp-VAL_DY,fv(o,upT[i]),valOpt({delay:240+i*26}));
+    if(dnT[i]>0)s+=txt(cx,Math.min(zero+hDn+VAL_DY+4,bot-2),fv(o,dnT[i]),valOpt({delay:240+i*26}));
+  });
+  return svg(w,h,s);
+}
+
+/* ============================================================================
+   2в. Разложение итога: перевёрнутый водопад.
+   ------------------------------------------------------------------------
+   Слева итог целиком, дальше он разбирается на части до нуля. Это легенда
+   метрики, а не самостоятельный график: главное число всегда на экране,
+   и видно, какой его частью является выбранная категория.
+
+   Части кликаются — это и есть фильтр отчёта. Когда фильтр включён,
+   невыбранные части гасятся, но с экрана не уходят: иначе исчезает целое,
+   к которому относится выбранная часть.
+   ========================================================================== */
+function drawBreakdown(a,w,h){
+  const o=a.opt||{}, parts=a.parts, tot=a.total;
+  const hh=headH(o.title,o.legend);
+  h=h||o.h||300;
+  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H-12;
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/(parts.length+1);
+  const max=niceMax([tot.value]);
+  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+  const bw=Math.min(78,bandW*0.6);
+  const anyOn=parts.some(p=>p.on);
+
+  let s=header(w,o.title,o.legend,{lock:true});
+  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
+  const cell=(i,name,val,from,to,color,dim,attr)=>{
+    const cx=x0+bandW*(i+0.5), yTop=Y(Math.max(from,to)), yBot=Y(Math.min(from,to));
+    let g='<g class="barg'+(dim?' dim':'')+'"'+attr+'>';
+    g+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
+    g+=barUp(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),color,' class="bar up" style="animation-delay:'+(i*34)+'ms"');
+    g+='</g>';
+    g+=txt(cx,yTop-VAL_DY,CD.fmtInt(val),valOpt({delay:240+i*34}));
+    wrap(name,Math.max(8,bandW-6)).forEach((ln,k)=>{
+      g+=txt(cx,plotBot+15+k*11,ln,{size:10.5,fill:C_AXIS});
+    });
+    return g;
+  };
+  s+=cell(0,tot.name,tot.value,0,tot.value,C_TOTAL,false,
+    tip({title:tot.name,rows:[{label:'Всего',value:CD.fmtInt(tot.value),color:C_TOTAL}],
+         note:'разбирается на части справа: человек попадает ровно в одну'}));
+  let rem=tot.value;
+  parts.forEach((p,i)=>{
+    const from=rem, to=rem-p.value;
+    const share=tot.value?p.value/tot.value*100:0;
+    /* Пунктирная связка от остатка предыдущего столбца к началу следующего:
+       без неё пять столбцов разной высоты читаются как пять независимых
+       величин, а не как разбор целого на части. */
+    s+=line(x0+bandW*(i+0.5)+bw/2,Y(from),x0+bandW*(i+1.5)-bw/2,Y(from),C_DIV,1,'3 2');
+    s+=cell(i+1,p.name,p.value,from,to,p.color,anyOn&&!p.on,
+      tip({title:p.name,
+        rows:[{label:'Сотрудников',value:CD.fmtInt(p.value),color:p.color},
+              {label:'Доля',value:CD.fmtPct(share,share<10?1:0)}],
+        note:[p.hint||null,'клик по столбцу фильтрует отчёт']})+
+      ' data-seg="'+p.key+'" tabindex="0" role="button"'+
+      ' aria-pressed="'+(p.on?'true':'false')+'"');
+    /* Доля стоит под именем: она отвечает на «какая это часть целого»,
+       а число сверху — на «сколько это людей». Два разных вопроса. */
+    s+=txt(x0+bandW*(i+1.5),plotBot+15+wrap(p.name,Math.max(8,bandW-6)).length*11,
+      CD.fmtPct(share,share<10?1:0),{size:10.5,weight:700,fill:C_AXIS});
+    rem=to;
   });
   return svg(w,h,s);
 }
@@ -387,7 +521,7 @@ function drawWaterfall(a,w,h){
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
   const bw=Math.min(72,bandW*0.6);
 
-  let s=header(w,o.title,o.legend);
+  let s=header(w,o.title,o.legend,{lock:true});
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
   steps.forEach((st,i)=>{
     const cx=x0+bandW*(i+0.5), g=lv[i];
@@ -401,10 +535,15 @@ function drawWaterfall(a,w,h){
     s+=barUp(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),col,' class="bar up" style="animation-delay:'+(i*34)+'ms"');
     s+='</g>';
     s+=txt(cx,yTop-VAL_DY,lab,valOpt({delay:240+i*34}));
-    /* Подпись шага в две строки: имена движений длиннее месяца, и в одну
-       строку они наезжают друг на друга уже на ноутбуке. */
-    wrap(st.name,Math.max(8,bandW-6)).forEach((ln,k)=>{
-      s+=txt(cx,plotBot+15+k*11,ln,{size:10.5,fill:C_AXIS});
+    /* Подпись шага переносится по словам: имена движений длиннее месяца,
+       и в одну строку они наезжают друг на друга уже на ноутбуке. Полное
+       имя всегда есть в подсказке, поэтому на оси стоит короткое. */
+    /* Тесная ось водопада набирается служебным кеглем: в режиме аллокаций
+       шагов восемь, и «Снижение аллокации» в обычные 10,5px не помещается
+       даже в две строки. Это одна из семи ролей шкалы, а не новый кегль. */
+    const lblSz=bandW<64?9.5:10.5;
+    wrap(st.short||st.name,Math.max(8,bandW-4),3,lblSz).forEach((ln,k)=>{
+      s+=txt(cx,plotBot+15+k*(lblSz+1),ln,{size:lblSz,fill:C_AXIS});
     });
     if(i<steps.length-1)s+=line(cx+bw/2,Y(g.to),x0+bandW*(i+1.5)-bw/2,Y(g.to),C_DIV,1,'3 2');
   });
@@ -412,16 +551,16 @@ function drawWaterfall(a,w,h){
 }
 /* Перенос по словам под ширину полосы. Своя функция, потому что SVG не умеет
    переносить текст сам, а <foreignObject> в автономном файле ненадёжен. */
-function wrap(s,px){
+function wrap(s,px,lines,size){
   const words=String(s).split(' '), out=[];
   let cur='';
   words.forEach(word=>{
     const t=cur?cur+' '+word:word;
-    if(textW(t,10.5)<=px||!cur)cur=t;
+    if(textW(t,size||10.5)<=px||!cur)cur=t;
     else{out.push(cur);cur=word}
   });
   if(cur)out.push(cur);
-  return out.slice(0,2);
+  return out.slice(0,lines||2);
 }
 
 /* ============================================================================
@@ -447,19 +586,57 @@ function sparkBars(series,w,h,o){
    перерисовывается под фактическую ширину: меняется ГЕОМЕТРИЯ, а не масштаб
    всего SVG. Иначе на телефоне подписи стали бы нечитаемыми.
    ========================================================================== */
-const KINDS={line:drawLine,supply:drawSupply,diverge:drawDiverge,
-             panels:drawPanels,waterfall:drawWaterfall};
+const KINDS={line:drawLine,supply:drawSupply,sdiverge:drawStackDiverge,
+             panels:drawPanels,waterfall:drawWaterfall,breakdown:drawBreakdown};
+/* Композиционные виды блокируются целиком: водопад и разложение держатся
+   на всех своих столбцах, и «убрать серию» там означает сломать смысл,
+   а не убрать лишнее. */
+const LOCKED={waterfall:1,breakdown:1};
 const NOMINAL_W=900;
 let _specs=new Map(), _sid=0;
+/* Какие серии выключены. Живёт отдельно от _specs и НЕ чистится в reset():
+   выключение помнится в пределах сессии — переживает смену вкладки и
+   перерисовку по фильтру, сбрасывается только перезагрузкой страницы.
+   Ключ — вид плюс заголовок: счётчик id обнуляется каждый рендер. */
+const _off=new Map();
 
 function build(spec,w,h){return KINDS[spec.kind](spec.args,Math.max(320,w),h||null)}
 function chart(kind,args,opt){
   opt=Object.assign({},opt||{});
   const id='k'+(++_sid);
+  opt._key=kind+'|'+(opt.title||'');
+  opt.off=_off.get(opt._key)||new Set();
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
   return '<div class="svgchart'+(opt.fill?' fill':'')+'" data-cid="'+id+'">'+
     build(spec,NOMINAL_W,opt.h||null)+'</div>';
+}
+/* ---------- Перерисовка ОДНОГО графика ----------
+   Легенде нельзя звать общий рендер: тот пересобирает весь экран и теряет
+   позицию прокрутки и раскрытые строки. */
+function redraw(cid){
+  if(typeof document==='undefined')return;
+  const el=document.querySelector('.svgchart[data-cid="'+cid+'"]');
+  const sp=_specs.get(cid);
+  if(!el||!sp)return;
+  const w=el.clientWidth||(el.parentNode&&el.parentNode.clientWidth)||NOMINAL_W;
+  const h=sp.opt.fill?(el.clientHeight||sp.opt.h||null):(sp.opt.h||null);
+  el.innerHTML=build(sp,w,h);
+}
+function toggleSeries(cid,sid){
+  const sp=_specs.get(cid);
+  if(!sp||!sid||LOCKED[sp.kind])return false;
+  const ids=(sp.opt.legend||[]).map(x=>x.sid).filter(Boolean);
+  if(ids.indexOf(sid)<0)return false;
+  const off=sp.opt.off;
+  if(off.has(sid))off.delete(sid);
+  /* Последнюю включённую серию выключить нельзя: пустой график —
+     не состояние данных. */
+  else if(ids.length-off.size<=1)return false;
+  else off.add(sid);
+  _off.set(sp.opt._key,off);
+  redraw(cid);
+  return true;
 }
 function remeasure(root,animate){
   if(!root||!root.querySelectorAll)return;
@@ -470,12 +647,17 @@ function remeasure(root,animate){
     const w=el.clientWidth||(el.parentNode&&el.parentNode.clientWidth)||NOMINAL_W;
     const h=sp.opt.fill?(el.clientHeight||sp.opt.h||null):(sp.opt.h||null);
     el.innerHTML=build(sp,w,h);
+    /* Анимация ставится классом при рендере экрана и СНИМАЕТСЯ при resize.
+       Пока класс оставался висеть, каждое изменение ширины окна перерисовывало
+       марки заново — и они снова выезжали из нуля со всеми задержками. График,
+       дёргающийся при каждом движении рамки окна, раздражает и мешает читать. */
     if(animate){el.classList.remove('anim');void el.offsetWidth;el.classList.add('anim')}
+    else el.classList.remove('anim');
   }
 }
 function reset(){_specs=new Map();_sid=0}
 
-window.PXDRAW={chart,remeasure,reset,tipHtml,tip,niceMax,textW,esc,sparkBars,
+window.PXDRAW={chart,remeasure,redraw,toggleSeries,reset,tipHtml,tip,niceMax,textW,esc,sparkBars,
   FONT,C_LABEL,C_AXIS,C_DIV,C_LINE,C_BENCH,
   C_HIRE,C_IN,C_OUT,C_ATTR,C_UP,C_DN,C_TOTAL,C_QUOTA,C_GREEN,C_RED,C_FLAT};
 })();

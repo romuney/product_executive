@@ -23,7 +23,7 @@ const DEF={
   i0:D.N-12, i1:D.N-1, gran:'m',
   prods:[], segs:[], mainOnly:false,
   prof:'', grade:'', loc:'', emp:'',
-  dimA:'product', dimB:'', open:[], moveView:'io',
+  dimA:'domain', dimB:'product', open:[], moveView:'io',
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
   my:'prof', mxd:'grade',
   treeOpen:[]
@@ -319,8 +319,39 @@ document.addEventListener('click',e=>{
   if((el=hit('data-move'))){S.moveView=el.getAttribute('data-move');return schedule()}
   if((el=hit('data-tview'))){S.tview=el.getAttribute('data-tview');return schedule()}
   if((el=hit('data-tab'))){S.tab=el.getAttribute('data-tab');return schedule()}
-  if((el=hit('data-pivot'))){toggle(S.open,el.getAttribute('data-pivot'));return schedule()}
-  if((el=hit('data-srow'))){toggle(S.topen,el.getAttribute('data-srow'));return schedule()}
+  /* Легенда — управление сериями графика, а не картинка. Перерисовывается
+     ОДИН график: общий рендер пересобрал бы экран и потерял позицию
+     прокрутки и раскрытые строки. */
+  if((el=t.closest('.lg'))){
+    const box=el.closest('.svgchart');
+    if(box)G.toggleSeries(box.getAttribute('data-cid'),el.getAttribute('data-sid'));
+    return;
+  }
+  if((el=hit('data-pivot'))){
+    const id=el.getAttribute('data-pivot');
+    if(id==='*'){
+      /* Каретка ИТОГО: раскрыть или свернуть всё дерево одним кликом. */
+      const all=[];
+      document.querySelectorAll('tr[data-pivot]').forEach(r=>{
+        const v=r.getAttribute('data-pivot');
+        if(v&&v!=='*')all.push(v);
+      });
+      S.open=all.every(v=>S.open.indexOf(v)>=0)?[]:all;
+    }else toggle(S.open,id);
+    return schedule();
+  }
+  if((el=hit('data-srow'))){
+    const id=el.getAttribute('data-srow');
+    if(id==='*'){
+      const all=[];
+      document.querySelectorAll('tr[data-srow]').forEach(r=>{
+        const v=r.getAttribute('data-srow');
+        if(v&&v!=='*')all.push(v);
+      });
+      S.topen=all.every(v=>S.topen.indexOf(v)>=0)?[]:S.topen.concat(all.filter(v=>S.topen.indexOf(v)<0));
+    }else toggle(S.topen,id);
+    return schedule();
+  }
   if((el=hit('data-help'))){openHelp(true);return}
   if((el=hit('data-helpclose'))){openHelp(false);return}
   if((el=hit('data-link'))){copyLink(el);return}
@@ -333,8 +364,12 @@ document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'&&e.key!==' ')return;
   const t=e.target;
   if(!t||!t.closest)return;
-  if(t.closest('[data-pivot],[data-srow],[data-seg],[data-prod],[data-main]')){
-    e.preventDefault();t.click();
+  if(t.closest('[data-pivot],[data-srow],[data-seg],[data-prod],[data-main],.lg')){
+    e.preventDefault();
+    /* У SVG-элемента может не быть метода .click() — зовём обработчик
+       напрямую тем же событием, что и мышь. */
+    if(t.click)t.click();
+    else t.dispatchEvent(new MouseEvent('click',{bubbles:true}));
   }
 });
 document.addEventListener('change',e=>{

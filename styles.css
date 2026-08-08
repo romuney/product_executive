@@ -142,15 +142,19 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .tree-row{display:flex;align-items:flex-start}
 .tree-row .opt-i{flex:1;min-width:0}
 
-/* Тумблер «только основной продукт» */
-.sw-row{display:flex;align-items:center;gap:var(--s5);cursor:pointer;padding:var(--s3) 0}
-.sw{flex:none;width:34px;height:19px;border-radius:var(--r-pill);background:#d8dce4;position:relative;
-  transition:background .16s}
-.sw::after{content:'';position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;
-  background:#fff;box-shadow:var(--shadow);transition:transform .16s}
-.sw-row.on .sw{background:var(--act)}
-.sw-row.on .sw::after{transform:translateX(15px)}
-.sw-row .sw-t{font-size:var(--fs-body);font-weight:700;color:var(--ink2)}
+/* «Только основной продукт» — такой же флажок, как остальные фильтры полки.
+   Тумблер выглядел деталью из другой системы: в полке уже есть один способ
+   включить фильтр, и второй заставлял разбираться, чем они отличаются. */
+.sw-row{display:flex;align-items:flex-start;gap:var(--s4);width:100%;text-align:left;
+  border:0;background:none;padding:5px var(--s3);border-radius:var(--r2);font:inherit;
+  font-size:var(--fs-body);font-weight:600;color:var(--ink2);cursor:pointer;line-height:1.35}
+.sw-row:hover{background:#f4f6fa}
+.sw{flex:none;width:15px;height:15px;margin-top:1px;border:1.5px solid #c9cdd6;
+  border-radius:var(--r1);background:#fff;position:relative}
+.sw-row.on .sw{background:var(--act);border-color:var(--act)}
+.sw-row.on .sw::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.sw-row .sw-t{min-width:0;flex:1}
 
 /* ===== Заголовок отчёта ===== */
 .reporthead{background:#fff;border-bottom:1px solid var(--line);padding:var(--s7) var(--s10) var(--s8)}
@@ -232,11 +236,30 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .panel-h .h-ctl{margin:0 0 0 auto}
 .h-ctl select{min-width:0;width:auto}
 .h-ctl .ctl{min-width:132px}
-/* align-items:start — панели стоят своей высотой. Тянуть их до высоты соседа
-   значит копить пустоту под таблицей: соседняя панель выше не потому, что
-   в ней больше смысла, а потому, что в ней больше строк. */
+/* align-items:start — панели с таблицами стоят своей высотой. Тянуть их до
+   высоты соседа значит копить пустоту под таблицей: соседняя панель выше
+   не потому, что в ней больше смысла, а потому, что в ней больше строк. */
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s8);align-items:start}
-.grid-2-1{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:var(--s8);align-items:start}
+/* Разложение состава и здоровье стоят рядом и выравниваются по высоте:
+   слева график, который умеет занять любую высоту, справа таблица, высота
+   которой задана числом строк. Тянется график, а не появляется серая
+   пустота под ним. */
+.grid-3-2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
+  gap:var(--s8);align-items:stretch}
+.grid-3-2>.panel{display:flex;flex-direction:column;min-width:0}
+.grid-3-2>.panel>.panel-b{flex:1;min-height:0}
+.grid-3-2 .panel-b.fill-b{display:flex;flex-direction:column}
+.grid-3-2 .panel-b.fill-b>.svgchart{flex:1;min-height:0}
+/* А вот панели с ГРАФИКАМИ, наоборот, тянутся до общей высоты: график умеет
+   занять любую высоту, и колонки обязаны заканчиваться на одной линии.
+   Иначе под узкой панелью копится серая пустота, которой там быть не должно. */
+.grid-35-65{display:grid;grid-template-columns:minmax(0,35fr) minmax(0,65fr);
+  gap:var(--s8);align-items:stretch}
+.grid-35-65>.panel{display:flex;flex-direction:column;min-width:0}
+.grid-35-65>.panel>.panel-b{flex:1;min-height:0;display:flex;flex-direction:column}
+.grid-35-65 .panel-b.fill-b>.svgchart{flex:1;min-height:0}
+.p-dyn .chart-stack{flex:1;min-height:0;display:flex;flex-direction:column}
+.p-dyn .chart-stack>.svgchart{flex:0 0 auto}
 .stack{display:flex;flex-direction:column;gap:var(--s8)}
 
 /* ===== Дельты и метки ===== */
@@ -351,8 +374,20 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 /* ===== Графики ===== */
 .svgchart{width:100%}
 .svgchart svg{display:block;max-width:100%}
-.svgchart.fill{height:100%}
+.svgchart.fill{height:100%;min-height:0}
 .chart-stack{display:flex;flex-direction:column;gap:var(--chart-gap)}
+/* Легенда как управление сериями: наведение подсвечивает пункт, клик
+   выключает серию. Курсор-указатель признаком не считается — его не видно,
+   пока не наведёшь, — поэтому у пункта есть ещё и ховер-подсветка. */
+.lg{cursor:pointer}
+.lg:hover .hit,.lg:focus-visible .hit{fill-opacity:.07}
+.lg:focus{outline:none}
+.lg:focus-visible .hit{fill-opacity:.12;stroke:var(--act);stroke-width:1.5}
+/* Часть разложения, не попавшая в фильтр: гаснет, но с экрана не уходит —
+   иначе исчезает целое, к которому относится выбранная часть. */
+.barg.dim{opacity:.3}
+.barg.dim:hover{opacity:.55}
+[data-seg]{cursor:pointer}
 .hit{fill:#2b6cff;fill-opacity:0;transition:fill-opacity .12s}
 .barg:hover .hit,.ptg:hover .hit{fill-opacity:.05}
 .barg:hover .bar{filter:brightness(1.06) saturate(1.25)}

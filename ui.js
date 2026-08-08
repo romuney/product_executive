@@ -145,7 +145,9 @@ function barTable(o){
         note:[x.note||null,x.tipNote||null,clickable?'клик по строке фильтрует отчёт':null]})+
       '><span class="cellbar"><i style="width:'+(x.value/max*100).toFixed(1)+'%;background:'+x.color+'"></i></span></td></tr>';
   });
-  h+='<tr class="total"><td class="txt">ИТОГО</td><td class="lead">'+o.totalVal1+'</td>'+
+  h+='<tr class="total"><td class="txt">ИТОГО'+
+    (o.totalNote?'<span class="unit-sub">'+esc(o.totalNote)+'</span>':'')+
+    '</td><td class="lead">'+o.totalVal1+'</td>'+
     (o.col2?'<td>'+o.totalVal2+'</td>':'')+'<td>100%</td><td class="barcell"></td></tr>';
   return h+'</tbody></table></div>';
 }
@@ -179,6 +181,8 @@ const COLS=[
   {k:'end',  name:'На конец', grp:'cnt',lead:true},
   {k:'delta',name:'Прирост',  grp:'cnt',signed:true},
   {k:'pct',  name:'Δ%',       grp:'cnt',pct:true},
+  {k:'quota',name:'Квоты',    sub:'открытые сейчас',grp:'cnt'},
+  {k:'fill', name:'Укомплект.',sub:'сейчас',grp:'cnt',rate:true},
   {k:'hire', name:'Найм',     sub:'на продукт',grp:'in',flow:'hire'},
   {k:'inp',  name:'Вход',     sub:'на продукт',grp:'in',flow:'in'},
   {k:'attr', name:'Отток',    sub:'из компании',grp:'out',flow:'attr'},
@@ -194,12 +198,20 @@ const COL_HINT={
   inp:'Человек уже работал в компании, но на этом продукте не стоял: перевод с другого продукта или выход со скамейки.',
   attr:'Человек ушёл из компании — аллокация закрылась вместе с ним.',
   out:'Человек остался в компании, но с продукта ушёл: перевод на другой продукт или скамейка.',
-  alloc:'Человек оставался на продукте, но его процент занятости изменился. Показано сальдо роста и снижения.'
+  alloc:'Человек оставался на продукте, но его процент занятости изменился. Показано сальдо роста и снижения.',
+  quota:'Незакрытые позиции на конец периода. Квота заводится НА ПРОДУКТЕ, поэтому в разрезах, не привязанных к продукту, она не раскладывается — там стоит прочерк.',
+  fill:'Занято ÷ (занято + открытые квоты) на конец периода.'
 };
 function colsFor(mode){return COLS.filter(c=>!c.fteOnly||mode==='fte')}
 function valOf(r,c,mode){
   if(c.k==='alloc')return r.up-r.dn;
   if(c.k==='pct')return r.begin?(r.end-r.begin)/r.begin*100:null;
+  if(c.k==='quota')return r.quota==null?null:r.quota;
+  if(c.k==='fill'){
+    if(r.quota==null)return null;
+    const plan=r.end+r.quota;
+    return plan?r.end/plan*100:null;
+  }
   if(c.k==='inp')return r.inp;
   return r[c.k];
 }
@@ -209,7 +221,10 @@ function valOf(r,c,mode){
    действительно не с чем. */
 function zero(){return '<span class="zero">0</span>'}
 function cellText(v,c,mode){
+  /* Прочерк здесь значит ровно одно: величины в этом разрезе не существует.
+     Ноль сказал бы «квот нет», а это неправда. */
   if(v==null)return '—';
+  if(c.rate)return D.fmtPct(v,0);
   if(c.pct)return (v>0?'+':v<0?D.MINUS:'')+Math.abs(v).toFixed(1).replace('.',',')+'%';
   const flat=Math.abs(v)<(mode==='fte'?0.05:0.5);
   if(c.signed||c.k==='alloc')return flat?zero():D.fmtDelta(mode,v);
@@ -238,13 +253,18 @@ function pivotHead(cols,dimName){
 function pivotRow(r,cols,mode,maxes,o){
   const lvl=o.lvl||1;
   const open=o.open?' data-open="1"':'';
+  /* У строки ИТОГО каретка раскрывает и сворачивает ВСЁ дерево разом:
+     раскрывать десяток строк по одной — работа, которую итог делает
+     одним кликом. Строки без детей получают распорку, тогда имена стоят
+     на одной вертикали с теми, у кого каретка есть. */
   const caret=o.kids
     ? '<button class="caret-btn"'+open+' data-pivot="'+esc(o.id)+'" aria-expanded="'+(o.open?'true':'false')+
-      '" aria-label="Раскрыть строку">'+(o.open?'▾':'▸')+'</button>'
+      '" aria-label="'+(o.total?(o.open?'Свернуть все строки':'Раскрыть все строки'):'Раскрыть строку')+'">'+
+      (o.open?'▾':'▸')+'</button>'
     : '<span class="caret-spacer" aria-hidden="true"></span>';
   let h='<tr class="'+(o.total?'total top':'lvl'+lvl)+(o.kids?' urow':'')+'"'+
     (o.kids?' data-pivot="'+esc(o.id)+'" tabindex="0" role="button" aria-expanded="'+(o.open?'true':'false')+'"':'')+'>'+
-    '<td class="txt"><span class="row-label">'+(o.total?'':caret)+
+    '<td class="txt"><span class="row-label">'+caret+
       '<span class="row-body">'+esc(o.total?'ИТОГО':r.name)+
       (o.note?'<span class="unit-sub">'+esc(o.note)+'</span>':'')+'</span></span></td>';
   cols.forEach(c=>{
@@ -266,8 +286,11 @@ function pivot(o){
   });
   /* grp2 — шапка в две строки. От неё зависит смещение липкой строки ИТОГО,
      поэтому класс ставится там же, где рисуется вторая строка шапки. */
+  const anyKids=o.rows.some(r=>r.kids&&r.kids.length);
+  const allOpen=anyKids&&o.rows.every(r=>!r.kids||!r.kids.length||o.open.indexOf(r.name)>=0);
   let h='<table class="ptable dense pivot grp2">'+pivotHead(cols,o.dimName)+'<tbody>';
-  h+=pivotRow(o.total,cols,o.mode,maxes,{total:true,note:o.totalNote});
+  h+=pivotRow(o.total,cols,o.mode,maxes,{total:true,note:o.totalNote,
+    id:'*',kids:anyKids,open:allOpen});
   o.rows.forEach(r=>{
     const id=r.name;
     const open=o.open&&o.open.indexOf(id)>=0;
@@ -309,7 +332,7 @@ function seriesTable(o){
       : '<span class="caret-spacer" aria-hidden="true"></span>';
     let s='<tr class="'+(r.total?'total top':'lvl'+r.lvl)+(r.kids?' urow':'')+'"'+
       (r.kids?' data-srow="'+esc(r.id)+'" tabindex="0" role="button" aria-expanded="'+(r.open?'true':'false')+'"':'')+'>'+
-      '<td class="txt"><span class="row-label">'+(r.total?'':caret)+
+      '<td class="txt"><span class="row-label">'+caret+
       '<span class="row-body">'+esc(r.name)+'</span></span></td>';
     r.values.forEach(v=>{
       /* Заливка ячейки показывает, где сосредоточена величина. У уровня
@@ -324,7 +347,12 @@ function seriesTable(o){
                                       :D.fmtDelta(mode,r.values.reduce((a,b)=>a+b,0)))+'</td>';
     return s+'</tr>';
   };
-  h+=row(Object.assign({},o.total,{total:true,name:'ИТОГО',lvl:0}));
+  /* Каретка у ИТОГО раскрывает и сворачивает всё дерево разом — то же
+     правило, что в трансформере движения. */
+  const anyKids=o.rows.some(r=>r.kids);
+  const allOpen=anyKids&&o.rows.filter(r=>r.kids).every(r=>r.open);
+  h+=row(Object.assign({},o.total,{total:true,name:'ИТОГО',lvl:0,
+    id:'*',kids:anyKids,open:allOpen}));
   o.rows.forEach(r=>{h+=row(r)});
   return h+'</tbody></table>';
 }

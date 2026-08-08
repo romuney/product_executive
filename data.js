@@ -166,6 +166,16 @@ const SEG_KEYS=SEGMENTS.map(s=>s.key);
 /* Границы заданы так, что интервалы не пересекаются и покрывают всю шкалу:
    ровно 50 — это «шаренный», а не «частичный». */
 function segOf(pct){return pct>50?'direct':pct===50?'shared':pct>=30?'partial':'part'}
+/* ---------- Сегмент — свойство ЧЕЛОВЕКА, а не пары ----------
+   Сегмент считается по МАКСИМАЛЬНОЙ аллокации человека внутри выбранного
+   среза. Это принципиально: сегменты — легенда метрики «уникальные
+   сотрудники», и они обязаны раскладывать её точно. Пока сегмент был
+   свойством пары, один человек попадал в две строки сразу, сумма строк
+   давала 914 против 586 уникальных, и это число сбивало с толку каждого,
+   кто пытался прочитать разбивку как разбивку.
+
+   Теперь человек ровно в одном сегменте: если он стоит на 70% и на 30%,
+   он прямой ресурс, а не «прямой и парт-таймер одновременно». */
 const SEG_BY_KEY=Object.create(null);SEGMENTS.forEach(s=>{SEG_BY_KEY[s.key]=s});
 
 const HEALTH=[
@@ -217,18 +227,29 @@ for(let id=0;id<NPEOPLE;id++){
    здоровья встречались в заметных количествах — иначе разбивку не на чем
    показывать. */
 const SHAPES=[
-  [[100],46],                    /* один продукт целиком */
-  [[70,30],11],
-  [[50,50],10],                  /* шаренный ресурс */
-  [[60,40],8],
-  [[80,20],7],
-  [[50,30,20],5],
-  [[40,30,30],3],
-  [[90],4],                      /* недоаллокация */
+  /* Сегмент человека определяется его МАКСИМАЛЬНОЙ долей, поэтому раскладки
+     подобраны по сегментам, а не по числу продуктов: иначе почти все люди
+     оказывались прямыми ресурсами, и разбивка, которая должна быть легендой
+     KPI, не показывала ничего. Ориентир: прямые ~55%, шаренные ~15%,
+     частичные ~15%, парт-таймеры ~12%, без аллокации ~3%. */
+  [[100],26],                    /* прямые: один продукт целиком */
+  [[90],4],                      /* прямые с недоаллокацией */
+  [[80,20],6],
+  [[70,30],8],
+  [[60,40],6],
   [[60],3],
   [[70,50],2],                   /* переаллокация: 120% */
   [[100,30],2],                  /* переаллокация: 130% */
-  [[20],2],                      /* меньше 30% */
+  [[50,50],11],                  /* шаренные */
+  [[50,30,20],5],
+  [[40,30,30],5],                /* частичные */
+  [[45,35,20],4],
+  [[40,40,20],4],
+  [[35,35,30],3],
+  [[25,25,25,25],5],             /* парт-таймеры */
+  [[25,25,25],3],
+  [[20,20,20,20],2],
+  [[25],2],
   [[],3]                         /* без аллокации вовсе */
 ];
 function shape(){return wpick(SHAPES).slice()}
@@ -326,10 +347,15 @@ PEOPLE.forEach(p=>{
    признак делает возможной аналитику «один человек — один продукт», без
    которой HR-метрики (текучесть, оценки ревью) считать нельзя: делить
    человека между продуктами по процентам они не умеют. */
-const sumPct=[], mainProd=[];
-for(let i=0;i<NPEOPLE;i++){sumPct.push(new Int16Array(N));mainProd.push(new Int16Array(N).fill(-1))}
-ALLOC.forEach(a=>{
+const sumPct=[], mainProd=[], PAIRS_BY_PID=[];
+for(let i=0;i<NPEOPLE;i++){
+  sumPct.push(new Int16Array(N));
+  mainProd.push(new Int16Array(N).fill(-1));
+  PAIRS_BY_PID.push([]);
+}
+ALLOC.forEach((a,ai)=>{
   const s=sumPct[a.pid], mp=mainProd[a.pid];
+  PAIRS_BY_PID[a.pid].push(ai);
   for(let m=0;m<N;m++){
     const v=a.pct[m];
     if(!v)continue;
@@ -399,13 +425,13 @@ function fmtPp(v){
    свойство ЧЕЛОВЕКА.
    ========================================================================== */
 const DIMS=[
-  {key:'product',name:'Продукт',    pair:true,  of:(a,p,m)=>PRODUCTS[a.prod].name,  sub:a=>PRODUCTS[a.prod].domName},
-  {key:'domain', name:'Домен',      pair:true,  of:(a,p,m)=>PRODUCTS[a.prod].domName},
-  {key:'seg',    name:'Сегмент аллокации',pair:true,of:(a,p,m)=>SEG_BY_KEY[segOf(a.pct[m])].name},
-  {key:'prof',   name:'Профессия',  pair:false, of:(a,p,m)=>p.prof},
-  {key:'grade',  name:'Грейд',      pair:false, of:(a,p,m)=>p.grade},
-  {key:'loc',    name:'Локация',    pair:false, of:(a,p,m)=>p.loc},
-  {key:'emp',    name:'Тип занятости',pair:false,of:(a,p,m)=>p.emp}
+  {key:'product',name:'Продукт',    quota:'leaf',of:(a,p,m,st)=>PRODUCTS[a.prod].name},
+  {key:'domain', name:'Домен',      quota:'dom', of:(a,p,m,st)=>PRODUCTS[a.prod].domName},
+  {key:'seg',    name:'Сегмент аллокации',      of:(a,p,m,st)=>SEG_BY_KEY[scopeSeg(st,a.pid,m)].name},
+  {key:'prof',   name:'Профессия',              of:(a,p,m,st)=>p.prof},
+  {key:'grade',  name:'Грейд',                  of:(a,p,m,st)=>p.grade},
+  {key:'loc',    name:'Локация',                of:(a,p,m,st)=>p.loc},
+  {key:'emp',    name:'Тип занятости',          of:(a,p,m,st)=>p.emp}
 ];
 const DIM_BY_KEY=Object.create(null);DIMS.forEach(d=>{DIM_BY_KEY[d.key]=d});
 /* Порядок строк в таблицах — не по алфавиту и не по величине: у грейдов
@@ -435,22 +461,44 @@ function personPass(st,p){
   return (!st.prof||st.prof===p.prof)&&(!st.grade||st.grade===p.grade)&&
          (!st.loc||st.loc===p.loc)&&(!st.emp||st.emp===p.emp);
 }
+/* Сегмент человека внутри среза: максимальная его аллокация на продуктах,
+   попавших в фильтр. Кэш висит на объекте состояния, а не в модуле: состояние
+   создаётся заново на каждый рендер, поэтому кэш не может протухнуть. */
+function scopeSeg(st,pid,m){
+  const cache=st._seg||(st._seg=new Map());
+  const k=pid*100+m;
+  const hit=cache.get(k);
+  if(hit!==undefined)return hit;
+  let mx=0;
+  const list=PAIRS_BY_PID[pid];
+  for(let i=0;i<list.length;i++){
+    const a=ALLOC[list[i]];
+    if(st.prodSet[a.prod]!==1)continue;
+    const v=a.pct[m];
+    if(!v)continue;
+    if(st.mainOnly&&mainProd[pid][m]!==a.prod)continue;
+    if(v>mx)mx=v;
+  }
+  const res=mx?segOf(mx):null;
+  cache.set(k,res);
+  return res;
+}
 /* Активность пары в месяце: продукт в срезе, человек проходит фильтры,
-   сегмент выбран, и — если включён режим «только основной продукт» — этот
-   продукт для человека основной. */
+   сегмент человека выбран, и — если включён режим «только основной
+   продукт» — этот продукт для человека основной. */
 function active(st,a,p,m){
   const v=a.pct[m];
   if(!v)return 0;
   if(st.mainOnly&&mainProd[a.pid][m]!==a.prod)return 0;
-  if(st.segs&&st.segs.length&&st.segs.indexOf(segOf(v))<0)return 0;
+  if(st.segs&&st.segs.length&&st.segs.indexOf(scopeSeg(st,a.pid,m))<0)return 0;
   return v;
 }
-/* Ключ строки. Для разрезов-свойств пары читается месяц (сегмент меняется
-   вместе с процентом), для свойств человека месяц не нужен. */
-function keyer(dimKey){
+/* Ключ строки. Разрезам нужен и месяц, и состояние: сегмент человека
+   считается внутри выбранного среза продуктов. */
+function keyer(dimKey,st){
   const d=DIM_BY_KEY[dimKey];
   if(!d)return null;
-  return function(a,p,m){return d.of(a,p,m)};
+  return function(a,p,m){return d.of(a,p,m,st)};
 }
 function units(st,keyFn){
   const mode=st.mode, i0=st.i0, i1=st.i1;
@@ -555,23 +603,28 @@ function headline(st){
   return {hc,fte};
 }
 
-/* Разбивка по сегментам на конец периода. Считается по парам: один человек
-   может быть прямым ресурсом на одном продукте и парт-таймером на другом,
-   и это две разные строки, а не спорные половинки одного человека. */
+/* Разбивка по сегментам на конец периода — РАЗЛОЖЕНИЕ метрики «уникальные
+   сотрудники». Человек попадает ровно в один сегмент, поэтому сумма строк
+   в точности равна числу уникальных сотрудников, а сумма FTE — сумме
+   аллокаций. Это и делает блок легендой KPI, а не отдельной таблицей
+   с собственным, ни с чем не сходящимся итогом. */
 function segments(st){
   const m=st.i1, out=SEGMENTS.map(s=>({key:s.key,name:s.name,hint:s.hint,people:0,fte:0}));
   const idx=Object.create(null);out.forEach((o,i)=>{idx[o.key]=i});
-  const seen=Object.create(null);
+  const fteByPid=new Map();
   ALLOC.forEach(a=>{
     if(!inScope(st,a.prod))return;
     const p=PEOPLE[a.pid];
     if(!personPass(st,p))return;
     const v=active(st,a,p,m);
     if(!v)return;
-    const k=segOf(v), o=out[idx[k]];
-    o.fte+=v/100;
-    const sk=k+'|'+a.pid;
-    if(!seen[sk]){seen[sk]=1;o.people++}
+    fteByPid.set(a.pid,(fteByPid.get(a.pid)||0)+v/100);
+  });
+  fteByPid.forEach((fte,pid)=>{
+    const k=scopeSeg(st,pid,m);
+    if(k==null)return;
+    const o=out[idx[k]];
+    o.people++;o.fte+=fte;
   });
   return out;
 }
@@ -630,22 +683,46 @@ function verification(st,m){
 /* Ресурсообеспеченность: занятые ставки и открытые квоты на продукте.
    Открытая квота — это то, что ещё можно нанять, поэтому в баре она стоит
    сверху занятой части, а не рядом: вместе они дают план по продукту. */
-function supply(st,bks){
+function supply(st,bks,res){
   const open=[],filled=[];
-  const hcSt=Object.assign({},st,{mode:st.mode});
-  const res=metricsOf((units(hcSt,null).get('*'))||new Map(),hcSt);
   bks.forEach(b=>{
-    let q=0;
-    for(let i=0;i<NPROD;i++)if(inScope(st,i))q+=openQuota(i,b.to);
-    open.push(q);
+    open.push(quotaTotal(st,b.to));
     filled.push(res.stock[b.to-st.i0+1]);
   });
   return {open,filled};
 }
 
+/* ---------- Открытые квоты в разрезе ----------
+   Квота заводится НА ПРОДУКТЕ. Поэтому она раскладывается только по
+   продуктовым разрезам: «открытые квоты по грейду Senior» — величина,
+   которой в данных не существует. Функция честно возвращает null, а таблица
+   пишет в такой колонке прочерк и объясняет причину сноской: подставить туда
+   ноль значило бы сказать «квот нет», хотя они есть. */
+const PROD_BY_NAME=Object.create(null), DOM_BY_NAME=Object.create(null);
+PRODUCTS.forEach((p,i)=>{PROD_BY_NAME[p.name]=i});
+DOMAINS.forEach(d=>{DOM_BY_NAME[d.name]=d});
+function quotaOf(st,dimKey,name,m){
+  const d=DIM_BY_KEY[dimKey];
+  if(!d||!d.quota)return null;
+  if(d.quota==='leaf'){
+    const i=PROD_BY_NAME[name];
+    return i==null?null:openQuota(i,m);
+  }
+  const dm=DOM_BY_NAME[name];
+  if(!dm)return null;
+  let q=0;
+  dm.kids.forEach(k=>{const i=PIDX[k];if(inScope(st,i))q+=openQuota(i,m)});
+  return q;
+}
+function quotaTotal(st,m){
+  let q=0;
+  for(let i=0;i<NPROD;i++)if(inScope(st,i))q+=openQuota(i,m);
+  return q;
+}
+
 /* ---------- Строки трансформера ---------- */
 function rows(st,dimKey,limit){
-  const kf=keyer(dimKey);
+  const kf=keyer(dimKey,st);
   const u=units(st,kf);
   const order=DIM_ORDER[dimKey];
   let keys=Array.from(u.keys());
@@ -653,6 +730,7 @@ function rows(st,dimKey,limit){
   const out=keys.map(k=>{
     const m=metricsOf(u.get(k),st);
     m.name=k;m.dim=dimKey;
+    m.quota=quotaOf(st,dimKey,k,st.i1);
     return m;
   });
   if(!order)out.sort((a,b)=>b.end-a.end);
@@ -661,13 +739,14 @@ function rows(st,dimKey,limit){
 /* Двухуровневая раскладка: ключ склеивается из двух разрезов, дерево
    собирается по первому. Схлопывание живёт в состоянии экрана, а не здесь. */
 function rows2(st,dimA,dimB){
-  const a=keyer(dimA), b=keyer(dimB);
+  const a=keyer(dimA,st), b=keyer(dimB,st);
   const u=units(st,(x,p,m)=>a(x,p,m)+'\u0001'+b(x,p,m));
   const tree=new Map();
   u.forEach((byP,k)=>{
     const [ka,kb]=k.split('\u0001');
     if(!tree.has(ka))tree.set(ka,[]);
     const m=metricsOf(byP,st);m.name=kb;
+    m.quota=quotaOf(st,dimB,kb,st.i1);
     tree.get(ka).push(m);
   });
   const top=rows(st,dimA);
@@ -683,7 +762,7 @@ function rows2(st,dimA,dimB){
 }
 /* Ряд по вёдрам для выбранной метрики: строки трансформера в динамике. */
 function seriesRows(st,dims,metric,bks){
-  const kfs=dims.map(keyer);
+  const kfs=dims.map(d=>keyer(d,st));
   const u=units(st,(a,p,m)=>kfs.map(f=>f(a,p,m)).join('\u0001'));
   const map=new Map();
   u.forEach((byP,k)=>{
@@ -714,7 +793,7 @@ const SERIES_METRICS=[
 
 /* ---------- Матрица: разрез × разрез ---------- */
 function matrix(st,dimY,dimX,metric,bks){
-  const fy=keyer(dimY), fx=keyer(dimX);
+  const fy=keyer(dimY,st), fx=keyer(dimX,st);
   const u=units(st,(a,p,m)=>fy(a,p,m)+'\u0001'+fx(a,p,m));
   const cells=new Map();
   const ysum=new Map(), xsum=new Map();
@@ -747,9 +826,14 @@ function model(st){
   return {
     st,bks,tot,
     stock:b.stock,flow:b.flow,
-    supply:supply(st,bks),
+    supply:supply(st,bks,tot),
+    quota:quotaTotal(st,st.i1),
     head:headline(st),
-    segments:segments(st),
+    /* Разложение сегментов считается БЕЗ фильтра по сегментам: когда одна
+       категория выбрана, на экране всё равно должно быть видно, частью
+       какого целого она является. Иначе фильтр съедает ориентир. */
+    segments:segments(Object.assign({},st,{segs:[]})),
+    segTotal:totals(Object.assign({},st,{segs:[],mode:'hc'})).end,
     health:health(st),
     verify:verification(st,st.i1),
     verifyStart:verification(st,st.i0)
@@ -774,10 +858,11 @@ window.PXDATA={
   MONTHS,N,mLabel,mLabelFull,buckets,GRAN,
   DOMAINS,PRODUCTS,PROD,DOM,PIDX,NPROD,
   PROFS,GRADES,LOCS,EMPS,
-  SEGMENTS,SEG_KEYS,SEG_BY_KEY,segOf,HEALTH,healthOf,
+  SEGMENTS,SEG_KEYS,SEG_BY_KEY,segOf,scopeSeg,HEALTH,healthOf,
   DIMS,DIM_BY_KEY,DIM_ORDER,SERIES_METRICS,
   PEOPLE,ALLOC,sumPct,mainProd,openQuota,
   THIN,MINUS,fmtInt,fmtFte,fmtVal,fmtDelta,fmtPct,fmtPp,
-  prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification
+  prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification,
+  quotaOf,quotaTotal
 };
 })();
