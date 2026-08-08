@@ -463,11 +463,6 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .ev.e-up{background:#e0f2ef}
 .ev.e-dn{background:#ece5f3}
 .more{margin-top:var(--s6);text-align:center}
-/* Внешние строки и столбцы матрицы перетоков — границы портфеля,
-   а не ещё один продукт: помечены фоном. */
-.mtx .ext,.mtx tr.ext-row td{background:#fafbfc}
-.mtx tr.ext-row td.txt .row-body{color:var(--muted);font-weight:700}
-.mtx td.self{background:#f4f5f7;color:var(--muted2)}
 .pivot td.drill{cursor:pointer}
 .pivot td.drill:hover{box-shadow:inset 0 0 0 2px var(--act)}
 
@@ -1015,11 +1010,11 @@ PEOPLE.forEach(p=>{
   const stop=p.to==null?N-1:p.to;
   let cur=shape();
   let prods=cur.length?pickProducts(cur.length,homeIdx):[];
-  /* «Скамейка» — человек есть в компании, но не аллоцирован ни на один
-     продукт. Без неё вход и выход на продукт схлопываются в ноль, когда
-     выбраны все продукты: перетоки между продуктами внутри портфеля друг
-     друга гасят, и единственное настоящее движение границы портфеля — это
-     как раз приход со скамейки и уход на неё. */
+  /* Месяцы без аллокаций: человек есть в компании, но не стоит ни на одном
+     продукте. Без них вход и выход схлопываются в ноль, когда выбраны все
+     продукты: перемещения между продуктами внутри портфеля друг друга
+     гасят, и единственное настоящее движение границы портфеля — это как
+     раз появление и исчезновение аллокаций целиком. */
   let bench=cur.length?0:(chance(0.45)?BENCH_FOREVER:ri(2,14));
   for(let m=start;m<=stop;m++){
     if(bench>0){
@@ -1034,12 +1029,11 @@ PEOPLE.forEach(p=>{
     /* Раз в несколько месяцев состав или доли меняются. Вероятности низкие:
        перетасовка каждый месяц дала бы движение, которого в жизни не бывает. */
     if(m>start){
-      if(chance(0.008)){bench=ri(1,5);prods=[];cur=[];continue}   /* уход на скамейку */
+      if(chance(0.008)){bench=ri(1,5);prods=[];cur=[];continue}   /* месяцы без аллокаций */
       /* ПЕРЕВОД: в один месяц человек уходит с одного продукта и приходит
-         на другой с той же долей. Пока перевода не было отдельным событием,
-         он распадался на независимые «ушёл» и «пришёл» в разные месяцы,
-         и матрица перетоков показывала нули между всеми продуктами —
-         как будто люди приходят только из найма и уходят только в отток. */
+         на другой с той же долей — выход и вход в одном месяце. В отчёте
+         это по-прежнему два независимых события: данные не говорят, что
+         одно вызвано другим, и связывать их отчёт не берётся. */
       if(chance(0.014)&&cur.length){
         const k=ri(0,cur.length-1), free=[];
         for(let z=0;z<NPROD;z++)if(prods.indexOf(z)<0)free.push(z);
@@ -1625,8 +1619,8 @@ function personEvents(st,pid){
 
 /* Список сотрудников среза. Человек попадает сюда, если он был на продуктах
    среза хоть один месяц окна — или если он вообще не аллоцирован, но
-   организационно относится к продукту среза: «скамейка» это тоже ответ
-   на вопрос «кто у меня есть». */
+   организационно относится к продукту среза: человек без аллокаций — это
+   тоже ответ на вопрос «кто у меня есть». */
 function peopleList(st){
   const i1=st.i1, out=[];
   PEOPLE.forEach(p=>{
@@ -1672,60 +1666,6 @@ function tenureOn(st,pid,prodIdx,m){
   return n;
 }
 
-/* ---------- Матрица перетоков: откуда и куда ----------
-   Переход засчитывается, только когда у человека в один месяц ровно один
-   уход и ровно один приход: тогда связь однозначна. Всё остальное честно
-   уходит в «извне» и «наружу» — придумывать соответствие между двумя
-   уходами и тремя приходами значит рисовать данные, которых нет.
-   Про это написано сноской под матрицей. */
-function transfers(st,dimKey){
-  const key=idx=>dimKey==='domain'?PRODUCTS[idx].domName:PRODUCTS[idx].name;
-  const cells=new Map(), fromSum=new Map(), toSum=new Map();
-  const add=(f,t,v)=>{
-    const k=f+''+t;
-    cells.set(k,(cells.get(k)||0)+v);
-    fromSum.set(f,(fromSum.get(f)||0)+v);
-    toSum.set(t,(toSum.get(t)||0)+v);
-  };
-  PEOPLE.forEach(p=>{
-    if(!personPass(st,p))return;
-    const pairs=PAIRS_BY_PID[p.id].map(ai=>ALLOC[ai]).filter(a=>inScope(st,a.prod));
-    if(!pairs.length)return;
-    for(let m=st.i0;m<=st.i1;m++){
-      const gone=[],came=[];
-      pairs.forEach(a=>{
-        const cur=active(st,a,p,m), prev=m>0?active(st,a,p,m-1):0;
-        if(prev>0&&cur<=0)gone.push(a.prod);
-        if(prev<=0&&cur>0)came.push(a.prod);
-      });
-      if(!gone.length&&!came.length)continue;
-      if(gone.length===1&&came.length===1){add(key(gone[0]),key(came[0]),1);continue}
-      /* Внешние категории различаются по тому, ОСТАЛСЯ ли человек в срезе.
-         Пришёл, уже стоя на других продуктах, — это не «со скамейки», а
-         расширение присутствия. Ушёл, оставшись на других, — не «на
-         скамейку», а сокращение. Свалить их в одну кучу значило бы
-         показать движение туда, где его не было. */
-      let before=0,after=0;
-      pairs.forEach(a=>{
-        if(m>0&&active(st,a,p,m-1))before++;
-        if(active(st,a,p,m))after++;
-      });
-      came.forEach(k=>add(p.from===m?'Найм':(before?'Расширение':'Со скамейки'),key(k),1));
-      gone.forEach(k=>add(key(k),p.to===m-1?'Отток':(after?'Сокращение':'На скамейку'),1));
-    }
-  });
-  const names=dimKey==='domain'?DOMAINS.map(d=>d.name):PRODUCTS.map(x=>x.name);
-  const inScopeName=n=>dimKey==='domain'
-    ? DOM_BY_NAME[n].kids.some(k=>inScope(st,PIDX[k]))
-    : inScope(st,PROD_BY_NAME[n]);
-  const EXT_Y=['Найм','Со скамейки','Расширение'];
-  const EXT_X=['Отток','На скамейку','Сокращение'];
-  const ys=names.filter(inScopeName).concat(EXT_Y).filter(n=>fromSum.get(n));
-  const xs=names.filter(inScopeName).concat(EXT_X).filter(n=>toSum.get(n));
-  let grand=0;fromSum.forEach(v=>{grand+=v});
-  return {ys,xs,cells,ysum:fromSum,xsum:toSum,grand,external:{ys:EXT_Y,xs:EXT_X}};
-}
-
 /* ---------- Набор продуктов из состояния фильтра ----------
    Хранится СПИСОК ВЫБРАННЫХ листьев: пустой список означает «все продукты».
    Инверсия намеренная — новый продукт каталога появляется у всех сам, а не
@@ -1749,7 +1689,7 @@ window.PXDATA={
   PEOPLE,ALLOC,sumPct,mainProd,openQuota,
   THIN,MINUS,fmtInt,fmtFte,fmtVal,fmtDelta,fmtPct,fmtPp,
   prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification,
-  quotaOf,quotaTotal,EVENTS,EVENT_BY_KEY,peopleList,personEvents,transfers
+  quotaOf,quotaTotal,EVENTS,EVENT_BY_KEY,peopleList,personEvents
 };
 })();
 
@@ -2718,9 +2658,9 @@ const COL_HINT={
   delta:'Разница между концом и началом периода. Складывается из всех четырёх видов движения.',
   pct:'Прирост к значению на начало периода.',
   hire:'Человек новый и в компании, и на продукте.',
-  inp:'Человек уже работал в компании, но на этом продукте не стоял: перевод с другого продукта или выход со скамейки.',
+  inp:'Человек уже работал в компании, но на этом продукте не стоял. Откуда именно он пришёл, данные не говорят: видно только, что аллокация на этом продукте появилась.',
   attr:'Человек ушёл из компании — аллокация закрылась вместе с ним.',
-  out:'Человек остался в компании, но с продукта ушёл: перевод на другой продукт или скамейка.',
+  out:'Человек остался в компании, но аллокация на этом продукте закрылась. Куда он делся, данные не говорят.',
   alloc:'Человек оставался на продукте, но его процент занятости изменился. Показано сальдо роста и снижения.',
   quota:'Незакрытые позиции на конец периода. Квота заводится НА ПРОДУКТЕ, поэтому в разрезах, не привязанных к продукту, она не раскладывается — там стоит прочерк.',
   fill:'Занято ÷ (занято + открытые квоты) на конец периода.'
@@ -2901,30 +2841,20 @@ function matrixTable(o){
   const m=o.m, mode=o.mode;
   let max=0;
   m.cells.forEach(v=>{if(Math.abs(v)>max)max=Math.abs(v)});
-  /* Внешние строки и столбцы матрицы перетоков — это не разрез, а границы
-     портфеля: найм и скамейка слева, отток и скамейка справа. Они помечены
-     фоном, чтобы не читаться как ещё один продукт. */
-  const ext=m.external||{ys:[],xs:[]};
-  const isExtY=y=>ext.ys.indexOf(y)>=0, isExtX=x=>ext.xs.indexOf(x)>=0;
   let h='<table class="ptable dense pivot mtx"><thead><tr><th class="txt">'+esc(o.yName)+
     '<span class="hint-col">по столбцам: '+esc(o.xName.toLowerCase())+'</span></th>';
-  m.xs.forEach(x=>{h+='<th'+(isExtX(x)?' class="ext"':'')+'>'+esc(x)+'</th>'});
+  m.xs.forEach(x=>{h+='<th>'+esc(x)+'</th>'});
   h+='<th class="vs">Итого</th></tr></thead><tbody>';
   m.ys.forEach(y=>{
-    h+='<tr'+(isExtY(y)?' class="ext-row"':'')+'><td class="txt"><span class="row-label">'+
+    h+='<tr><td class="txt"><span class="row-label">'+
       '<span class="caret-spacer" aria-hidden="true"></span>'+
       '<span class="row-body">'+esc(y)+'</span></span></td>';
     m.xs.forEach(x=>{
       const v=m.cells.get(y+''+x)||0;
-      /* Диагональ перетоков — переход продукта в самого себя. Такого события
-         не бывает, и клетка помечена точкой, а не заполнена нулём: ноль
-         сказал бы «переходов не было», хотя вопрос не имеет смысла. */
-      const self=o.diag&&y===x;
-      h+='<td'+(self?' class="self"':'')+(self?'':heat(o.flow||'hire',v,max))+
-        (self?'':tip({title:y+(o.diag?' → ':' · ')+x,
-          rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
-          note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)}))+'>'+
-        (self?'·':(v?D.fmtVal(mode,v):'<span class="zero">0</span>'))+'</td>';
+      h+='<td'+heat(o.flow||'hire',v,max)+tip({title:y+' · '+x,
+        rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
+        note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)})+'>'+
+        (v?D.fmtVal(mode,v):'<span class="zero">0</span>')+'</td>';
     });
     h+='<td class="lead vs">'+D.fmtVal(mode,m.ysum.get(y)||0)+'</td></tr>';
   });
@@ -3075,7 +3005,7 @@ function waterfall(m,st){
     {name:'Найм на продукт',short:'Найм',value:t.hire,color:G.C_HIRE,
      hint:'человек новый и в компании, и на продукте'},
     {name:'Вход на продукт',short:'Вход',value:t.inp,color:G.C_IN,
-     hint:'перевод с другого продукта или выход со скамейки'}
+     hint:'аллокация на этом продукте появилась; откуда именно — данные не говорят'}
   ];
   if(mode==='fte'){
     steps.push({name:'Рост аллокации',short:'Рост аллокации',value:t.up,color:G.C_UP,
@@ -3200,8 +3130,8 @@ function render(st){
       U.panel({title:'Как изменилось за период',sub:'водопад движения',
         cls:'p-wf',bodyCls:'fill-b',
         body:waterfall(m,st)+U.note(
-          '<b>Найм</b> — новый и в компании, и на продукте. <b>Вход</b> — перевод '+
-          'с другого продукта или выход со скамейки. <b>Выход</b> — ушёл с продукта, '+
+          '<b>Найм</b> — новый и в компании, и на продукте. <b>Вход</b> — уже '+
+          'работал в компании, но на этом продукте не стоял. <b>Выход</b> — ушёл с продукта, '+
           'но остался в компании. <b>Отток</b> — ушёл из компании.'+
           (st.mode==='fte'?' <b>Рост и снижение аллокации</b> — процент изменился у того, кто с продукта не уходил.':''))})+
     '</div>'+pivot(m,st)+'</div>';
@@ -3323,47 +3253,17 @@ function mtxView(st,m){
   return body;
 }
 
-/* ---------- Перетоки: откуда и куда ----------
-   Единственный вид, где переходы между продуктами видны напрямую. В обычном
-   трансформере они схлопываются в итоге — портфель они не меняют, — и вопрос
-   «кто у кого забрал людей» остаётся без ответа. Здесь он и живёт. */
-function dim0(st){return st.fdim==='product'?'product':'domain'}
-function flowView(st,m){
-  const dim=dim0(st);
-  const mx=D.transfers(st,dim);
-  const body='<div class="tbl-wrap">'+U.matrixTable({m:mx,mode:'hc',diag:true,
-      yName:'Откуда',xName:'Куда',metricName:'Переходов',flow:'in',grand:mx.grand})+'</div>'+
-    U.note('Строки — откуда человек ушёл, столбцы — куда пришёл, в людях. '+
-      'Переход между продуктами засчитывается, только когда в один месяц у человека '+
-      'ровно один уход и ровно один приход: тогда связь однозначна. Остальное уходит '+
-      'во внешние строки и столбцы. <b>Найм</b> — человек новый в компании. '+
-      '<b>Со скамейки</b> — вернулся из состояния без аллокаций. '+
-      '<b>Расширение</b> — взял ещё один продукт, ни с какого не уходя. '+
-      '<b>Отток</b> — ушёл из компании, <b>На скамейку</b> — остался без аллокаций, '+
-      '<b>Сокращение</b> — ушёл с продукта, но остался на других. '+
-      'Придумывать соответствие между двумя уходами и тремя приходами значит рисовать '+
-      'данные, которых нет.');
-  return body;
-}
-
 function render(st){
   const m=D.model(st);
   if(!m.verify.total)return U.empty('На выбранных продуктах никого нет',
     'Снимите один из фильтров слева — например, сегмент аллокации или грейд.');
   const dims=D.DIMS.map(d=>[d.key,d.name]);
   const metrics=metricList(st.mode).map(x=>[x.key,x.name]);
-  const view=st.tview==='mtx'?'mtx':st.tview==='flow'?'flow':'dyn';
+  const view=st.tview==='mtx'?'mtx':'dyn';
   const tabs=U.subTabs([
     ['dyn','В динамике',{title:'В динамике',text:'Строки — разрезы, столбцы — периоды. До трёх уровней вложенности.'}],
-    ['mtx','Матрица',{title:'Матрица',text:'Один разрез по строкам, другой по столбцам. Набор атрибутов фиксирован.'}],
-    ['flow','Перетоки',{title:'Перетоки',text:'Кто у кого забрал людей: строки — откуда, столбцы — куда.'}]
+    ['mtx','Матрица',{title:'Матрица',text:'Один разрез по строкам, другой по столбцам. Набор атрибутов фиксирован.'}]
   ],view,'tview');
-
-  if(view==='flow')return U.panel({title:'Трансформер',
-    sub:'период '+window.PXSCREEN.overview.periodName(st)+' · переходы между продуктами',
-    tabs,body:'<div class="h-ctl">'+
-      U.select('fdim',[['domain','Домен'],['product','Продукт']],dim0(st),'Уровень')+
-      '</div>'+flowView(st,m)});
 
   const ctl=view==='dyn'
     ? '<div class="h-ctl">'+
@@ -3427,8 +3327,8 @@ function match(p,evt){
   /* Ушедший из компании не «проблемная аллокация»: у него нулевая сумма
      потому, что его больше нет, а не потому, что данные кривые. */
   if(evt==='bad')return p.alive&&(p.health==='over'||p.health==='low'||p.health==='zero');
-  /* «Без аллокации» — это скамейка, а не увольнение: у ушедшего аллокаций
-     тоже нет, но искать его надо по оттоку. */
+  /* «Без аллокации» — человек в компании, но ни на одном продукте среза
+     не стоит. У ушедшего аллокаций тоже нет, но искать его надо по оттоку. */
   if(evt==='bench')return !p.allocs.length&&p.alive;
   if(evt==='alloc')return p.events.some(e=>e.kind==='up'||e.kind==='dn');
   return p.events.some(e=>e.kind===evt);
@@ -3578,7 +3478,7 @@ const DEF={
   prof:'', grade:'', loc:'', emp:'',
   dimA:'domain', dimB:'product', open:[], moveView:'io',
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
-  my:'prof', mxd:'grade', fdim:'domain',
+  my:'prof', mxd:'grade',
   evt:'', q:'', pAll:false,
   treeOpen:[]
 };

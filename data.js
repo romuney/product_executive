@@ -313,11 +313,11 @@ PEOPLE.forEach(p=>{
   const stop=p.to==null?N-1:p.to;
   let cur=shape();
   let prods=cur.length?pickProducts(cur.length,homeIdx):[];
-  /* «Скамейка» — человек есть в компании, но не аллоцирован ни на один
-     продукт. Без неё вход и выход на продукт схлопываются в ноль, когда
-     выбраны все продукты: перетоки между продуктами внутри портфеля друг
-     друга гасят, и единственное настоящее движение границы портфеля — это
-     как раз приход со скамейки и уход на неё. */
+  /* Месяцы без аллокаций: человек есть в компании, но не стоит ни на одном
+     продукте. Без них вход и выход схлопываются в ноль, когда выбраны все
+     продукты: перемещения между продуктами внутри портфеля друг друга
+     гасят, и единственное настоящее движение границы портфеля — это как
+     раз появление и исчезновение аллокаций целиком. */
   let bench=cur.length?0:(chance(0.45)?BENCH_FOREVER:ri(2,14));
   for(let m=start;m<=stop;m++){
     if(bench>0){
@@ -332,12 +332,11 @@ PEOPLE.forEach(p=>{
     /* Раз в несколько месяцев состав или доли меняются. Вероятности низкие:
        перетасовка каждый месяц дала бы движение, которого в жизни не бывает. */
     if(m>start){
-      if(chance(0.008)){bench=ri(1,5);prods=[];cur=[];continue}   /* уход на скамейку */
+      if(chance(0.008)){bench=ri(1,5);prods=[];cur=[];continue}   /* месяцы без аллокаций */
       /* ПЕРЕВОД: в один месяц человек уходит с одного продукта и приходит
-         на другой с той же долей. Пока перевода не было отдельным событием,
-         он распадался на независимые «ушёл» и «пришёл» в разные месяцы,
-         и матрица перетоков показывала нули между всеми продуктами —
-         как будто люди приходят только из найма и уходят только в отток. */
+         на другой с той же долей — выход и вход в одном месяце. В отчёте
+         это по-прежнему два независимых события: данные не говорят, что
+         одно вызвано другим, и связывать их отчёт не берётся. */
       if(chance(0.014)&&cur.length){
         const k=ri(0,cur.length-1), free=[];
         for(let z=0;z<NPROD;z++)if(prods.indexOf(z)<0)free.push(z);
@@ -923,8 +922,8 @@ function personEvents(st,pid){
 
 /* Список сотрудников среза. Человек попадает сюда, если он был на продуктах
    среза хоть один месяц окна — или если он вообще не аллоцирован, но
-   организационно относится к продукту среза: «скамейка» это тоже ответ
-   на вопрос «кто у меня есть». */
+   организационно относится к продукту среза: человек без аллокаций — это
+   тоже ответ на вопрос «кто у меня есть». */
 function peopleList(st){
   const i1=st.i1, out=[];
   PEOPLE.forEach(p=>{
@@ -970,60 +969,6 @@ function tenureOn(st,pid,prodIdx,m){
   return n;
 }
 
-/* ---------- Матрица перетоков: откуда и куда ----------
-   Переход засчитывается, только когда у человека в один месяц ровно один
-   уход и ровно один приход: тогда связь однозначна. Всё остальное честно
-   уходит в «извне» и «наружу» — придумывать соответствие между двумя
-   уходами и тремя приходами значит рисовать данные, которых нет.
-   Про это написано сноской под матрицей. */
-function transfers(st,dimKey){
-  const key=idx=>dimKey==='domain'?PRODUCTS[idx].domName:PRODUCTS[idx].name;
-  const cells=new Map(), fromSum=new Map(), toSum=new Map();
-  const add=(f,t,v)=>{
-    const k=f+''+t;
-    cells.set(k,(cells.get(k)||0)+v);
-    fromSum.set(f,(fromSum.get(f)||0)+v);
-    toSum.set(t,(toSum.get(t)||0)+v);
-  };
-  PEOPLE.forEach(p=>{
-    if(!personPass(st,p))return;
-    const pairs=PAIRS_BY_PID[p.id].map(ai=>ALLOC[ai]).filter(a=>inScope(st,a.prod));
-    if(!pairs.length)return;
-    for(let m=st.i0;m<=st.i1;m++){
-      const gone=[],came=[];
-      pairs.forEach(a=>{
-        const cur=active(st,a,p,m), prev=m>0?active(st,a,p,m-1):0;
-        if(prev>0&&cur<=0)gone.push(a.prod);
-        if(prev<=0&&cur>0)came.push(a.prod);
-      });
-      if(!gone.length&&!came.length)continue;
-      if(gone.length===1&&came.length===1){add(key(gone[0]),key(came[0]),1);continue}
-      /* Внешние категории различаются по тому, ОСТАЛСЯ ли человек в срезе.
-         Пришёл, уже стоя на других продуктах, — это не «со скамейки», а
-         расширение присутствия. Ушёл, оставшись на других, — не «на
-         скамейку», а сокращение. Свалить их в одну кучу значило бы
-         показать движение туда, где его не было. */
-      let before=0,after=0;
-      pairs.forEach(a=>{
-        if(m>0&&active(st,a,p,m-1))before++;
-        if(active(st,a,p,m))after++;
-      });
-      came.forEach(k=>add(p.from===m?'Найм':(before?'Расширение':'Со скамейки'),key(k),1));
-      gone.forEach(k=>add(key(k),p.to===m-1?'Отток':(after?'Сокращение':'На скамейку'),1));
-    }
-  });
-  const names=dimKey==='domain'?DOMAINS.map(d=>d.name):PRODUCTS.map(x=>x.name);
-  const inScopeName=n=>dimKey==='domain'
-    ? DOM_BY_NAME[n].kids.some(k=>inScope(st,PIDX[k]))
-    : inScope(st,PROD_BY_NAME[n]);
-  const EXT_Y=['Найм','Со скамейки','Расширение'];
-  const EXT_X=['Отток','На скамейку','Сокращение'];
-  const ys=names.filter(inScopeName).concat(EXT_Y).filter(n=>fromSum.get(n));
-  const xs=names.filter(inScopeName).concat(EXT_X).filter(n=>toSum.get(n));
-  let grand=0;fromSum.forEach(v=>{grand+=v});
-  return {ys,xs,cells,ysum:fromSum,xsum:toSum,grand,external:{ys:EXT_Y,xs:EXT_X}};
-}
-
 /* ---------- Набор продуктов из состояния фильтра ----------
    Хранится СПИСОК ВЫБРАННЫХ листьев: пустой список означает «все продукты».
    Инверсия намеренная — новый продукт каталога появляется у всех сам, а не
@@ -1047,6 +992,6 @@ window.PXDATA={
   PEOPLE,ALLOC,sumPct,mainProd,openQuota,
   THIN,MINUS,fmtInt,fmtFte,fmtVal,fmtDelta,fmtPct,fmtPp,
   prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification,
-  quotaOf,quotaTotal,EVENTS,EVENT_BY_KEY,peopleList,personEvents,transfers
+  quotaOf,quotaTotal,EVENTS,EVENT_BY_KEY,peopleList,personEvents
 };
 })();

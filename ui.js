@@ -223,9 +223,9 @@ const COL_HINT={
   delta:'Разница между концом и началом периода. Складывается из всех четырёх видов движения.',
   pct:'Прирост к значению на начало периода.',
   hire:'Человек новый и в компании, и на продукте.',
-  inp:'Человек уже работал в компании, но на этом продукте не стоял: перевод с другого продукта или выход со скамейки.',
+  inp:'Человек уже работал в компании, но на этом продукте не стоял. Откуда именно он пришёл, данные не говорят: видно только, что аллокация на этом продукте появилась.',
   attr:'Человек ушёл из компании — аллокация закрылась вместе с ним.',
-  out:'Человек остался в компании, но с продукта ушёл: перевод на другой продукт или скамейка.',
+  out:'Человек остался в компании, но аллокация на этом продукте закрылась. Куда он делся, данные не говорят.',
   alloc:'Человек оставался на продукте, но его процент занятости изменился. Показано сальдо роста и снижения.',
   quota:'Незакрытые позиции на конец периода. Квота заводится НА ПРОДУКТЕ, поэтому в разрезах, не привязанных к продукту, она не раскладывается — там стоит прочерк.',
   fill:'Занято ÷ (занято + открытые квоты) на конец периода.'
@@ -406,30 +406,20 @@ function matrixTable(o){
   const m=o.m, mode=o.mode;
   let max=0;
   m.cells.forEach(v=>{if(Math.abs(v)>max)max=Math.abs(v)});
-  /* Внешние строки и столбцы матрицы перетоков — это не разрез, а границы
-     портфеля: найм и скамейка слева, отток и скамейка справа. Они помечены
-     фоном, чтобы не читаться как ещё один продукт. */
-  const ext=m.external||{ys:[],xs:[]};
-  const isExtY=y=>ext.ys.indexOf(y)>=0, isExtX=x=>ext.xs.indexOf(x)>=0;
   let h='<table class="ptable dense pivot mtx"><thead><tr><th class="txt">'+esc(o.yName)+
     '<span class="hint-col">по столбцам: '+esc(o.xName.toLowerCase())+'</span></th>';
-  m.xs.forEach(x=>{h+='<th'+(isExtX(x)?' class="ext"':'')+'>'+esc(x)+'</th>'});
+  m.xs.forEach(x=>{h+='<th>'+esc(x)+'</th>'});
   h+='<th class="vs">Итого</th></tr></thead><tbody>';
   m.ys.forEach(y=>{
-    h+='<tr'+(isExtY(y)?' class="ext-row"':'')+'><td class="txt"><span class="row-label">'+
+    h+='<tr><td class="txt"><span class="row-label">'+
       '<span class="caret-spacer" aria-hidden="true"></span>'+
       '<span class="row-body">'+esc(y)+'</span></span></td>';
     m.xs.forEach(x=>{
       const v=m.cells.get(y+''+x)||0;
-      /* Диагональ перетоков — переход продукта в самого себя. Такого события
-         не бывает, и клетка помечена точкой, а не заполнена нулём: ноль
-         сказал бы «переходов не было», хотя вопрос не имеет смысла. */
-      const self=o.diag&&y===x;
-      h+='<td'+(self?' class="self"':'')+(self?'':heat(o.flow||'hire',v,max))+
-        (self?'':tip({title:y+(o.diag?' → ':' · ')+x,
-          rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
-          note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)}))+'>'+
-        (self?'·':(v?D.fmtVal(mode,v):'<span class="zero">0</span>'))+'</td>';
+      h+='<td'+heat(o.flow||'hire',v,max)+tip({title:y+' · '+x,
+        rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
+        note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)})+'>'+
+        (v?D.fmtVal(mode,v):'<span class="zero">0</span>')+'</td>';
     });
     h+='<td class="lead vs">'+D.fmtVal(mode,m.ysum.get(y)||0)+'</td></tr>';
   });

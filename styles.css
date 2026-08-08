@@ -456,11 +456,6 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .ev.e-up{background:#e0f2ef}
 .ev.e-dn{background:#ece5f3}
 .more{margin-top:var(--s6);text-align:center}
-/* Внешние строки и столбцы матрицы перетоков — границы портфеля,
-   а не ещё один продукт: помечены фоном. */
-.mtx .ext,.mtx tr.ext-row td{background:#fafbfc}
-.mtx tr.ext-row td.txt .row-body{color:var(--muted);font-weight:700}
-.mtx td.self{background:#f4f5f7;color:var(--muted2)}
 .pivot td.drill{cursor:pointer}
 .pivot td.drill:hover{box-shadow:inset 0 0 0 2px var(--act)}
 

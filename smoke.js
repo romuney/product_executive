@@ -251,7 +251,7 @@ CASES.forEach(c=>{
    в списке. Расхождение здесь означает, что пользователь кликнул по числу
    и получил другой набор людей.
    ========================================================================== */
-head('6б. Списки сотрудников и перетоки');
+head('6б. Детализация до людей');
 CASES.forEach(c=>{
   const s=st(c.over);
   const list=D.peopleList(s);
@@ -275,15 +275,6 @@ CASES.forEach(c=>{
     const sub=SC.people.filtered(Object.assign({},s,{evt:f[0],q:''}),list);
     ok('фильтр «'+(f[1])+'» — подмножество · '+c.name,sub.length<=list.length);
   });
-  /* Перетоки: сумма по строкам обязана совпасть с суммой по столбцам —
-     каждое событие попадает ровно в одну клетку. */
-  ['domain','product'].forEach(dim=>{
-    const t=D.transfers(s,dim);
-    let ys=0,xs=0,cells=0;
-    t.ysum.forEach(v=>{ys+=v});t.xsum.forEach(v=>{xs+=v});t.cells.forEach(v=>{cells+=v});
-    ok('перетоки («'+dim+'»): строки = столбцы · '+c.name,ys===xs,ys+' != '+xs);
-    ok('перетоки («'+dim+'»): клетки = итог · '+c.name,cells===ys,cells+' != '+ys);
-  });
   let people='';
   try{people=SC.people.render(Object.assign({},s,{evt:'',q:'',pAll:false}))}
   catch(e){ok('вкладка сотрудников рендерится · '+c.name,false,e.message)}
@@ -293,10 +284,6 @@ CASES.forEach(c=>{
   ok('в списке есть фильтры-события · '+c.name,people.indexOf('data-evt="hire"')>0);
   const ov=SC.overview.render(s);
   ok('числа движения ведут в список · '+c.name,ov.indexOf('data-drill="hire|')>0);
-  let flow='';
-  try{flow=SC.transformer.render(Object.assign({},s,{tview:'flow'}))}
-  catch(e){ok('перетоки рендерятся · '+c.name,false,e.message)}
-  ok('вид «перетоки» непустой · '+c.name,flow.length>1200);
 });
 
 /* ============================================================================

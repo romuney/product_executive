@@ -25,7 +25,7 @@ const DEF={
   prof:'', grade:'', loc:'', emp:'',
   dimA:'domain', dimB:'product', open:[], moveView:'io',
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
-  my:'prof', mxd:'grade', fdim:'domain',
+  my:'prof', mxd:'grade',
   evt:'', q:'', pAll:false,
   treeOpen:[]
 };
