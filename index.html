@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Product Executive Report — ресурсы и аллокации по продуктовой структуре</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#view">Перейти к отчёту</a>
+<div class="shelf-scrim" id="shelfScrim"></div>
+
+<!-- ===== Шапка приложения =====
+     Над телом отчёта живёт только одна полоса. Всё остальное — фильтры,
+     контекст, точки входа в справку — внутри тела: во встраиваемом
+     инструменте выше тела ничего своего не сверстать. -->
+<header class="apphead">
+  <div class="apphead-top">
+    <button class="shelf-toggle" data-shelf="1" aria-label="Открыть фильтры" aria-expanded="false">☰</button>
+    <div class="logo"><span class="mark"></span>Product Executive&nbsp;<small>каталог продуктов · макет</small></div>
+    <div class="spacer"></div>
+    <span class="period">Данные синтетические</span>
+  </div>
+</header>
+
+<!-- ===== Полка фильтров слева, отчёт справа =====
+     Полка стоит слева и остаётся на экране: этот отчёт читают, крутя
+     страницу вниз, и фильтр обязан быть под рукой на любом блоке. -->
+<div class="layout">
+  <aside class="shelf" id="shelf" aria-label="Фильтры отчёта">
+    <div class="shelf-h"><b>Фильтры</b>
+      <button class="btn xs" data-reset="all">Сбросить всё</button></div>
+    <div class="shelf-b" id="shelfBody"></div>
+    <div class="shelf-f">
+      <button class="btn" data-link="1">Скопировать ссылку</button>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <section class="reporthead" id="reporthead"></section>
+    <main class="content" id="view" tabindex="-1"></main>
+  </div>
+</div>
+
+<!-- ===== Как читать отчёт =====
+     Онбординг, а не документация: четыре правила, каждое одной фразой
+     и одним абзацем пояснения. -->
+<div class="ovl hidden" id="helpOvl">
+  <div class="modal">
+    <div class="modal-h">
+      <h3>Как читать отчёт</h3>
+      <p>Четыре правила, которые делают весь отчёт понятным.</p>
+    </div>
+    <div class="modal-b">
+      <div class="fgrp">
+        <label>Люди и аллокации — разные числа, и оба верные</label>
+        <div class="fhint">Аллокация — процент занятости человека на продукте, поэтому один человек
+          живёт сразу на нескольких продуктах. В режиме «Люди» он считается один раз, в режиме
+          «Аллокации» — своими процентами. Переключатель наверху меняет смысл всех чисел разом.</div>
+      </div>
+      <div class="fgrp">
+        <label>Сумма по продуктам больше итога — так и должно быть</label>
+        <div class="fhint">В разрезе по продуктам человек попадает в столько строк, на сколько
+          продуктов он аллоцирован, а в итоге считается один раз. По этой же причине переходы между
+          продуктами внутри выбранного среза видны в строках и схлопываются в итоге: портфель они
+          не меняют.</div>
+      </div>
+      <div class="fgrp">
+        <label>Четыре вида движения, а не два</label>
+        <div class="fhint">Найм на продукт — человек новый и в компании, и на продукте.
+          Вход на продукт — уже работал, но стоял на другом. Выход с продукта — остался в компании.
+          Отток — ушёл из компании. В режиме аллокаций к ним добавляется пятое движение:
+          изменение процента у тех, кто с продукта не уходил.</div>
+      </div>
+      <div class="fgrp">
+        <label>Цвет здесь почти всегда категория, а не оценка</label>
+        <div class="fhint">Гамма движения — бирюзовый приход, сиреневый уход — это виды потока,
+          а не «хорошо» и «плохо»: рост найма сам по себе не достижение. Зелёный и красный
+          появляются только там, где оценка действительно есть: верификация аллокаций,
+          укомплектованность квот и здоровье аллокаций.</div>
+      </div>
+    </div>
+    <div class="modal-f"><div class="sp"></div>
+      <button class="btn primary" data-helpclose="1">Понятно</button></div>
+  </div>
+</div>
+
+<!-- Порядок жёсткий: каждый следующий файл читает неймспейс предыдущего.
+     Внешних библиотек нет — всё рисуется на голом SVG в draw.js. -->
+<script src="data.js"></script>
+<script src="draw.js"></script>
+<script src="ui.js"></script>
+<script src="screens/overview.js"></script>
+<script src="screens/transformer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

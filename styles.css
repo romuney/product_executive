@@ -1,0 +1,502 @@
+/* ============================================================================
+   Product Executive Report — стили.
+   Дизайн-система TeamPulse: токены раздела 2 скопированы целиком, значения
+   не правлены. Всё, что добавлено здесь, собрано ИЗ ТОКЕНОВ — новых величин
+   «на глаз» в файле нет.
+   ========================================================================== */
+:root{
+  /* ---------- Поверхности и текст ---------- */
+  --bg:#f4f5f7; --card:#ffffff; --line:#e7e9ee; --line2:#eef0f3;
+  --ink:#1f1f1f; --ink2:#3a3f4a; --muted:#8a909c; --muted2:#aab0bb;
+
+  /* ---------- Светофор: ровно два сигнала ---------- */
+  --green:#12b048; --green-bg:#bff2cd; --green-tx:#0a8f3c;
+  --red:#f51f1f;   --red-bg:#ffcccc;   --red-tx:#d11414;
+  /* Жёлтый в светофоре ЗАПРЕЩЁН. Он есть только для severity AI-плашек. */
+  --warn:#f59300;  --warn-bg:#ffe6a0;  --warn-tx:#9a6500;
+
+  /* ---------- Акцент и служебное ---------- */
+  --blue:#3b6fe0;  --blue-bg:#eef3fe;  --act:#2b6cff;
+  --ai:#6f4ed8;    --ai-bg:#f2eefc;    --ai-tx:#5334c4;
+  --bench:#9aa0ac;
+
+  /* ---------- Расстояния: десять ступеней ---------- */
+  --s1:2px;  --s2:4px;  --s3:6px;  --s4:8px;  --s5:10px;
+  --s6:12px; --s7:14px; --s8:16px; --s9:20px; --s10:24px;
+
+  /* ---------- Типографика: семь ролей ---------- */
+  --fs-micro:9.5px; --fs-cap:10.5px; --fs-note:11.5px; --fs-body:12.5px;
+  --fs-lead:13.5px; --fs-head:16px;  --fs-hero:24px;
+
+  /* ---------- Радиусы ---------- */
+  --r1:3px; --r2:6px; --r3:9px; --r4:12px; --r5:16px; --r-pill:999px;
+  --radius:var(--r4);
+  --pad-cell:var(--s5);
+
+  /* ---------- Тени: ровно две ---------- */
+  --shadow:0 1px 3px rgba(20,28,45,.06),0 4px 16px rgba(20,28,45,.04);
+  --shadow-lg:0 8px 28px rgba(20,28,45,.16);
+
+  /* ---------- Геометрия ---------- */
+  --head-h:51px;
+  /* Зеркало STACK_GAP из draw.js. Один зазор задаётся двумя механизмами:
+     внутри SVG — константой, между двумя SVG — этим токеном. Расходиться
+     им нельзя, иначе одинаковый по смыслу воздух выглядит разным. */
+  --chart-gap:26px;
+  --shelf-w:270px;      /* ширина полки фильтров */
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:Inter,Helvetica,Arial,sans-serif;font-size:14px;
+  background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+.hidden{display:none!important}
+
+/* ===== Шапка приложения ===== */
+.apphead{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+.apphead-top{display:flex;align-items:center;gap:var(--s7);padding:var(--s6) var(--s10)}
+.logo{font-weight:800;font-size:18px;letter-spacing:-.2px;display:flex;align-items:center;gap:var(--s4)}
+.logo .mark{width:26px;height:26px;border-radius:var(--r3);
+  background:linear-gradient(135deg,#2b6cff,#6f4ed8);display:inline-block}
+.logo small{color:var(--muted);font-weight:600;font-size:12px}
+.apphead .spacer{flex:1}
+.apphead .period{font-size:12px;color:var(--ink2);font-weight:700;border:1px solid var(--line);
+  border-radius:var(--r3);padding:7px var(--s6);background:#fafbfc;white-space:nowrap}
+
+/* ===== Кнопки ===== */
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 14px;
+  font-weight:600;color:var(--ink2);cursor:pointer;font-size:13px;display:inline-flex;
+  align-items:center;gap:7px;transition:background .15s,border-color .15s}
+.btn:hover{background:#fafbfc;border-color:#d8dce4}
+.btn.primary{background:var(--act);border-color:var(--act);color:#fff}
+.btn.primary:hover{background:#1b5cf0}
+.btn.ghost{border-color:transparent;color:var(--blue)}
+.btn.ghost:hover{background:var(--blue-bg)}
+.btn.xs{padding:3px 6px;min-width:24px;font-size:11px}
+
+/* ===== Раскладка: полка фильтров слева, отчёт справа ===== */
+.layout{display:flex;min-height:calc(100vh - var(--head-h));align-items:stretch}
+.shelf{width:var(--shelf-w);flex:0 0 var(--shelf-w);background:#fff;
+  border-right:1px solid var(--line);position:sticky;top:var(--head-h);
+  height:calc(100vh - var(--head-h));display:flex;flex-direction:column}
+.shelf-h{display:flex;align-items:center;gap:var(--s4);padding:var(--s6) var(--s7) var(--s5);
+  border-bottom:1px solid var(--line2)}
+.shelf-h b{font-size:var(--fs-lead);font-weight:800;flex:1}
+.shelf-b{flex:1;min-height:0;overflow-y:auto;padding:var(--s7) var(--s7) var(--s9)}
+.shelf-f{border-top:1px solid var(--line2);padding:var(--s5) var(--s7);display:flex;gap:var(--s4);background:#fafbfc}
+.shelf-f .btn{flex:1;justify-content:center}
+.main-col{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.content{flex:1;padding:var(--s9) var(--s10) 44px;min-width:0}
+
+/* ===== Группа фильтров ===== */
+.fg{margin-bottom:var(--s8)}
+.fg>label,.fg .fg-h{display:flex;align-items:center;gap:var(--s3);font-size:var(--fs-cap);
+  text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;margin-bottom:var(--s3)}
+.fg .fg-h .sp{flex:1}
+.fg .fg-h button{border:0;background:transparent;padding:0;font:inherit;font-size:var(--fs-cap);
+  text-transform:none;letter-spacing:0;color:var(--blue);font-weight:700;cursor:pointer}
+.fg .fg-h button:hover{text-decoration:underline}
+.fhint{font-size:var(--fs-note);color:var(--muted2);font-weight:600;margin-top:var(--s3);line-height:1.4}
+.ctl{display:flex;flex-direction:column;gap:5px}
+.ctl>span,.ctl label{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:800}
+select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;border-radius:var(--r3);
+  padding:8px 30px 8px var(--s6);font-size:13px;color:var(--ink);font-weight:600;cursor:pointer;
+  width:100%;max-width:100%;text-overflow:ellipsis;font-family:inherit;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right var(--s5) center}
+.fg-row{display:flex;gap:var(--s4);margin-top:var(--s4)}
+.fg-row .ctl{flex:1;min-width:0}
+
+/* Сегментированный переключатель */
+.sub-tabs{display:inline-flex;gap:3px;background:#eef0f3;border-radius:var(--r4);padding:3px;margin:0}
+.sub-tab{border:0;background:transparent;padding:8px 15px;border-radius:var(--r3);font-weight:700;
+  font-size:var(--fs-body);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;
+  gap:7px;transition:background .15s,color .15s;white-space:nowrap}
+.sub-tab:hover{color:var(--ink2)}
+.sub-tab.active{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+.sub-tabs.wide{display:flex;width:100%}
+.sub-tabs.wide .sub-tab{flex:1;justify-content:center;padding:7px var(--s5)}
+
+/* Чекбоксы: дерево продуктов, сегменты, флаги */
+.opt-list{display:flex;flex-direction:column;gap:1px}
+.opt-i{display:flex;align-items:flex-start;gap:var(--s4);width:100%;text-align:left;border:0;
+  background:none;padding:5px var(--s3);border-radius:var(--r2);font:inherit;font-size:var(--fs-body);
+  font-weight:600;color:var(--ink2);cursor:pointer;line-height:1.35}
+.opt-i:hover{background:#f4f6fa}
+.opt-i .box{flex:none;width:15px;height:15px;margin-top:1px;border:1.5px solid #c9cdd6;
+  border-radius:var(--r1);background:#fff;position:relative}
+.opt-i.on .box{background:var(--act);border-color:var(--act)}
+.opt-i.on .box::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.opt-i.part .box{background:var(--act);border-color:var(--act)}
+.opt-i.part .box::after{content:'';position:absolute;left:2.5px;top:6px;width:8px;height:2px;background:#fff}
+.opt-i .nm{min-width:0;flex:1}
+.opt-i .cnt{flex:none;font-size:var(--fs-cap);font-weight:700;color:var(--muted2);
+  font-variant-numeric:tabular-nums}
+.opt-i .sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:600}
+.opt-i.kid{padding-left:var(--s9)}
+.tree-tw{border:0;background:none;padding:0;margin:0;width:16px;flex:none;color:var(--muted);
+  font-size:10px;cursor:pointer;line-height:1.35}
+.tree-tw:hover{color:var(--act)}
+.tree-row{display:flex;align-items:flex-start}
+.tree-row .opt-i{flex:1;min-width:0}
+
+/* Тумблер «только основной продукт» */
+.sw-row{display:flex;align-items:center;gap:var(--s5);cursor:pointer;padding:var(--s3) 0}
+.sw{flex:none;width:34px;height:19px;border-radius:var(--r-pill);background:#d8dce4;position:relative;
+  transition:background .16s}
+.sw::after{content:'';position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;
+  background:#fff;box-shadow:var(--shadow);transition:transform .16s}
+.sw-row.on .sw{background:var(--act)}
+.sw-row.on .sw::after{transform:translateX(15px)}
+.sw-row .sw-t{font-size:var(--fs-body);font-weight:700;color:var(--ink2)}
+
+/* ===== Заголовок отчёта ===== */
+.reporthead{background:#fff;border-bottom:1px solid var(--line);padding:var(--s7) var(--s10) var(--s8)}
+.rh-row{display:flex;align-items:flex-start;gap:var(--s8);flex-wrap:wrap}
+.rh-main{min-width:0;flex:1}
+.rh-crumbs{font-size:var(--fs-note);color:var(--muted);font-weight:600;margin-bottom:5px}
+.rh-title{font-size:23px;font-weight:800;letter-spacing:-.4px;margin:0 0 var(--s4);line-height:1.2}
+.rh-side{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+.chips{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:5px var(--s6);
+  font-size:12px;font-weight:700;background:var(--blue-bg);color:#2b5fd0;border:1px solid #dbe6fd}
+.chip .x{width:14px;height:14px;border-radius:50%;border:0;padding:0;cursor:pointer;
+  background:rgba(43,95,208,.14);color:#2b5fd0;font-size:11px;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center}
+.chip .x:hover{background:rgba(43,95,208,.28)}
+.chip.bench{background:#f4f5f7;color:var(--ink2);border-color:var(--line)}
+.chip.bench b{color:var(--ink)}
+
+/* Полоса режима: люди или аллокации. Стоит над отчётом, потому что меняет
+   не один блок, а смысл всех чисел сразу. */
+.moderow{display:flex;align-items:center;gap:var(--s6);flex-wrap:wrap;margin:0 0 var(--s8)}
+.moderow .lbl{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:800}
+.moderow .sp{flex:1}
+.hint-txt{font-size:var(--fs-note);color:var(--muted);font-weight:600;max-width:520px;text-align:right}
+.tabs{display:flex;gap:var(--s10);border-bottom:1px solid var(--line);margin:0 0 var(--s9)}
+.tab{border:0;background:none;padding:0 0 var(--s5);font:inherit;font-size:var(--fs-lead);
+  font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--ink2)}
+.tab.active{color:var(--ink);border-bottom-color:var(--act)}
+
+/* ===== Заголовок блока ===== */
+.block-h{display:flex;align-items:baseline;gap:var(--s6);margin:var(--s10) 0 var(--s5);flex-wrap:wrap}
+.block-h:first-child{margin-top:0}
+.block-name{font-size:var(--fs-head);font-weight:800;letter-spacing:-.2px}
+.block-hint{font-size:12px;color:var(--muted);font-weight:600}
+.block-h .sp{flex:1}
+
+/* ===== KPI ===== */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:var(--s7);
+  margin-bottom:var(--s8)}
+.kpis.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpis.n5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.kpi{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px}
+.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:700;margin-bottom:7px;
+  display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.kpi .k-val{font-size:var(--fs-hero);font-weight:800;letter-spacing:-.6px;line-height:1.1}
+.kpi .k-row{display:flex;align-items:center;gap:var(--s4);margin-top:var(--s3);flex-wrap:wrap}
+.kpi .k-row:empty{margin:0}
+.kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
+.kpi.lead-card{outline:2px solid var(--act);outline-offset:-2px}
+/* Одна высота строк во всей полосе: карточка — subgrid на четыре строки
+   родителя. Перенос заголовка в одной карточке добавляет строку ВСЕМ, зато
+   значения и подписи остаются на одном уровне. @supports обязателен: без
+   subgrid карточка должна остаться обычным блоком. */
+@supports (grid-template-rows:subgrid){
+  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
+}
+
+/* ===== Панели ===== */
+.panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.panel-h{padding:var(--s7) var(--s8);font-weight:700;font-size:14.5px;
+  border-bottom:1px solid var(--line2);display:flex;align-items:center;
+  justify-content:space-between;gap:var(--s6)}
+.panel-h .sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
+.panel-h .h-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.panel-h.with-tabs{flex-wrap:wrap;row-gap:var(--s5)}
+.panel-h .sub-tabs{margin:0 0 0 auto;flex:0 0 auto}
+.panel-h .sub-tabs .sub-tab{padding:6px var(--s6);font-size:12px}
+.panel-h select{width:auto;min-width:150px}
+.panel-b{padding:var(--s7) var(--s8)}
+/* Переключатели содержимого панели живут в её шапке или первой строкой тела —
+   там, где меняется то, что они переключают, а не в отдельной полосе над
+   панелью. Больше пяти вариантов — это select, а не сегментированный
+   переключатель. */
+.h-ctl{display:flex;gap:var(--s5);align-items:flex-end;flex-wrap:wrap;margin:0 0 var(--s7)}
+.panel-h .h-ctl{margin:0 0 0 auto}
+.h-ctl select{min-width:0;width:auto}
+.h-ctl .ctl{min-width:132px}
+/* align-items:start — панели стоят своей высотой. Тянуть их до высоты соседа
+   значит копить пустоту под таблицей: соседняя панель выше не потому, что
+   в ней больше смысла, а потому, что в ней больше строк. */
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s8);align-items:start}
+.grid-2-1{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:var(--s8);align-items:start}
+.stack{display:flex;flex-direction:column;gap:var(--s8)}
+
+/* ===== Дельты и метки ===== */
+.delta{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-note);font-weight:700;
+  padding:3px 7px;border-radius:var(--r2);white-space:nowrap;cursor:help}
+.delta .d-vs{font-weight:600;font-size:var(--fs-cap);opacity:.72}
+.delta.up{background:var(--green-bg);color:var(--green-tx)}
+.delta.down{background:var(--red-bg);color:var(--red-tx)}
+.delta.flat{background:#f0f1f3;color:var(--muted)}
+.delta.neu{background:#f0f1f3;color:var(--ink2)}
+.sig-chip{display:inline-block;font-size:11px;font-weight:700;padding:3px var(--s4);
+  border-radius:var(--r2);white-space:nowrap}
+.sig-chip.good{background:var(--green-bg);color:var(--green-tx)}
+.sig-chip.bad{background:var(--red-bg);color:var(--red-tx)}
+.sig-chip.warn,.sig-chip.neutral{background:#f3f4f6;color:var(--muted)}
+.kpi-tag{display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.3px;padding:2px var(--s3);border-radius:var(--r2);
+  background:var(--blue-bg);color:#2b5fd0}
+.info{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
+  border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);
+  font-family:inherit;font-size:11px;font-weight:700;line-height:1;letter-spacing:.2px;
+  cursor:help;flex:0 0 auto;user-select:none;transition:border-color .12s,color .12s,background .12s}
+.info:hover{border-color:var(--act);background:var(--blue-bg);color:var(--act)}
+
+/* ===== Кольцевой индикатор доли ===== */
+.ring{display:inline-flex;align-items:center;gap:var(--s5)}
+.ring svg{display:block}
+.ring .rv{font-size:var(--fs-lead);font-weight:800}
+
+/* ===== Таблицы ===== */
+.ptable{width:100%;border-collapse:collapse;font-size:var(--fs-body)}
+.ptable th{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.2px;color:var(--muted);
+  font-weight:700;text-align:right;padding:var(--s5) var(--s4);border-bottom:1px solid var(--line2);
+  white-space:nowrap}
+.ptable th.txt{text-align:left;padding-left:var(--pad-cell)}
+.ptable td{text-align:right;padding:var(--s4);font-weight:600;border-bottom:1px solid var(--line2);
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.ptable td.txt{text-align:left;font-weight:700;padding-left:var(--pad-cell);font-variant-numeric:normal}
+.ptable tr.urow{cursor:pointer}
+.ptable tr.urow:hover{background:#fafbfc}
+.ptable tr.urow.sel{background:#f5f8ff;box-shadow:inset 3px 0 0 var(--act)}
+.ptable tr.total td{border-top:2px solid var(--line);border-bottom:0;font-weight:800;background:#fafbfc}
+.unit-sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:600;margin-top:1px}
+.ptable.dense th{padding:var(--s4) var(--s3);font-size:var(--fs-cap)}
+.ptable.dense td{padding:7px var(--s3)}
+.ptable.dense td.lead{font-weight:800;color:var(--ink)}
+.ptable.dense td.vs,.ptable.dense th.vs{border-left:1px solid var(--line2)}
+.tbl-wrap{overflow:auto;max-width:100%}
+
+/* Каретка раскрытия — своя колонка, не приклеена к тексту. Строки без детей
+   получают распорку, тогда имена стоят на одной вертикали. */
+.caret-btn{display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;
+  margin-right:7px;border:0;background:transparent;border-radius:var(--r2);color:var(--ink2);
+  font-size:12px;cursor:pointer;transition:background .15s,color .15s;flex:0 0 auto}
+.caret-btn:hover{background:#e7edf7;color:var(--act)}
+.caret-btn[data-open]{color:var(--act)}
+.caret-spacer{display:inline-block;width:23px;margin-right:7px;flex:0 0 auto}
+.ptable td.txt .row-label{display:flex;align-items:flex-start}
+.ptable td.txt .row-body{min-width:0}
+.ptable tr.lvl2 td.txt{padding-left:var(--s10)}
+.ptable tr.lvl2 td.txt .row-body{font-weight:600;color:var(--ink2)}
+.ptable tr.lvl2 td{background:#fcfcfd}
+.ptable tr.lvl3 td.txt{padding-left:44px}
+.ptable tr.lvl3 td.txt .row-body{font-weight:600;color:var(--muted)}
+.ptable tr.lvl3 td{background:#fcfcfd}
+.hint-col{display:block;font-size:var(--fs-micro);font-weight:700;color:var(--muted2);
+  text-transform:none;letter-spacing:0;margin-top:1px}
+
+/* ---------- Трансформер ----------
+   Шапка в две строки: смысловые группы сверху, имена колонок под ними.
+   Заливка группы — гамма потоков, а НЕ светофор: приход не «хорошо»,
+   уход не «плохо», оценки у движения нет. */
+.pivot thead th{position:sticky;top:0;z-index:3;background:#fff}
+/* Липкая строка ИТОГО стоит ПОД шапкой, поэтому её смещение обязано равняться
+   высоте шапки. У таблицы с одной строкой заголовков это 26px, у трансформера
+   движения с группами колонок — вдвое больше. Пока смещение было одно на всех,
+   двухстрочный отступ у однострочной шапки прятал первую строку данных под
+   заголовком: в матрице пропадала самая крупная профессия. */
+.pivot tr.total.top td{position:sticky;top:26px;z-index:2;border-top:0;
+  border-bottom:2px solid var(--line);background:#fafbfc}
+.pivot.grp2 thead tr:last-child th{top:26px}
+.pivot.grp2 tr.total.top td{top:52px}
+.pivot thead tr.grp th{top:0;text-align:center;font-size:var(--fs-cap);letter-spacing:.3px;
+  color:var(--ink2);border-bottom:1px solid #fff}
+.pivot thead tr.grp th.g-cnt{background:#f2f3f6}
+.pivot thead tr.grp th.g-in{background:#e6f6f1}
+.pivot thead tr.grp th.g-out{background:#efe8f4}
+.pivot thead tr.grp th.g-alloc{background:#e7f2f7}
+.pivot thead th[rowspan]{text-align:left;vertical-align:bottom;background:#fff}
+.pivot td .zero{color:var(--muted2)}
+.pivot th.txt{min-width:168px}
+.pivot td.txt{max-width:260px;white-space:normal}
+.stable th,.mtx th{text-align:right}
+.stable th.txt,.mtx th.txt{text-align:left}
+
+/* ---------- Разбивка полосой в ячейке ----------
+   Кольца и горизонтальные бар-чарты для разбивок запрещены: доля читается
+   по числу точнее, чем по углу сектора. Полоса растёт от левого края —
+   у всех строк общий старт, поэтому длины сравниваются глазом. */
+.btable td.barcell,.btable th.bar-th{text-align:left;padding-left:var(--pad-cell)}
+/* Пояснение под именем строки переносится по словам. Общий запрет переносов
+   в таблицах касается ЧИСЛОВЫХ колонок — их ужимать нельзя. Здесь же
+   однострочное пояснение раздувало первую колонку, и полоса распределения
+   уезжала за край панели. */
+.btable td.txt{white-space:normal}
+.btable td.txt .unit-sub{white-space:normal}
+.cellbar{display:block;width:100%;height:13px;background:#f1f3f6;border-radius:var(--r1);
+  overflow:hidden;cursor:help}
+.cellbar i{display:block;height:100%;border-radius:var(--r1);background:var(--act);min-width:2px}
+.btable tr.total td{border-bottom:0}
+
+/* ===== Графики ===== */
+.svgchart{width:100%}
+.svgchart svg{display:block;max-width:100%}
+.svgchart.fill{height:100%}
+.chart-stack{display:flex;flex-direction:column;gap:var(--chart-gap)}
+.hit{fill:#2b6cff;fill-opacity:0;transition:fill-opacity .12s}
+.barg:hover .hit,.ptg:hover .hit{fill-opacity:.05}
+.barg:hover .bar{filter:brightness(1.06) saturate(1.25)}
+.ptg:hover .dot{r:5.2;stroke-width:2.6}
+.svgchart .dot,.svgchart .bar{transition:filter .12s,r .12s,stroke-width .12s}
+@keyframes tp-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes tp-fade{from{opacity:0}to{opacity:1}}
+@keyframes tp-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.svgchart.anim .bar{transform-box:fill-box;animation:tp-grow .48s cubic-bezier(.22,.61,.36,1) both}
+.svgchart.anim .bar.up{transform-origin:50% 100%}
+.svgchart.anim .bar.dn{transform-origin:50% 0}
+.svgchart.anim .ln{stroke-dasharray:1;stroke-dashoffset:1;
+  animation:tp-draw .76s cubic-bezier(.4,0,.2,1) both}
+.svgchart.anim .lnb{animation:tp-fade .5s ease-out both;animation-delay:.1s}
+.svgchart.anim .fade,.svgchart.anim .dot{animation:tp-fade .3s ease-out both}
+
+/* ===== Легенда, сноски, пустое состояние ===== */
+.legend{display:flex;gap:var(--s8);flex-wrap:wrap;align-items:center;margin:0 0 var(--s6);
+  font-size:12px;color:var(--ink2)}
+.legend .sw{display:inline-flex;align-items:center;gap:var(--s3);font-weight:600}
+.legend .dot{width:11px;height:11px;border-radius:var(--r1);display:inline-block}
+.legend .dot.hollow{background:#fff;border:1.5px dashed}
+.tbl-note{margin-top:var(--s4);font-size:var(--fs-note);color:var(--muted);font-weight:600;line-height:1.45}
+.tbl-note b{color:var(--ink2)}
+.note-inline{font-size:12px;color:var(--muted);background:#fff;border:1px dashed var(--line);
+  border-radius:var(--r3);padding:11px var(--s7);margin-bottom:var(--s7);line-height:1.5}
+.empty{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:38px var(--s10);
+  text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:var(--s3)}
+
+/* ===== Плашка проблемы ===== */
+/* Блок, а не flex-строка: внутри плашки живёт обычный текст с выделенными
+   числами, и каждый <b> в flex-раскладке становился отдельной колонкой —
+   фраза рассыпалась на куски. */
+.flag{display:block;border-radius:var(--r3);padding:11px var(--s7);font-size:var(--fs-body);
+  font-weight:600;line-height:1.5;background:var(--warn-bg);color:var(--warn-tx);margin-top:var(--s5)}
+.flag.ok{background:#fff;border:1px solid var(--line2);color:var(--muted)}
+.flag .ok-dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:var(--green);margin-right:var(--s3)}
+
+/* ===== Тултип: единственный механизм подсказок ===== */
+.tip{position:fixed;z-index:400;pointer-events:none;opacity:0;transform:translateY(3px);
+  transition:opacity .11s ease-out,transform .11s ease-out;background:#fff;
+  border:1px solid var(--line);border-radius:var(--r3);
+  box-shadow:0 10px 30px rgba(24,33,50,.18),0 2px 6px rgba(24,33,50,.08);
+  padding:9px var(--s6);font-size:12px;line-height:1.45;color:var(--ink2);font-weight:500;
+  min-width:148px;max-width:300px;white-space:normal}
+.tip.on{opacity:1;transform:none}
+.tip .t-h{display:block;font-size:var(--fs-cap);font-weight:700;letter-spacing:.2px;
+  color:var(--muted);margin-bottom:var(--s3)}
+.tip .t-x{display:block;font-size:12px;font-weight:500;color:var(--ink2);line-height:1.45}
+.tip .t-r{display:flex;align-items:center;gap:var(--s4);margin-top:var(--s2)}
+.tip .t-r:first-child{margin-top:0}
+.tip .t-m{display:inline-block;flex:0 0 auto;width:10px;height:9px;border-radius:var(--r1)}
+.tip .t-m.dash{height:0;width:14px;border-radius:0;border-top:2px dashed;background:none}
+.tip .t-l{font-size:var(--fs-note);font-weight:600;color:var(--muted);min-width:0}
+.tip .t-v{display:inline;margin:0 0 0 auto;font-size:var(--fs-lead);font-weight:700;color:var(--ink);
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.tip .t-r.bench .t-v{color:var(--muted);font-weight:600}
+.tip .t-n{display:block;font-size:var(--fs-note);font-weight:500;color:var(--muted);margin-top:5px}
+.tip .t-r+.t-n{margin-top:var(--s4);padding-top:7px;border-top:1px solid var(--line2)}
+.tip .t-n+.t-n{margin-top:2px;padding-top:0;border-top:0}
+.info,.cellbar,.delta{cursor:help}
+
+/* ===== Модалка ===== */
+.ovl{position:fixed;inset:0;background:rgba(20,28,45,.42);z-index:60;display:flex;
+  align-items:flex-start;justify-content:center;padding:56px 18px;overflow:auto}
+.modal{background:#fff;border-radius:var(--r5);box-shadow:var(--shadow-lg);width:100%;
+  max-width:660px;overflow:hidden}
+.modal-h{padding:18px var(--s10) var(--s7)}
+.modal-h h3{margin:0 0 5px;font-size:18px;font-weight:800;letter-spacing:-.3px}
+.modal-h p{margin:0;font-size:var(--fs-body);color:var(--muted);line-height:1.45}
+.modal-b{padding:var(--s8) var(--s10) var(--s4);border-top:1px solid var(--line2)}
+.modal-f{padding:var(--s7) var(--s10) 18px;border-top:1px solid var(--line2);display:flex;
+  align-items:center;gap:var(--s5);background:#fafbfc}
+.modal-f .sp{flex:1}
+.fgrp{margin-bottom:18px}
+.fgrp>label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:800;margin-bottom:var(--s4)}
+.fgrp .fhint{font-size:var(--fs-note);color:var(--muted2);font-weight:600;margin-top:7px;line-height:1.45}
+
+/* ===== Доступность ===== */
+:focus-visible{outline:3px solid rgba(43,108,255,.32);outline-offset:2px}
+button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--act)}
+.skip-link{position:fixed;left:12px;top:-60px;z-index:9999;background:var(--ink);color:#fff;
+  padding:10px var(--s7);border-radius:var(--r3);font-weight:700;text-decoration:none;transition:top .15s}
+.skip-link:focus{top:12px}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;
+  margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;border:0!important}
+.urow:focus{outline:3px solid rgba(43,108,255,.25);outline-offset:-3px;background:#f5f8ff}
+.shelf-toggle{display:none;border:1px solid var(--line);background:#fff;border-radius:var(--r3);
+  padding:8px var(--s5);font-weight:800;color:var(--ink);cursor:pointer}
+.shelf-scrim{display:none}
+@media (prefers-reduced-motion:reduce){
+  *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;
+    animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ===== Адаптив =====
+   Пороги поставлены по замерам: полка 270px плюс минимальная ширина отчёта
+   (примерно 860px под трансформер из десяти колонок) перестают помещаться
+   около 1180px — там полка и уезжает в выдвижную панель. */
+@media(max-width:1320px){
+  .kpis.n5{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid2,.grid-2-1{grid-template-columns:1fr}
+}
+@media(max-width:1180px){
+  .layout{display:block}
+  .shelf{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(86vw,320px);height:auto;
+    transform:translateX(-105%);transition:transform .22s ease;
+    box-shadow:8px 0 28px rgba(20,28,45,.18)}
+  .shelf.open{transform:translateX(0)}
+  .shelf-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}
+  .shelf-scrim.open{display:block}
+  .shelf-toggle{display:inline-flex}
+  .apphead{position:static}
+  .content{padding:var(--s8) var(--s9) 40px}
+  .reporthead{padding:var(--s7) var(--s9)}
+}
+@media(max-width:900px){
+  .kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)}
+  /* На узком экране таблица прокручивается, а не переносится: ужать числовые
+     колонки нельзя — между значениями останется меньше воздуха, чем внутри них. */
+  .tbl-wrap{overflow-x:auto}
+  .ptable.pivot{min-width:860px}
+  .panel-h{flex-wrap:wrap}
+  .panel-h .sub-tabs{margin-left:0}
+}
+@media(max-width:640px){
+  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}
+  .sub-tabs{display:flex;overflow-x:auto;max-width:100%}
+  .panel-h{padding:var(--s6)}.panel-b{padding:var(--s5)}
+  .content{padding:var(--s6)}
+  .rh-title{font-size:20px}
+  .tabs{gap:var(--s7)}
+}
+
+/* ===== Печать: не отдельная вёрстка, а снятие интерактива ===== */
+@media print{
+  body{background:#fff}
+  .apphead,.shelf,.shelf-scrim,.sub-tabs,.btn,.tip,.tabs{display:none!important}
+  .layout{display:block}
+  .content{padding:0}
+  .panel,.kpi{box-shadow:none;break-inside:avoid}
+  .chips .x{display:none}
+}

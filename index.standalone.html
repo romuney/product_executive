@@ -1,0 +1,3032 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Product Executive Report — ресурсы и аллокации по продуктовой структуре</title>
+<style>
+/* ============================================================================
+   Product Executive Report — стили.
+   Дизайн-система TeamPulse: токены раздела 2 скопированы целиком, значения
+   не правлены. Всё, что добавлено здесь, собрано ИЗ ТОКЕНОВ — новых величин
+   «на глаз» в файле нет.
+   ========================================================================== */
+:root{
+  /* ---------- Поверхности и текст ---------- */
+  --bg:#f4f5f7; --card:#ffffff; --line:#e7e9ee; --line2:#eef0f3;
+  --ink:#1f1f1f; --ink2:#3a3f4a; --muted:#8a909c; --muted2:#aab0bb;
+
+  /* ---------- Светофор: ровно два сигнала ---------- */
+  --green:#12b048; --green-bg:#bff2cd; --green-tx:#0a8f3c;
+  --red:#f51f1f;   --red-bg:#ffcccc;   --red-tx:#d11414;
+  /* Жёлтый в светофоре ЗАПРЕЩЁН. Он есть только для severity AI-плашек. */
+  --warn:#f59300;  --warn-bg:#ffe6a0;  --warn-tx:#9a6500;
+
+  /* ---------- Акцент и служебное ---------- */
+  --blue:#3b6fe0;  --blue-bg:#eef3fe;  --act:#2b6cff;
+  --ai:#6f4ed8;    --ai-bg:#f2eefc;    --ai-tx:#5334c4;
+  --bench:#9aa0ac;
+
+  /* ---------- Расстояния: десять ступеней ---------- */
+  --s1:2px;  --s2:4px;  --s3:6px;  --s4:8px;  --s5:10px;
+  --s6:12px; --s7:14px; --s8:16px; --s9:20px; --s10:24px;
+
+  /* ---------- Типографика: семь ролей ---------- */
+  --fs-micro:9.5px; --fs-cap:10.5px; --fs-note:11.5px; --fs-body:12.5px;
+  --fs-lead:13.5px; --fs-head:16px;  --fs-hero:24px;
+
+  /* ---------- Радиусы ---------- */
+  --r1:3px; --r2:6px; --r3:9px; --r4:12px; --r5:16px; --r-pill:999px;
+  --radius:var(--r4);
+  --pad-cell:var(--s5);
+
+  /* ---------- Тени: ровно две ---------- */
+  --shadow:0 1px 3px rgba(20,28,45,.06),0 4px 16px rgba(20,28,45,.04);
+  --shadow-lg:0 8px 28px rgba(20,28,45,.16);
+
+  /* ---------- Геометрия ---------- */
+  --head-h:51px;
+  /* Зеркало STACK_GAP из draw.js. Один зазор задаётся двумя механизмами:
+     внутри SVG — константой, между двумя SVG — этим токеном. Расходиться
+     им нельзя, иначе одинаковый по смыслу воздух выглядит разным. */
+  --chart-gap:26px;
+  --shelf-w:270px;      /* ширина полки фильтров */
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:Inter,Helvetica,Arial,sans-serif;font-size:14px;
+  background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+.hidden{display:none!important}
+
+/* ===== Шапка приложения ===== */
+.apphead{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+.apphead-top{display:flex;align-items:center;gap:var(--s7);padding:var(--s6) var(--s10)}
+.logo{font-weight:800;font-size:18px;letter-spacing:-.2px;display:flex;align-items:center;gap:var(--s4)}
+.logo .mark{width:26px;height:26px;border-radius:var(--r3);
+  background:linear-gradient(135deg,#2b6cff,#6f4ed8);display:inline-block}
+.logo small{color:var(--muted);font-weight:600;font-size:12px}
+.apphead .spacer{flex:1}
+.apphead .period{font-size:12px;color:var(--ink2);font-weight:700;border:1px solid var(--line);
+  border-radius:var(--r3);padding:7px var(--s6);background:#fafbfc;white-space:nowrap}
+
+/* ===== Кнопки ===== */
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 14px;
+  font-weight:600;color:var(--ink2);cursor:pointer;font-size:13px;display:inline-flex;
+  align-items:center;gap:7px;transition:background .15s,border-color .15s}
+.btn:hover{background:#fafbfc;border-color:#d8dce4}
+.btn.primary{background:var(--act);border-color:var(--act);color:#fff}
+.btn.primary:hover{background:#1b5cf0}
+.btn.ghost{border-color:transparent;color:var(--blue)}
+.btn.ghost:hover{background:var(--blue-bg)}
+.btn.xs{padding:3px 6px;min-width:24px;font-size:11px}
+
+/* ===== Раскладка: полка фильтров слева, отчёт справа ===== */
+.layout{display:flex;min-height:calc(100vh - var(--head-h));align-items:stretch}
+.shelf{width:var(--shelf-w);flex:0 0 var(--shelf-w);background:#fff;
+  border-right:1px solid var(--line);position:sticky;top:var(--head-h);
+  height:calc(100vh - var(--head-h));display:flex;flex-direction:column}
+.shelf-h{display:flex;align-items:center;gap:var(--s4);padding:var(--s6) var(--s7) var(--s5);
+  border-bottom:1px solid var(--line2)}
+.shelf-h b{font-size:var(--fs-lead);font-weight:800;flex:1}
+.shelf-b{flex:1;min-height:0;overflow-y:auto;padding:var(--s7) var(--s7) var(--s9)}
+.shelf-f{border-top:1px solid var(--line2);padding:var(--s5) var(--s7);display:flex;gap:var(--s4);background:#fafbfc}
+.shelf-f .btn{flex:1;justify-content:center}
+.main-col{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.content{flex:1;padding:var(--s9) var(--s10) 44px;min-width:0}
+
+/* ===== Группа фильтров ===== */
+.fg{margin-bottom:var(--s8)}
+.fg>label,.fg .fg-h{display:flex;align-items:center;gap:var(--s3);font-size:var(--fs-cap);
+  text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;margin-bottom:var(--s3)}
+.fg .fg-h .sp{flex:1}
+.fg .fg-h button{border:0;background:transparent;padding:0;font:inherit;font-size:var(--fs-cap);
+  text-transform:none;letter-spacing:0;color:var(--blue);font-weight:700;cursor:pointer}
+.fg .fg-h button:hover{text-decoration:underline}
+.fhint{font-size:var(--fs-note);color:var(--muted2);font-weight:600;margin-top:var(--s3);line-height:1.4}
+.ctl{display:flex;flex-direction:column;gap:5px}
+.ctl>span,.ctl label{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:800}
+select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;border-radius:var(--r3);
+  padding:8px 30px 8px var(--s6);font-size:13px;color:var(--ink);font-weight:600;cursor:pointer;
+  width:100%;max-width:100%;text-overflow:ellipsis;font-family:inherit;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right var(--s5) center}
+.fg-row{display:flex;gap:var(--s4);margin-top:var(--s4)}
+.fg-row .ctl{flex:1;min-width:0}
+
+/* Сегментированный переключатель */
+.sub-tabs{display:inline-flex;gap:3px;background:#eef0f3;border-radius:var(--r4);padding:3px;margin:0}
+.sub-tab{border:0;background:transparent;padding:8px 15px;border-radius:var(--r3);font-weight:700;
+  font-size:var(--fs-body);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;
+  gap:7px;transition:background .15s,color .15s;white-space:nowrap}
+.sub-tab:hover{color:var(--ink2)}
+.sub-tab.active{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+.sub-tabs.wide{display:flex;width:100%}
+.sub-tabs.wide .sub-tab{flex:1;justify-content:center;padding:7px var(--s5)}
+
+/* Чекбоксы: дерево продуктов, сегменты, флаги */
+.opt-list{display:flex;flex-direction:column;gap:1px}
+.opt-i{display:flex;align-items:flex-start;gap:var(--s4);width:100%;text-align:left;border:0;
+  background:none;padding:5px var(--s3);border-radius:var(--r2);font:inherit;font-size:var(--fs-body);
+  font-weight:600;color:var(--ink2);cursor:pointer;line-height:1.35}
+.opt-i:hover{background:#f4f6fa}
+.opt-i .box{flex:none;width:15px;height:15px;margin-top:1px;border:1.5px solid #c9cdd6;
+  border-radius:var(--r1);background:#fff;position:relative}
+.opt-i.on .box{background:var(--act);border-color:var(--act)}
+.opt-i.on .box::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.opt-i.part .box{background:var(--act);border-color:var(--act)}
+.opt-i.part .box::after{content:'';position:absolute;left:2.5px;top:6px;width:8px;height:2px;background:#fff}
+.opt-i .nm{min-width:0;flex:1}
+.opt-i .cnt{flex:none;font-size:var(--fs-cap);font-weight:700;color:var(--muted2);
+  font-variant-numeric:tabular-nums}
+.opt-i .sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:600}
+.opt-i.kid{padding-left:var(--s9)}
+.tree-tw{border:0;background:none;padding:0;margin:0;width:16px;flex:none;color:var(--muted);
+  font-size:10px;cursor:pointer;line-height:1.35}
+.tree-tw:hover{color:var(--act)}
+.tree-row{display:flex;align-items:flex-start}
+.tree-row .opt-i{flex:1;min-width:0}
+
+/* Тумблер «только основной продукт» */
+.sw-row{display:flex;align-items:center;gap:var(--s5);cursor:pointer;padding:var(--s3) 0}
+.sw{flex:none;width:34px;height:19px;border-radius:var(--r-pill);background:#d8dce4;position:relative;
+  transition:background .16s}
+.sw::after{content:'';position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;
+  background:#fff;box-shadow:var(--shadow);transition:transform .16s}
+.sw-row.on .sw{background:var(--act)}
+.sw-row.on .sw::after{transform:translateX(15px)}
+.sw-row .sw-t{font-size:var(--fs-body);font-weight:700;color:var(--ink2)}
+
+/* ===== Заголовок отчёта ===== */
+.reporthead{background:#fff;border-bottom:1px solid var(--line);padding:var(--s7) var(--s10) var(--s8)}
+.rh-row{display:flex;align-items:flex-start;gap:var(--s8);flex-wrap:wrap}
+.rh-main{min-width:0;flex:1}
+.rh-crumbs{font-size:var(--fs-note);color:var(--muted);font-weight:600;margin-bottom:5px}
+.rh-title{font-size:23px;font-weight:800;letter-spacing:-.4px;margin:0 0 var(--s4);line-height:1.2}
+.rh-side{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+.chips{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:5px var(--s6);
+  font-size:12px;font-weight:700;background:var(--blue-bg);color:#2b5fd0;border:1px solid #dbe6fd}
+.chip .x{width:14px;height:14px;border-radius:50%;border:0;padding:0;cursor:pointer;
+  background:rgba(43,95,208,.14);color:#2b5fd0;font-size:11px;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center}
+.chip .x:hover{background:rgba(43,95,208,.28)}
+.chip.bench{background:#f4f5f7;color:var(--ink2);border-color:var(--line)}
+.chip.bench b{color:var(--ink)}
+
+/* Полоса режима: люди или аллокации. Стоит над отчётом, потому что меняет
+   не один блок, а смысл всех чисел сразу. */
+.moderow{display:flex;align-items:center;gap:var(--s6);flex-wrap:wrap;margin:0 0 var(--s8)}
+.moderow .lbl{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:800}
+.moderow .sp{flex:1}
+.hint-txt{font-size:var(--fs-note);color:var(--muted);font-weight:600;max-width:520px;text-align:right}
+.tabs{display:flex;gap:var(--s10);border-bottom:1px solid var(--line);margin:0 0 var(--s9)}
+.tab{border:0;background:none;padding:0 0 var(--s5);font:inherit;font-size:var(--fs-lead);
+  font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--ink2)}
+.tab.active{color:var(--ink);border-bottom-color:var(--act)}
+
+/* ===== Заголовок блока ===== */
+.block-h{display:flex;align-items:baseline;gap:var(--s6);margin:var(--s10) 0 var(--s5);flex-wrap:wrap}
+.block-h:first-child{margin-top:0}
+.block-name{font-size:var(--fs-head);font-weight:800;letter-spacing:-.2px}
+.block-hint{font-size:12px;color:var(--muted);font-weight:600}
+.block-h .sp{flex:1}
+
+/* ===== KPI ===== */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:var(--s7);
+  margin-bottom:var(--s8)}
+.kpis.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpis.n5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.kpi{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px}
+.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:700;margin-bottom:7px;
+  display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.kpi .k-val{font-size:var(--fs-hero);font-weight:800;letter-spacing:-.6px;line-height:1.1}
+.kpi .k-row{display:flex;align-items:center;gap:var(--s4);margin-top:var(--s3);flex-wrap:wrap}
+.kpi .k-row:empty{margin:0}
+.kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
+.kpi.lead-card{outline:2px solid var(--act);outline-offset:-2px}
+/* Одна высота строк во всей полосе: карточка — subgrid на четыре строки
+   родителя. Перенос заголовка в одной карточке добавляет строку ВСЕМ, зато
+   значения и подписи остаются на одном уровне. @supports обязателен: без
+   subgrid карточка должна остаться обычным блоком. */
+@supports (grid-template-rows:subgrid){
+  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
+}
+
+/* ===== Панели ===== */
+.panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.panel-h{padding:var(--s7) var(--s8);font-weight:700;font-size:14.5px;
+  border-bottom:1px solid var(--line2);display:flex;align-items:center;
+  justify-content:space-between;gap:var(--s6)}
+.panel-h .sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
+.panel-h .h-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.panel-h.with-tabs{flex-wrap:wrap;row-gap:var(--s5)}
+.panel-h .sub-tabs{margin:0 0 0 auto;flex:0 0 auto}
+.panel-h .sub-tabs .sub-tab{padding:6px var(--s6);font-size:12px}
+.panel-h select{width:auto;min-width:150px}
+.panel-b{padding:var(--s7) var(--s8)}
+/* Переключатели содержимого панели живут в её шапке или первой строкой тела —
+   там, где меняется то, что они переключают, а не в отдельной полосе над
+   панелью. Больше пяти вариантов — это select, а не сегментированный
+   переключатель. */
+.h-ctl{display:flex;gap:var(--s5);align-items:flex-end;flex-wrap:wrap;margin:0 0 var(--s7)}
+.panel-h .h-ctl{margin:0 0 0 auto}
+.h-ctl select{min-width:0;width:auto}
+.h-ctl .ctl{min-width:132px}
+/* align-items:start — панели стоят своей высотой. Тянуть их до высоты соседа
+   значит копить пустоту под таблицей: соседняя панель выше не потому, что
+   в ней больше смысла, а потому, что в ней больше строк. */
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s8);align-items:start}
+.grid-2-1{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:var(--s8);align-items:start}
+.stack{display:flex;flex-direction:column;gap:var(--s8)}
+
+/* ===== Дельты и метки ===== */
+.delta{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-note);font-weight:700;
+  padding:3px 7px;border-radius:var(--r2);white-space:nowrap;cursor:help}
+.delta .d-vs{font-weight:600;font-size:var(--fs-cap);opacity:.72}
+.delta.up{background:var(--green-bg);color:var(--green-tx)}
+.delta.down{background:var(--red-bg);color:var(--red-tx)}
+.delta.flat{background:#f0f1f3;color:var(--muted)}
+.delta.neu{background:#f0f1f3;color:var(--ink2)}
+.sig-chip{display:inline-block;font-size:11px;font-weight:700;padding:3px var(--s4);
+  border-radius:var(--r2);white-space:nowrap}
+.sig-chip.good{background:var(--green-bg);color:var(--green-tx)}
+.sig-chip.bad{background:var(--red-bg);color:var(--red-tx)}
+.sig-chip.warn,.sig-chip.neutral{background:#f3f4f6;color:var(--muted)}
+.kpi-tag{display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.3px;padding:2px var(--s3);border-radius:var(--r2);
+  background:var(--blue-bg);color:#2b5fd0}
+.info{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
+  border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);
+  font-family:inherit;font-size:11px;font-weight:700;line-height:1;letter-spacing:.2px;
+  cursor:help;flex:0 0 auto;user-select:none;transition:border-color .12s,color .12s,background .12s}
+.info:hover{border-color:var(--act);background:var(--blue-bg);color:var(--act)}
+
+/* ===== Кольцевой индикатор доли ===== */
+.ring{display:inline-flex;align-items:center;gap:var(--s5)}
+.ring svg{display:block}
+.ring .rv{font-size:var(--fs-lead);font-weight:800}
+
+/* ===== Таблицы ===== */
+.ptable{width:100%;border-collapse:collapse;font-size:var(--fs-body)}
+.ptable th{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.2px;color:var(--muted);
+  font-weight:700;text-align:right;padding:var(--s5) var(--s4);border-bottom:1px solid var(--line2);
+  white-space:nowrap}
+.ptable th.txt{text-align:left;padding-left:var(--pad-cell)}
+.ptable td{text-align:right;padding:var(--s4);font-weight:600;border-bottom:1px solid var(--line2);
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.ptable td.txt{text-align:left;font-weight:700;padding-left:var(--pad-cell);font-variant-numeric:normal}
+.ptable tr.urow{cursor:pointer}
+.ptable tr.urow:hover{background:#fafbfc}
+.ptable tr.urow.sel{background:#f5f8ff;box-shadow:inset 3px 0 0 var(--act)}
+.ptable tr.total td{border-top:2px solid var(--line);border-bottom:0;font-weight:800;background:#fafbfc}
+.unit-sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:600;margin-top:1px}
+.ptable.dense th{padding:var(--s4) var(--s3);font-size:var(--fs-cap)}
+.ptable.dense td{padding:7px var(--s3)}
+.ptable.dense td.lead{font-weight:800;color:var(--ink)}
+.ptable.dense td.vs,.ptable.dense th.vs{border-left:1px solid var(--line2)}
+.tbl-wrap{overflow:auto;max-width:100%}
+
+/* Каретка раскрытия — своя колонка, не приклеена к тексту. Строки без детей
+   получают распорку, тогда имена стоят на одной вертикали. */
+.caret-btn{display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;
+  margin-right:7px;border:0;background:transparent;border-radius:var(--r2);color:var(--ink2);
+  font-size:12px;cursor:pointer;transition:background .15s,color .15s;flex:0 0 auto}
+.caret-btn:hover{background:#e7edf7;color:var(--act)}
+.caret-btn[data-open]{color:var(--act)}
+.caret-spacer{display:inline-block;width:23px;margin-right:7px;flex:0 0 auto}
+.ptable td.txt .row-label{display:flex;align-items:flex-start}
+.ptable td.txt .row-body{min-width:0}
+.ptable tr.lvl2 td.txt{padding-left:var(--s10)}
+.ptable tr.lvl2 td.txt .row-body{font-weight:600;color:var(--ink2)}
+.ptable tr.lvl2 td{background:#fcfcfd}
+.ptable tr.lvl3 td.txt{padding-left:44px}
+.ptable tr.lvl3 td.txt .row-body{font-weight:600;color:var(--muted)}
+.ptable tr.lvl3 td{background:#fcfcfd}
+.hint-col{display:block;font-size:var(--fs-micro);font-weight:700;color:var(--muted2);
+  text-transform:none;letter-spacing:0;margin-top:1px}
+
+/* ---------- Трансформер ----------
+   Шапка в две строки: смысловые группы сверху, имена колонок под ними.
+   Заливка группы — гамма потоков, а НЕ светофор: приход не «хорошо»,
+   уход не «плохо», оценки у движения нет. */
+.pivot thead th{position:sticky;top:0;z-index:3;background:#fff}
+/* Липкая строка ИТОГО стоит ПОД шапкой, поэтому её смещение обязано равняться
+   высоте шапки. У таблицы с одной строкой заголовков это 26px, у трансформера
+   движения с группами колонок — вдвое больше. Пока смещение было одно на всех,
+   двухстрочный отступ у однострочной шапки прятал первую строку данных под
+   заголовком: в матрице пропадала самая крупная профессия. */
+.pivot tr.total.top td{position:sticky;top:26px;z-index:2;border-top:0;
+  border-bottom:2px solid var(--line);background:#fafbfc}
+.pivot.grp2 thead tr:last-child th{top:26px}
+.pivot.grp2 tr.total.top td{top:52px}
+.pivot thead tr.grp th{top:0;text-align:center;font-size:var(--fs-cap);letter-spacing:.3px;
+  color:var(--ink2);border-bottom:1px solid #fff}
+.pivot thead tr.grp th.g-cnt{background:#f2f3f6}
+.pivot thead tr.grp th.g-in{background:#e6f6f1}
+.pivot thead tr.grp th.g-out{background:#efe8f4}
+.pivot thead tr.grp th.g-alloc{background:#e7f2f7}
+.pivot thead th[rowspan]{text-align:left;vertical-align:bottom;background:#fff}
+.pivot td .zero{color:var(--muted2)}
+.pivot th.txt{min-width:168px}
+.pivot td.txt{max-width:260px;white-space:normal}
+.stable th,.mtx th{text-align:right}
+.stable th.txt,.mtx th.txt{text-align:left}
+
+/* ---------- Разбивка полосой в ячейке ----------
+   Кольца и горизонтальные бар-чарты для разбивок запрещены: доля читается
+   по числу точнее, чем по углу сектора. Полоса растёт от левого края —
+   у всех строк общий старт, поэтому длины сравниваются глазом. */
+.btable td.barcell,.btable th.bar-th{text-align:left;padding-left:var(--pad-cell)}
+/* Пояснение под именем строки переносится по словам. Общий запрет переносов
+   в таблицах касается ЧИСЛОВЫХ колонок — их ужимать нельзя. Здесь же
+   однострочное пояснение раздувало первую колонку, и полоса распределения
+   уезжала за край панели. */
+.btable td.txt{white-space:normal}
+.btable td.txt .unit-sub{white-space:normal}
+.cellbar{display:block;width:100%;height:13px;background:#f1f3f6;border-radius:var(--r1);
+  overflow:hidden;cursor:help}
+.cellbar i{display:block;height:100%;border-radius:var(--r1);background:var(--act);min-width:2px}
+.btable tr.total td{border-bottom:0}
+
+/* ===== Графики ===== */
+.svgchart{width:100%}
+.svgchart svg{display:block;max-width:100%}
+.svgchart.fill{height:100%}
+.chart-stack{display:flex;flex-direction:column;gap:var(--chart-gap)}
+.hit{fill:#2b6cff;fill-opacity:0;transition:fill-opacity .12s}
+.barg:hover .hit,.ptg:hover .hit{fill-opacity:.05}
+.barg:hover .bar{filter:brightness(1.06) saturate(1.25)}
+.ptg:hover .dot{r:5.2;stroke-width:2.6}
+.svgchart .dot,.svgchart .bar{transition:filter .12s,r .12s,stroke-width .12s}
+@keyframes tp-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes tp-fade{from{opacity:0}to{opacity:1}}
+@keyframes tp-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.svgchart.anim .bar{transform-box:fill-box;animation:tp-grow .48s cubic-bezier(.22,.61,.36,1) both}
+.svgchart.anim .bar.up{transform-origin:50% 100%}
+.svgchart.anim .bar.dn{transform-origin:50% 0}
+.svgchart.anim .ln{stroke-dasharray:1;stroke-dashoffset:1;
+  animation:tp-draw .76s cubic-bezier(.4,0,.2,1) both}
+.svgchart.anim .lnb{animation:tp-fade .5s ease-out both;animation-delay:.1s}
+.svgchart.anim .fade,.svgchart.anim .dot{animation:tp-fade .3s ease-out both}
+
+/* ===== Легенда, сноски, пустое состояние ===== */
+.legend{display:flex;gap:var(--s8);flex-wrap:wrap;align-items:center;margin:0 0 var(--s6);
+  font-size:12px;color:var(--ink2)}
+.legend .sw{display:inline-flex;align-items:center;gap:var(--s3);font-weight:600}
+.legend .dot{width:11px;height:11px;border-radius:var(--r1);display:inline-block}
+.legend .dot.hollow{background:#fff;border:1.5px dashed}
+.tbl-note{margin-top:var(--s4);font-size:var(--fs-note);color:var(--muted);font-weight:600;line-height:1.45}
+.tbl-note b{color:var(--ink2)}
+.note-inline{font-size:12px;color:var(--muted);background:#fff;border:1px dashed var(--line);
+  border-radius:var(--r3);padding:11px var(--s7);margin-bottom:var(--s7);line-height:1.5}
+.empty{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:38px var(--s10);
+  text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:var(--s3)}
+
+/* ===== Плашка проблемы ===== */
+/* Блок, а не flex-строка: внутри плашки живёт обычный текст с выделенными
+   числами, и каждый <b> в flex-раскладке становился отдельной колонкой —
+   фраза рассыпалась на куски. */
+.flag{display:block;border-radius:var(--r3);padding:11px var(--s7);font-size:var(--fs-body);
+  font-weight:600;line-height:1.5;background:var(--warn-bg);color:var(--warn-tx);margin-top:var(--s5)}
+.flag.ok{background:#fff;border:1px solid var(--line2);color:var(--muted)}
+.flag .ok-dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:var(--green);margin-right:var(--s3)}
+
+/* ===== Тултип: единственный механизм подсказок ===== */
+.tip{position:fixed;z-index:400;pointer-events:none;opacity:0;transform:translateY(3px);
+  transition:opacity .11s ease-out,transform .11s ease-out;background:#fff;
+  border:1px solid var(--line);border-radius:var(--r3);
+  box-shadow:0 10px 30px rgba(24,33,50,.18),0 2px 6px rgba(24,33,50,.08);
+  padding:9px var(--s6);font-size:12px;line-height:1.45;color:var(--ink2);font-weight:500;
+  min-width:148px;max-width:300px;white-space:normal}
+.tip.on{opacity:1;transform:none}
+.tip .t-h{display:block;font-size:var(--fs-cap);font-weight:700;letter-spacing:.2px;
+  color:var(--muted);margin-bottom:var(--s3)}
+.tip .t-x{display:block;font-size:12px;font-weight:500;color:var(--ink2);line-height:1.45}
+.tip .t-r{display:flex;align-items:center;gap:var(--s4);margin-top:var(--s2)}
+.tip .t-r:first-child{margin-top:0}
+.tip .t-m{display:inline-block;flex:0 0 auto;width:10px;height:9px;border-radius:var(--r1)}
+.tip .t-m.dash{height:0;width:14px;border-radius:0;border-top:2px dashed;background:none}
+.tip .t-l{font-size:var(--fs-note);font-weight:600;color:var(--muted);min-width:0}
+.tip .t-v{display:inline;margin:0 0 0 auto;font-size:var(--fs-lead);font-weight:700;color:var(--ink);
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.tip .t-r.bench .t-v{color:var(--muted);font-weight:600}
+.tip .t-n{display:block;font-size:var(--fs-note);font-weight:500;color:var(--muted);margin-top:5px}
+.tip .t-r+.t-n{margin-top:var(--s4);padding-top:7px;border-top:1px solid var(--line2)}
+.tip .t-n+.t-n{margin-top:2px;padding-top:0;border-top:0}
+.info,.cellbar,.delta{cursor:help}
+
+/* ===== Модалка ===== */
+.ovl{position:fixed;inset:0;background:rgba(20,28,45,.42);z-index:60;display:flex;
+  align-items:flex-start;justify-content:center;padding:56px 18px;overflow:auto}
+.modal{background:#fff;border-radius:var(--r5);box-shadow:var(--shadow-lg);width:100%;
+  max-width:660px;overflow:hidden}
+.modal-h{padding:18px var(--s10) var(--s7)}
+.modal-h h3{margin:0 0 5px;font-size:18px;font-weight:800;letter-spacing:-.3px}
+.modal-h p{margin:0;font-size:var(--fs-body);color:var(--muted);line-height:1.45}
+.modal-b{padding:var(--s8) var(--s10) var(--s4);border-top:1px solid var(--line2)}
+.modal-f{padding:var(--s7) var(--s10) 18px;border-top:1px solid var(--line2);display:flex;
+  align-items:center;gap:var(--s5);background:#fafbfc}
+.modal-f .sp{flex:1}
+.fgrp{margin-bottom:18px}
+.fgrp>label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:800;margin-bottom:var(--s4)}
+.fgrp .fhint{font-size:var(--fs-note);color:var(--muted2);font-weight:600;margin-top:7px;line-height:1.45}
+
+/* ===== Доступность ===== */
+:focus-visible{outline:3px solid rgba(43,108,255,.32);outline-offset:2px}
+button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--act)}
+.skip-link{position:fixed;left:12px;top:-60px;z-index:9999;background:var(--ink);color:#fff;
+  padding:10px var(--s7);border-radius:var(--r3);font-weight:700;text-decoration:none;transition:top .15s}
+.skip-link:focus{top:12px}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;
+  margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;border:0!important}
+.urow:focus{outline:3px solid rgba(43,108,255,.25);outline-offset:-3px;background:#f5f8ff}
+.shelf-toggle{display:none;border:1px solid var(--line);background:#fff;border-radius:var(--r3);
+  padding:8px var(--s5);font-weight:800;color:var(--ink);cursor:pointer}
+.shelf-scrim{display:none}
+@media (prefers-reduced-motion:reduce){
+  *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;
+    animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ===== Адаптив =====
+   Пороги поставлены по замерам: полка 270px плюс минимальная ширина отчёта
+   (примерно 860px под трансформер из десяти колонок) перестают помещаться
+   около 1180px — там полка и уезжает в выдвижную панель. */
+@media(max-width:1320px){
+  .kpis.n5{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid2,.grid-2-1{grid-template-columns:1fr}
+}
+@media(max-width:1180px){
+  .layout{display:block}
+  .shelf{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(86vw,320px);height:auto;
+    transform:translateX(-105%);transition:transform .22s ease;
+    box-shadow:8px 0 28px rgba(20,28,45,.18)}
+  .shelf.open{transform:translateX(0)}
+  .shelf-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}
+  .shelf-scrim.open{display:block}
+  .shelf-toggle{display:inline-flex}
+  .apphead{position:static}
+  .content{padding:var(--s8) var(--s9) 40px}
+  .reporthead{padding:var(--s7) var(--s9)}
+}
+@media(max-width:900px){
+  .kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)}
+  /* На узком экране таблица прокручивается, а не переносится: ужать числовые
+     колонки нельзя — между значениями останется меньше воздуха, чем внутри них. */
+  .tbl-wrap{overflow-x:auto}
+  .ptable.pivot{min-width:860px}
+  .panel-h{flex-wrap:wrap}
+  .panel-h .sub-tabs{margin-left:0}
+}
+@media(max-width:640px){
+  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}
+  .sub-tabs{display:flex;overflow-x:auto;max-width:100%}
+  .panel-h{padding:var(--s6)}.panel-b{padding:var(--s5)}
+  .content{padding:var(--s6)}
+  .rh-title{font-size:20px}
+  .tabs{gap:var(--s7)}
+}
+
+/* ===== Печать: не отдельная вёрстка, а снятие интерактива ===== */
+@media print{
+  body{background:#fff}
+  .apphead,.shelf,.shelf-scrim,.sub-tabs,.btn,.tip,.tabs{display:none!important}
+  .layout{display:block}
+  .content{padding:0}
+  .panel,.kpi{box-shadow:none;break-inside:avoid}
+  .chips .x{display:none}
+}
+
+</style>
+</head>
+<body>
+<a class="skip-link" href="#view">Перейти к отчёту</a>
+<div class="shelf-scrim" id="shelfScrim"></div>
+
+<!-- ===== Шапка приложения =====
+     Над телом отчёта живёт только одна полоса. Всё остальное — фильтры,
+     контекст, точки входа в справку — внутри тела: во встраиваемом
+     инструменте выше тела ничего своего не сверстать. -->
+<header class="apphead">
+  <div class="apphead-top">
+    <button class="shelf-toggle" data-shelf="1" aria-label="Открыть фильтры" aria-expanded="false">☰</button>
+    <div class="logo"><span class="mark"></span>Product Executive&nbsp;<small>каталог продуктов · макет</small></div>
+    <div class="spacer"></div>
+    <span class="period">Данные синтетические</span>
+  </div>
+</header>
+
+<!-- ===== Полка фильтров слева, отчёт справа =====
+     Полка стоит слева и остаётся на экране: этот отчёт читают, крутя
+     страницу вниз, и фильтр обязан быть под рукой на любом блоке. -->
+<div class="layout">
+  <aside class="shelf" id="shelf" aria-label="Фильтры отчёта">
+    <div class="shelf-h"><b>Фильтры</b>
+      <button class="btn xs" data-reset="all">Сбросить всё</button></div>
+    <div class="shelf-b" id="shelfBody"></div>
+    <div class="shelf-f">
+      <button class="btn" data-link="1">Скопировать ссылку</button>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <section class="reporthead" id="reporthead"></section>
+    <main class="content" id="view" tabindex="-1"></main>
+  </div>
+</div>
+
+<!-- ===== Как читать отчёт =====
+     Онбординг, а не документация: четыре правила, каждое одной фразой
+     и одним абзацем пояснения. -->
+<div class="ovl hidden" id="helpOvl">
+  <div class="modal">
+    <div class="modal-h">
+      <h3>Как читать отчёт</h3>
+      <p>Четыре правила, которые делают весь отчёт понятным.</p>
+    </div>
+    <div class="modal-b">
+      <div class="fgrp">
+        <label>Люди и аллокации — разные числа, и оба верные</label>
+        <div class="fhint">Аллокация — процент занятости человека на продукте, поэтому один человек
+          живёт сразу на нескольких продуктах. В режиме «Люди» он считается один раз, в режиме
+          «Аллокации» — своими процентами. Переключатель наверху меняет смысл всех чисел разом.</div>
+      </div>
+      <div class="fgrp">
+        <label>Сумма по продуктам больше итога — так и должно быть</label>
+        <div class="fhint">В разрезе по продуктам человек попадает в столько строк, на сколько
+          продуктов он аллоцирован, а в итоге считается один раз. По этой же причине переходы между
+          продуктами внутри выбранного среза видны в строках и схлопываются в итоге: портфель они
+          не меняют.</div>
+      </div>
+      <div class="fgrp">
+        <label>Четыре вида движения, а не два</label>
+        <div class="fhint">Найм на продукт — человек новый и в компании, и на продукте.
+          Вход на продукт — уже работал, но стоял на другом. Выход с продукта — остался в компании.
+          Отток — ушёл из компании. В режиме аллокаций к ним добавляется пятое движение:
+          изменение процента у тех, кто с продукта не уходил.</div>
+      </div>
+      <div class="fgrp">
+        <label>Цвет здесь почти всегда категория, а не оценка</label>
+        <div class="fhint">Гамма движения — бирюзовый приход, сиреневый уход — это виды потока,
+          а не «хорошо» и «плохо»: рост найма сам по себе не достижение. Зелёный и красный
+          появляются только там, где оценка действительно есть: верификация аллокаций,
+          укомплектованность квот и здоровье аллокаций.</div>
+      </div>
+    </div>
+    <div class="modal-f"><div class="sp"></div>
+      <button class="btn primary" data-helpclose="1">Понятно</button></div>
+  </div>
+</div>
+
+<!-- Порядок жёсткий: каждый следующий файл читает неймспейс предыдущего.
+     Внешних библиотек нет — всё рисуется на голом SVG в draw.js. -->
+<script>
+/* ============================================================================
+   data.js — модель данных Product Executive Report. Неймспейс: window.PXDATA.
+   Загружается первым: draw.js, ui.js, screens/* и app.js читают только его.
+
+   Почему модель именно такая
+   --------------------------
+   Продуктовая структура отличается от управленческой одной сущностью —
+   АЛЛОКАЦИЕЙ. Аллокация это процент занятости человека на продукте, поэтому
+   один человек одновременно живёт на нескольких продуктах. Из этого следует
+   всё остальное:
+
+   1. Данные хранятся не «численностью по продукту», а ПАРАМИ «человек ×
+      продукт» с помесячным процентом. Любая метрика отчёта — свёртка этих пар,
+      и переключатель «Люди / Аллокации» это выбор того, чем сворачивать:
+      уникальными людьми или суммой процентов.
+   2. В режиме «Люди» человек считается ОДИН РАЗ внутри группы. Поэтому сумма
+      по продуктам больше числа уникальных сотрудников — это не ошибка, это и
+      есть аллокация, и отчёт говорит об этом сноской, а не прячет.
+   3. Движение в режиме «Люди» считается по присутствию человека в срезе, а не
+      по парам: иначе человек, вошедший сразу на два продукта, дал бы «+2»
+      к численности, которая выросла на одного.
+   4. Изменение аллокации существует только в режиме «Аллокации». В людях его
+      нет по определению: человек не может прийти на 30% себя.
+
+   Данные СИНТЕТИЧЕСКИЕ и генерируются детерминированно (seed в mulberry32):
+   отчёт — макет, но числа обязаны сходиться между собой. Водопад сходится
+   с динамикой, разбивки сходятся с итогом, сумма движений даёт прирост.
+   Это проверяет smoke.js.
+   ========================================================================== */
+(function(){
+'use strict';
+
+/* ---------- Детерминированный генератор ----------
+   Seed фиксирован: отчёт, который при каждой перезагрузке показывает другие
+   числа, нельзя обсуждать на встрече. */
+function mulberry32(a){
+  return function(){
+    a|=0;a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return((t^t>>>14)>>>0)/4294967296;
+  };
+}
+const rnd=mulberry32(20260808);
+function ri(a,b){return a+Math.floor(rnd()*(b-a+1))}
+function chance(p){return rnd()<p}
+function wpick(pairs){
+  let s=0;for(let i=0;i<pairs.length;i++)s+=pairs[i][1];
+  let r=rnd()*s;
+  for(let i=0;i<pairs.length;i++){r-=pairs[i][1];if(r<=0)return pairs[i][0]}
+  return pairs[pairs.length-1][0];
+}
+
+/* ============================================================================
+   1. Время
+   ========================================================================== */
+const MON=['янв','февр','март','апр','май','июнь','июль','авг','сент','окт','нояб','дек'];
+const MON_FULL=['январь','февраль','март','апрель','май','июнь','июль','август',
+                'сентябрь','октябрь','ноябрь','декабрь'];
+const ROMAN=['I','II','III','IV'];
+const START_Y=2024, START_M=6;      /* июль 2024 */
+const N=24;                          /* два полных года помесячно */
+
+const MONTHS=[];
+for(let i=0;i<N;i++){
+  const t=START_M+i, y=START_Y+Math.floor(t/12), m=t%12;
+  MONTHS.push({i,m,y,label:MON[m],full:MON_FULL[m],isYearStart:m===0,q:Math.floor(m/3)});
+}
+function mLabel(i){return MONTHS[i].label+' '+MONTHS[i].y}
+function mLabelFull(i){return MONTHS[i].full+' '+MONTHS[i].y}
+
+/* ---------- Гранулярность ----------
+   Ведро — это отрезок месяцев. У запасов (численность, аллокации, квоты)
+   берётся значение ПОСЛЕДНЕГО месяца ведра, у потоков (найм, отток) — сумма
+   по месяцам. Смешивать нельзя: сумма численностей за квартал — это не
+   численность за квартал, а бессмыслица утроенного размера. */
+const GRAN=[
+  {key:'m',name:'Месяц'},
+  {key:'q',name:'Квартал'},
+  {key:'y',name:'Год'}
+];
+function buckets(i0,i1,gran){
+  const out=[];
+  let cur=null;
+  for(let i=i0;i<=i1;i++){
+    const M=MONTHS[i];
+    const id=gran==='m'?('m'+i):gran==='q'?(M.y+'q'+M.q):('y'+M.y);
+    if(!cur||cur.id!==id){
+      cur={id,from:i,to:i,
+        label:gran==='m'?M.label:gran==='q'?(ROMAN[M.q]+' кв.'):String(M.y),
+        year:M.y,
+        isYearStart:gran==='m'?M.isYearStart:(gran==='q'?M.q===0:true)};
+      out.push(cur);
+    }else cur.to=i;
+  }
+  /* Крайние год и квартал в окне почти всегда неполные. Молчать об этом
+     нельзя: «2024» из шести месяцев рядом с полным «2025» читается как провал
+     найма, хотя это просто короче отрезок. */
+  out.forEach(b=>{
+    const full=gran==='m'?1:gran==='q'?3:12;
+    b.months=b.to-b.from+1;
+    b.partial=b.months<full;
+  });
+  return out;
+}
+
+/* ============================================================================
+   2. Продуктовая структура
+   ========================================================================== */
+const TREE=[
+  ['d1','Каталог и поиск',      ['Каталог товаров','Поиск и выдача','Рекомендации']],
+  ['d2','Платежи и биллинг',    ['Платежи','Биллинг','Антифрод']],
+  ['d3','Логистика',            ['Доставка','Складская логистика','Маршрутизация']],
+  ['d4','Клиентский опыт',      ['Мобильное приложение','Веб-витрина','Поддержка']],
+  ['d5','Данные и платформа',   ['Дата-платформа','ML-платформа','Инфраструктура']],
+  ['d6','Маркетинг и рост',     ['Growth-инструменты','CRM и коммуникации','Маркетинговая аналитика']]
+];
+const DOMAINS=[], PRODUCTS=[], PROD=Object.create(null), DOM=Object.create(null);
+TREE.forEach(([did,dname,leaves])=>{
+  const d={id:did,name:dname,kids:[]};
+  DOMAINS.push(d);DOM[did]=d;
+  leaves.forEach((nm,j)=>{
+    const p={id:did+'_'+(j+1),name:nm,dom:did,domName:dname,
+      verifiedFrom:null};
+    PRODUCTS.push(p);PROD[p.id]=p;d.kids.push(p.id);
+  });
+});
+const NPROD=PRODUCTS.length;
+const PIDX=Object.create(null);
+PRODUCTS.forEach((p,i)=>{PIDX[p.id]=i});
+
+/* Верификация аллокаций — не свойство отчёта, а факт: владелец продукта
+   подтвердил состав команды. Доля неподтверждённых задана числом, а не
+   монеткой на каждый продукт: при восемнадцати бросках монетка легко даёт
+   один-два промаха, и целая метрика отчёта остаётся без содержания.
+   Часть продуктов подтверждается в середине окна — отсюда динамика доли. */
+const UNVERIFIED=5;
+(function(){
+  const idx=PRODUCTS.map((p,i)=>i);
+  for(let i=idx.length-1;i>0;i--){const j=ri(0,i);const t=idx[i];idx[i]=idx[j];idx[j]=t}
+  idx.slice(UNVERIFIED).forEach(i=>{PRODUCTS[i].verifiedFrom=ri(0,N-2)});
+})();
+
+/* ============================================================================
+   3. Атрибуты людей
+   ========================================================================== */
+const PROFS=['Разработка','Аналитика','Продукт','Дизайн','Тестирование','DevOps','Data Science','Менеджмент'];
+const PROF_W=[[0,34],[1,14],[2,10],[3,7],[4,12],[5,7],[6,8],[7,8]];
+const GRADES=['Junior','Middle','Senior','Lead'];
+const GRADE_W=[[0,17],[1,42],[2,30],[3,11]];
+const LOCS=['Москва','Санкт-Петербург','Екатеринбург','Новосибирск','Удалённо'];
+const LOC_W=[[0,44],[1,20],[2,11],[3,9],[4,16]];
+const EMPS=['Штат','Аутстафф'];
+const EMP_W=[[0,86],[1,14]];
+
+/* ============================================================================
+   4. Сегменты аллокации и здоровье
+   ========================================================================== */
+const SEGMENTS=[
+  {key:'direct', name:'Прямые ресурсы', hint:'аллокация больше 50%'},
+  {key:'shared', name:'Шаренные',       hint:'аллокация ровно 50/50'},
+  {key:'partial',name:'Частичные',      hint:'аллокация от 30 до 50%'},
+  {key:'part',   name:'Парт-таймеры',   hint:'аллокация меньше 30%'}
+];
+const SEG_KEYS=SEGMENTS.map(s=>s.key);
+/* Границы заданы так, что интервалы не пересекаются и покрывают всю шкалу:
+   ровно 50 — это «шаренный», а не «частичный». */
+function segOf(pct){return pct>50?'direct':pct===50?'shared':pct>=30?'partial':'part'}
+const SEG_BY_KEY=Object.create(null);SEGMENTS.forEach(s=>{SEG_BY_KEY[s.key]=s});
+
+const HEALTH=[
+  {key:'norm', name:'Аллокация 100%',        hint:'сумма аллокаций по всем продуктам ровно 100%', bad:false},
+  {key:'over', name:'Больше 100%',           hint:'человек аллоцирован сверх ставки — данные требуют проверки', bad:true},
+  {key:'under',name:'От 30 до 99%',          hint:'сумма аллокаций меньше ставки', bad:false},
+  {key:'low',  name:'Меньше 30%',            hint:'человек почти не аллоцирован ни на один продукт', bad:true},
+  {key:'zero', name:'Аллокация 0%',          hint:'человек есть в структуре, но не аллоцирован ни на один продукт', bad:true}
+];
+function healthOf(sum){
+  if(sum<=0)return 'zero';
+  if(sum>100.001)return 'over';
+  if(sum>99.999)return 'norm';
+  if(sum>=30)return 'under';
+  return 'low';
+}
+
+/* ============================================================================
+   5. Люди и аллокации
+   ------------------------------------------------------------------------
+   Симуляция помесячная: человек приходит, набирает продукты, меняет доли,
+   уходит с продукта или из компании. Именно так рождаются четыре разных
+   события движения, которые в управленческом отчёте неразличимы:
+     найм на продукт   — человек новый и в компании, и на продукте;
+     вход на продукт   — человек уже работал, но на этом продукте не стоял;
+     выход с продукта  — человек остался в компании, аллокация обнулилась;
+     отток с продукта  — человек ушёл из компании.
+   ========================================================================== */
+const NPEOPLE=760;
+const PEOPLE=[], ALLOC=[];
+/* home — «организационный дом» человека: продукт, к которому он относится
+   структурно. Нужен ровно для одного случая — здоровья аллокаций: человек
+   с нулевой аллокацией не попадает ни на один продукт, и без якоря его
+   не показать вовсе. */
+for(let id=0;id<NPEOPLE;id++){
+  const from=chance(0.55)?-1:ri(0,N-1);
+  let to=null;
+  if(chance(0.30)){
+    const t=(from<0?ri(0,N-1):from+ri(3,18));
+    if(t<N)to=t;
+  }
+  PEOPLE.push({id,
+    prof:PROFS[wpick(PROF_W)],grade:GRADES[wpick(GRADE_W)],
+    loc:LOCS[wpick(LOC_W)],emp:EMPS[wpick(EMP_W)],
+    from,to,home:PRODUCTS[ri(0,NPROD-1)].id});
+}
+/* Профиль занятости человека: сколько продуктов и с какими долями.
+   Раскладки подобраны так, чтобы все четыре сегмента и все пять состояний
+   здоровья встречались в заметных количествах — иначе разбивку не на чем
+   показывать. */
+const SHAPES=[
+  [[100],46],                    /* один продукт целиком */
+  [[70,30],11],
+  [[50,50],10],                  /* шаренный ресурс */
+  [[60,40],8],
+  [[80,20],7],
+  [[50,30,20],5],
+  [[40,30,30],3],
+  [[90],4],                      /* недоаллокация */
+  [[60],3],
+  [[70,50],2],                   /* переаллокация: 120% */
+  [[100,30],2],                  /* переаллокация: 130% */
+  [[20],2],                      /* меньше 30% */
+  [[],3]                         /* без аллокации вовсе */
+];
+function shape(){return wpick(SHAPES).slice()}
+
+function pickProducts(n,homeIdx){
+  const out=[homeIdx];
+  while(out.length<n){
+    const k=ri(0,NPROD-1);
+    if(out.indexOf(k)<0)out.push(k);
+  }
+  return out;
+}
+/* Пары «человек × продукт». pct — Int16Array на все 24 месяца: ноль означает
+   «на продукте не стоит», и это же значение отвечает за периоды до найма
+   и после увольнения. Отдельного признака активности не нужно. */
+const PAIR=Object.create(null);          /* pid|prodIdx -> запись */
+function pairOf(pid,prodIdx){
+  const k=pid+'|'+prodIdx;
+  let a=PAIR[k];
+  if(!a){a={pid,prod:prodIdx,pct:new Int16Array(N)};PAIR[k]=a;ALLOC.push(a)}
+  return a;
+}
+const BENCH_FOREVER=9999;
+PEOPLE.forEach(p=>{
+  const homeIdx=PIDX[p.home];
+  const start=Math.max(0,p.from<0?0:p.from);
+  const stop=p.to==null?N-1:p.to;
+  let cur=shape();
+  let prods=cur.length?pickProducts(cur.length,homeIdx):[];
+  /* «Скамейка» — человек есть в компании, но не аллоцирован ни на один
+     продукт. Без неё вход и выход на продукт схлопываются в ноль, когда
+     выбраны все продукты: перетоки между продуктами внутри портфеля друг
+     друга гасят, и единственное настоящее движение границы портфеля — это
+     как раз приход со скамейки и уход на неё. */
+  let bench=cur.length?0:(chance(0.45)?BENCH_FOREVER:ri(2,14));
+  for(let m=start;m<=stop;m++){
+    if(bench>0){
+      bench--;
+      if(bench===0){
+        const s2=shape();
+        if(s2.length){cur=s2;prods=pickProducts(s2.length,homeIdx)}
+        else bench=ri(2,6);
+      }
+      continue;                                           /* месяц без аллокации */
+    }
+    /* Раз в несколько месяцев состав или доли меняются. Вероятности низкие:
+       перетасовка каждый месяц дала бы движение, которого в жизни не бывает. */
+    if(m>start){
+      if(chance(0.008)){bench=ri(1,5);prods=[];cur=[];continue}   /* уход на скамейку */
+      if(chance(0.030)&&cur.length<3){                    /* вход на новый продукт */
+        const free=[];
+        for(let k=0;k<NPROD;k++)if(prods.indexOf(k)<0)free.push(k);
+        const add=free[ri(0,free.length-1)];
+        const take=cur.length===1?ri(20,40):ri(10,30);
+        prods.push(add);cur.push(take);
+        cur[0]=Math.max(10,cur[0]-take);
+      }else if(chance(0.024)&&cur.length>1){              /* выход с продукта */
+        const k=ri(1,cur.length-1);
+        const back=cur[k];
+        prods.splice(k,1);cur.splice(k,1);
+        cur[0]=Math.min(100,cur[0]+back);
+      }else if(chance(0.050)){
+        /* Чаще всего доля не появляется из воздуха, а ПЕРЕЕЗЖАЕТ с продукта на
+           продукт: сумма по человеку остаётся прежней. Пока любое изменение
+           меняло сумму, здоровые «ровно 100%» вымывались за полгода, и отчёт
+           показывал недоаллокацию там, где её нет. */
+        if(cur.length>1&&chance(0.55)){
+          const i=ri(0,cur.length-1);
+          let j=ri(0,cur.length-1);if(j===i)j=(i+1)%cur.length;
+          const d=Math.min(cur[i]-10,ri(5,20));
+          if(d>0){cur[i]-=d;cur[j]+=d}
+        }else{
+          /* Изменение самой загрузки человека. Процесс возвращающийся: у кого
+             недобор — догружают, у кого перебор — снимают. Без этого за год
+             все расползались от ста процентов, и здоровье аллокаций
+             показывало недоаллокацию там, где её нет. */
+          let sum=0;for(let z=0;z<cur.length;z++)sum+=cur[z];
+          const k=ri(0,cur.length-1);
+          let d;
+          if(sum>100)d=-ri(5,20);
+          else if(sum<100)d=ri(5,25);
+          else d=chance(0.5)?ri(5,20):-ri(5,20);
+          cur[k]=Math.max(10,Math.min(100,cur[k]+d));
+        }
+      }
+    }
+    for(let k=0;k<prods.length;k++)pairOf(p.id,prods[k]).pct[m]=cur[k];
+  }
+});
+
+/* ---------- Производные помесячные срезы ----------
+   sumPct[pid][m] — суммарная аллокация человека: на ней стоит здоровье.
+   mainProd[pid][m] — основной продукт: аллокация строго больше 50%, то есть
+   продукт, на котором человек проводит больше половины себя. Ровно этот
+   признак делает возможной аналитику «один человек — один продукт», без
+   которой HR-метрики (текучесть, оценки ревью) считать нельзя: делить
+   человека между продуктами по процентам они не умеют. */
+const sumPct=[], mainProd=[];
+for(let i=0;i<NPEOPLE;i++){sumPct.push(new Int16Array(N));mainProd.push(new Int16Array(N).fill(-1))}
+ALLOC.forEach(a=>{
+  const s=sumPct[a.pid], mp=mainProd[a.pid];
+  for(let m=0;m<N;m++){
+    const v=a.pct[m];
+    if(!v)continue;
+    s[m]+=v;
+    if(v>50)mp[m]=a.prod;
+  }
+});
+
+/* ---------- Квоты ----------
+   Квота считается на продукте, поэтому открытые квоты живут рядом с людьми
+   и в моменте, и в динамике. Закрытая квота — это нанятый человек, поэтому
+   отдельного ряда «закрытые» в данных нет: закрытые — это факт численности.
+   Здесь хранится только ОТКРЫТАЯ часть. */
+const OPENQ=[];
+PRODUCTS.forEach((p,pi)=>{
+  const arr=new Int16Array(N);
+  let v=ri(0,5);
+  for(let m=0;m<N;m++){
+    v=Math.max(0,v+(chance(0.30)?ri(-2,2):0));
+    if(chance(0.07))v+=ri(1,3);
+    arr[m]=Math.min(11,v);
+  }
+  OPENQ.push(arr);
+});
+/* Квота в аллокациях — та же квота, но в FTE. Открывают их обычно на целую
+   ставку, поэтому 1 квота = 1,0 FTE; дробные квоты встречаются, но редко. */
+function openQuota(prodIdx,m){return OPENQ[prodIdx][m]}
+
+/* ============================================================================
+   6. Форматирование чисел
+   ========================================================================== */
+const THIN=' ';                 /* тонкий пробел для разрядов */
+const MINUS='−';                /* типографский минус: дефис короче и ниже */
+function group(s){return s.replace(/\B(?=(\d{3})+(?!\d))/g,THIN)}
+function fmtInt(v){
+  const n=Math.round(v);
+  return (n<0?MINUS:'')+group(String(Math.abs(n)));
+}
+function fmtFte(v){
+  const a=Math.abs(v);
+  return (v<0?MINUS:'')+group(a.toFixed(1).split('.')[0])+','+a.toFixed(1).split('.')[1];
+}
+/* Единственная точка, где решается, целое перед нами или доля ставки.
+   Пока форматтеров было два, соседние ячейки одной строки писали одно и то же
+   число по-разному. */
+function fmtVal(mode,v){return mode==='fte'?fmtFte(v):fmtInt(v)}
+function fmtDelta(mode,v){
+  if(Math.abs(v)<(mode==='fte'?0.05:0.5))return '0';
+  return (v>0?'+':'')+fmtVal(mode,v);
+}
+function fmtPct(v,d){
+  if(v==null)return '—';
+  const s=(+v).toFixed(d==null?1:d).replace('.',',');
+  return (v<0?'':'')+s+'%';
+}
+function fmtPp(v){
+  if(Math.abs(v)<0.05)return '0'+THIN+'п.п.';
+  return (v>0?'+':MINUS)+Math.abs(v).toFixed(1).replace('.',',')+THIN+'п.п.';
+}
+
+/* ============================================================================
+   7. Разрезы
+   ------------------------------------------------------------------------
+   Каждый разрез умеет две вещи: назвать группу пары и назвать группу
+   человека. Разделение принципиальное: продукт и сегмент — свойство ПАРЫ
+   (человек на разных продуктах стоит в разных сегментах), профессия и грейд —
+   свойство ЧЕЛОВЕКА.
+   ========================================================================== */
+const DIMS=[
+  {key:'product',name:'Продукт',    pair:true,  of:(a,p,m)=>PRODUCTS[a.prod].name,  sub:a=>PRODUCTS[a.prod].domName},
+  {key:'domain', name:'Домен',      pair:true,  of:(a,p,m)=>PRODUCTS[a.prod].domName},
+  {key:'seg',    name:'Сегмент аллокации',pair:true,of:(a,p,m)=>SEG_BY_KEY[segOf(a.pct[m])].name},
+  {key:'prof',   name:'Профессия',  pair:false, of:(a,p,m)=>p.prof},
+  {key:'grade',  name:'Грейд',      pair:false, of:(a,p,m)=>p.grade},
+  {key:'loc',    name:'Локация',    pair:false, of:(a,p,m)=>p.loc},
+  {key:'emp',    name:'Тип занятости',pair:false,of:(a,p,m)=>p.emp}
+];
+const DIM_BY_KEY=Object.create(null);DIMS.forEach(d=>{DIM_BY_KEY[d.key]=d});
+/* Порядок строк в таблицах — не по алфавиту и не по величине: у грейдов
+   и сегментов он смысловой, и переставлять его сортировкой нельзя. */
+const DIM_ORDER={
+  grade:GRADES,
+  seg:SEGMENTS.map(s=>s.name),
+  emp:EMPS,
+  domain:DOMAINS.map(d=>d.name),
+  product:PRODUCTS.map(p=>p.name)
+};
+
+/* ============================================================================
+   8. Запрос
+   ------------------------------------------------------------------------
+   Одна функция строит «единицы наблюдения»: Map<группа, Map<человек, ряд>>.
+   Ряд — Float32Array по месяцам окна плюс один месяц слева (нужен, чтобы
+   отличить вход на продукт от того, что человек стоял там и раньше).
+
+   В людях ряд хранит 1/0 присутствия человека в группе, в аллокациях — сумму
+   процентов. Дальше все метрики считаются одинаково, независимо от режима:
+   именно поэтому переключатель «Люди / Аллокации» не заводит второй кодовый
+   путь и не может разъехаться сам с собой.
+   ========================================================================== */
+function inScope(st,prodIdx){return st.prodSet[prodIdx]===1}
+function personPass(st,p){
+  return (!st.prof||st.prof===p.prof)&&(!st.grade||st.grade===p.grade)&&
+         (!st.loc||st.loc===p.loc)&&(!st.emp||st.emp===p.emp);
+}
+/* Активность пары в месяце: продукт в срезе, человек проходит фильтры,
+   сегмент выбран, и — если включён режим «только основной продукт» — этот
+   продукт для человека основной. */
+function active(st,a,p,m){
+  const v=a.pct[m];
+  if(!v)return 0;
+  if(st.mainOnly&&mainProd[a.pid][m]!==a.prod)return 0;
+  if(st.segs&&st.segs.length&&st.segs.indexOf(segOf(v))<0)return 0;
+  return v;
+}
+/* Ключ строки. Для разрезов-свойств пары читается месяц (сегмент меняется
+   вместе с процентом), для свойств человека месяц не нужен. */
+function keyer(dimKey){
+  const d=DIM_BY_KEY[dimKey];
+  if(!d)return null;
+  return function(a,p,m){return d.of(a,p,m)};
+}
+function units(st,keyFn){
+  const mode=st.mode, i0=st.i0, i1=st.i1;
+  const M=i1-i0+2;                    /* +1 месяц слева под «было / стало» */
+  const base=i0-1;
+  const out=new Map();
+  for(let ai=0;ai<ALLOC.length;ai++){
+    const a=ALLOC[ai], p=PEOPLE[a.pid];
+    if(!inScope(st,a.prod))continue;
+    if(!personPass(st,p))continue;
+    for(let j=0;j<M;j++){
+      const m=base+j;
+      if(m<0||m>=N)continue;
+      const v=active(st,a,p,m);
+      if(!v)continue;
+      const g=keyFn?keyFn(a,p,m):'*';
+      let byP=out.get(g);
+      if(!byP){byP=new Map();out.set(g,byP)}
+      let row=byP.get(a.pid);
+      if(!row){row=new Float32Array(M);byP.set(a.pid,row)}
+      row[j]+=mode==='fte'?v/100:1;
+    }
+  }
+  /* В людях ряд обязан быть 0/1: человек, стоящий на двух продуктах одной
+     группы, всё равно один человек. Приводим здесь, а не в цикле, — иначе
+     пришлось бы помнить, была ли уже засчитана пара. */
+  if(mode!=='fte'){
+    out.forEach(byP=>byP.forEach(row=>{
+      for(let j=0;j<row.length;j++)if(row[j]>1)row[j]=1;
+    }));
+  }
+  return out;
+}
+
+/* ---------- Метрики группы ----------
+   Из ряда «было / стало» получаются все девять колонок трансформера.
+   Правило одно: если значение появилось — это приход, если исчезло — уход,
+   а разница между двумя ненулевыми это изменение аллокации. Что именно
+   считать наймом, а что входом, решает дата появления человека в компании. */
+function metricsOf(byP,st){
+  const i0=st.i0,i1=st.i1,base=i0-1,M=i1-i0+2, mode=st.mode;
+  const res={begin:0,end:0,hire:0,inp:0,out:0,attr:0,up:0,dn:0,
+             mHire:[],mIn:[],mOut:[],mAttr:[],mUp:[],mDn:[],stock:[]};
+  for(let j=0;j<M;j++){res.mHire[j]=0;res.mIn[j]=0;res.mOut[j]=0;res.mAttr[j]=0;res.mUp[j]=0;res.mDn[j]=0;res.stock[j]=0}
+  byP.forEach((row,pid)=>{
+    const p=PEOPLE[pid];
+    for(let j=0;j<M;j++){
+      const m=base+j, cur=row[j], prev=j>0?row[j-1]:0;
+      res.stock[j]+=cur;
+      if(j===0)continue;
+      if(prev<=0&&cur>0){
+        if(p.from===m)res.mHire[j]+=cur;else res.mIn[j]+=cur;
+      }else if(prev>0&&cur<=0){
+        if(p.to===m-1)res.mAttr[j]+=prev;else res.mOut[j]+=prev;
+      }else if(prev>0&&cur>0&&Math.abs(cur-prev)>1e-6){
+        if(cur>prev)res.mUp[j]+=cur-prev;else res.mDn[j]+=prev-cur;
+      }
+    }
+  });
+  res.begin=res.stock[0];
+  res.end=res.stock[M-1];
+  for(let j=1;j<M;j++){
+    res.hire+=res.mHire[j];res.inp+=res.mIn[j];
+    res.out+=res.mOut[j];res.attr+=res.mAttr[j];
+    res.up+=res.mUp[j];res.dn+=res.mDn[j];
+  }
+  res.delta=res.end-res.begin;
+  if(mode!=='fte'){res.up=0;res.dn=0}     /* в людях изменения аллокации нет */
+  return res;
+}
+
+/* ---------- Свёртка помесячного ряда в вёдра гранулярности ---------- */
+function toBuckets(res,bks,i0){
+  const stock=[],flow={hire:[],inp:[],out:[],attr:[],up:[],dn:[]};
+  bks.forEach(b=>{
+    stock.push(res.stock[b.to-i0+1]);
+    let h=0,ii=0,o=0,at=0,u=0,d=0;
+    for(let m=b.from;m<=b.to;m++){
+      const j=m-i0+1;
+      h+=res.mHire[j];ii+=res.mIn[j];o+=res.mOut[j];at+=res.mAttr[j];u+=res.mUp[j];d+=res.mDn[j];
+    }
+    flow.hire.push(h);flow.inp.push(ii);flow.out.push(o);flow.attr.push(at);flow.up.push(u);flow.dn.push(d);
+  });
+  return {stock,flow};
+}
+
+/* ============================================================================
+   9. Сборка модели отчёта
+   ========================================================================== */
+function totals(st){
+  const u=units(st,null);
+  const byP=u.get('*')||new Map();
+  return metricsOf(byP,st);
+}
+
+/* Уникальные сотрудники и сумма аллокаций считаются РАЗНЫМИ свёртками одних
+   и тех же пар — поэтому карточка «людей» и карточка «аллокаций» на экране
+   стоят рядом и не спорят друг с другом. */
+function headline(st){
+  const hcSt=Object.assign({},st,{mode:'hc'}), fteSt=Object.assign({},st,{mode:'fte'});
+  const hc=totals(hcSt), fte=totals(fteSt);
+  return {hc,fte};
+}
+
+/* Разбивка по сегментам на конец периода. Считается по парам: один человек
+   может быть прямым ресурсом на одном продукте и парт-таймером на другом,
+   и это две разные строки, а не спорные половинки одного человека. */
+function segments(st){
+  const m=st.i1, out=SEGMENTS.map(s=>({key:s.key,name:s.name,hint:s.hint,people:0,fte:0}));
+  const idx=Object.create(null);out.forEach((o,i)=>{idx[o.key]=i});
+  const seen=Object.create(null);
+  ALLOC.forEach(a=>{
+    if(!inScope(st,a.prod))return;
+    const p=PEOPLE[a.pid];
+    if(!personPass(st,p))return;
+    const v=active(st,a,p,m);
+    if(!v)return;
+    const k=segOf(v), o=out[idx[k]];
+    o.fte+=v/100;
+    const sk=k+'|'+a.pid;
+    if(!seen[sk]){seen[sk]=1;o.people++}
+  });
+  return out;
+}
+
+/* Здоровье считается по ЧЕЛОВЕКУ, а не по паре: перебор ставки возникает
+   именно из суммы по всем продуктам, и на отдельной паре его не видно. */
+function health(st){
+  const m=st.i1;
+  const out=HEALTH.map(h=>({key:h.key,name:h.name,hint:h.hint,bad:h.bad,people:0}));
+  const idx=Object.create(null);out.forEach((o,i)=>{idx[o.key]=i});
+  const inSet=Object.create(null);
+  ALLOC.forEach(a=>{
+    if(!inScope(st,a.prod))return;
+    if(a.pct[m]>0)inSet[a.pid]=1;
+  });
+  /* Человек без единой аллокации не попадает ни на один продукт. Показать его
+     можно только через организационный якорь — иначе целая проблемная
+     категория просто исчезает из отчёта. */
+  PEOPLE.forEach(p=>{
+    if(!personPass(st,p))return;
+    const alive=(p.from<0||p.from<=m)&&(p.to==null||p.to>=m);
+    if(!alive)return;
+    if(!inSet[p.id]){
+      if(sumPct[p.id][m]>0)return;                 /* аллоцирован, но вне среза */
+      if(!inScope(st,PIDX[p.home]))return;
+    }
+    out[idx[healthOf(sumPct[p.id][m])]].people++;
+  });
+  return out;
+}
+
+/* Доля верифицированных продуктов. Считается по продуктам в срезе, у которых
+   есть хоть один человек: пустой продукт нечего подтверждать. */
+function verification(st,m){
+  m=m==null?st.i1:m;
+  let total=0,ok=0,fteOk=0,fteAll=0;
+  const has=new Uint8Array(NPROD), fte=new Float32Array(NPROD);
+  ALLOC.forEach(a=>{
+    if(!inScope(st,a.prod))return;
+    const p=PEOPLE[a.pid];
+    if(!personPass(st,p))return;
+    const v=active(st,a,p,m);
+    if(!v)return;
+    has[a.prod]=1;fte[a.prod]+=v/100;
+  });
+  PRODUCTS.forEach((p,i)=>{
+    if(!has[i])return;
+    total++;fteAll+=fte[i];
+    const vf=p.verifiedFrom!=null&&m>=p.verifiedFrom;
+    if(vf){ok++;fteOk+=fte[i]}
+  });
+  return {total,ok,share:total?ok/total*100:0,fteOk,fteAll,
+          fteShare:fteAll?fteOk/fteAll*100:0};
+}
+
+/* Ресурсообеспеченность: занятые ставки и открытые квоты на продукте.
+   Открытая квота — это то, что ещё можно нанять, поэтому в баре она стоит
+   сверху занятой части, а не рядом: вместе они дают план по продукту. */
+function supply(st,bks){
+  const open=[],filled=[];
+  const hcSt=Object.assign({},st,{mode:st.mode});
+  const res=metricsOf((units(hcSt,null).get('*'))||new Map(),hcSt);
+  bks.forEach(b=>{
+    let q=0;
+    for(let i=0;i<NPROD;i++)if(inScope(st,i))q+=openQuota(i,b.to);
+    open.push(q);
+    filled.push(res.stock[b.to-st.i0+1]);
+  });
+  return {open,filled};
+}
+
+/* ---------- Строки трансформера ---------- */
+function rows(st,dimKey,limit){
+  const kf=keyer(dimKey);
+  const u=units(st,kf);
+  const order=DIM_ORDER[dimKey];
+  let keys=Array.from(u.keys());
+  if(order)keys.sort((x,y)=>order.indexOf(x)-order.indexOf(y));
+  const out=keys.map(k=>{
+    const m=metricsOf(u.get(k),st);
+    m.name=k;m.dim=dimKey;
+    return m;
+  });
+  if(!order)out.sort((a,b)=>b.end-a.end);
+  return limit?out.slice(0,limit):out;
+}
+/* Двухуровневая раскладка: ключ склеивается из двух разрезов, дерево
+   собирается по первому. Схлопывание живёт в состоянии экрана, а не здесь. */
+function rows2(st,dimA,dimB){
+  const a=keyer(dimA), b=keyer(dimB);
+  const u=units(st,(x,p,m)=>a(x,p,m)+'\u0001'+b(x,p,m));
+  const tree=new Map();
+  u.forEach((byP,k)=>{
+    const [ka,kb]=k.split('\u0001');
+    if(!tree.has(ka))tree.set(ka,[]);
+    const m=metricsOf(byP,st);m.name=kb;
+    tree.get(ka).push(m);
+  });
+  const top=rows(st,dimA);
+  top.forEach(r=>{
+    const kids=tree.get(r.name)||[];
+    const ord=DIM_ORDER[dimB];
+    if(ord)kids.sort((x,y)=>ord.indexOf(x.name)-ord.indexOf(y.name));
+    else kids.sort((x,y)=>b_end(y)-b_end(x));
+    r.kids=kids;
+  });
+  return top;
+  function b_end(x){return x.end}
+}
+/* Ряд по вёдрам для выбранной метрики: строки трансформера в динамике. */
+function seriesRows(st,dims,metric,bks){
+  const kfs=dims.map(keyer);
+  const u=units(st,(a,p,m)=>kfs.map(f=>f(a,p,m)).join('\u0001'));
+  const map=new Map();
+  u.forEach((byP,k)=>{
+    const res=metricsOf(byP,st), b=toBuckets(res,bks,st.i0);
+    map.set(k,pickMetric(b,metric,res));
+  });
+  return map;
+}
+function pickMetric(b,metric,res){
+  if(metric==='stock')return b.stock;
+  if(metric==='hire')return b.flow.hire;
+  if(metric==='in')return b.flow.inp;
+  if(metric==='out')return b.flow.out;
+  if(metric==='attr')return b.flow.attr;
+  if(metric==='alloc')return b.flow.up.map((v,i)=>v-b.flow.dn[i]);
+  if(metric==='net')return b.stock.map((v,i)=>v-(i?b.stock[i-1]:res.begin));
+  return b.stock;
+}
+const SERIES_METRICS=[
+  {key:'stock',name:'Численность на конец',stock:true},
+  {key:'net',  name:'Прирост'},
+  {key:'hire', name:'Найм на продукт'},
+  {key:'in',   name:'Вход на продукт'},
+  {key:'out',  name:'Выход с продукта'},
+  {key:'attr', name:'Отток с продукта'},
+  {key:'alloc',name:'Изменение аллокации',fteOnly:true}
+];
+
+/* ---------- Матрица: разрез × разрез ---------- */
+function matrix(st,dimY,dimX,metric,bks){
+  const fy=keyer(dimY), fx=keyer(dimX);
+  const u=units(st,(a,p,m)=>fy(a,p,m)+'\u0001'+fx(a,p,m));
+  const cells=new Map();
+  const ysum=new Map(), xsum=new Map();
+  u.forEach((byP,k)=>{
+    const res=metricsOf(byP,st), b=toBuckets(res,bks,st.i0);
+    const arr=pickMetric(b,metric,res);
+    const v=metric==='stock'?arr[arr.length-1]:arr.reduce((s,x)=>s+x,0);
+    cells.set(k,v);
+  });
+  const uy=units(st,fy), ux=units(st,fx);
+  uy.forEach((byP,k)=>{const r=metricsOf(byP,st),b=toBuckets(r,bks,st.i0),a=pickMetric(b,metric,r);
+    ysum.set(k,metric==='stock'?a[a.length-1]:a.reduce((s,x)=>s+x,0))});
+  ux.forEach((byP,k)=>{const r=metricsOf(byP,st),b=toBuckets(r,bks,st.i0),a=pickMetric(b,metric,r);
+    xsum.set(k,metric==='stock'?a[a.length-1]:a.reduce((s,x)=>s+x,0))});
+  const sortBy=(map,dim)=>{
+    const ord=DIM_ORDER[dim];
+    const ks=Array.from(map.keys());
+    if(ord)ks.sort((a,b)=>ord.indexOf(a)-ord.indexOf(b));
+    else ks.sort((a,b)=>map.get(b)-map.get(a));
+    return ks;
+  };
+  return {ys:sortBy(ysum,dimY),xs:sortBy(xsum,dimX),cells,ysum,xsum};
+}
+
+/* ---------- Полная модель одного рендера ---------- */
+function model(st){
+  const bks=buckets(st.i0,st.i1,st.gran);
+  const tot=totals(st);
+  const b=toBuckets(tot,bks,st.i0);
+  return {
+    st,bks,tot,
+    stock:b.stock,flow:b.flow,
+    supply:supply(st,bks),
+    head:headline(st),
+    segments:segments(st),
+    health:health(st),
+    verify:verification(st,st.i1),
+    verifyStart:verification(st,st.i0)
+  };
+}
+
+/* ---------- Набор продуктов из состояния фильтра ----------
+   Хранится СПИСОК ВЫБРАННЫХ листьев: пустой список означает «все продукты».
+   Инверсия намеренная — новый продукт каталога появляется у всех сам, а не
+   теряется у тех, кто однажды настроил фильтр. */
+function prodSet(sel){
+  const s=new Uint8Array(NPROD);
+  if(!sel||!sel.length){s.fill(1);return s}
+  sel.forEach(id=>{
+    if(DOM[id])DOM[id].kids.forEach(k=>{s[PIDX[k]]=1});
+    else if(PIDX[id]!=null)s[PIDX[id]]=1;
+  });
+  return s;
+}
+
+window.PXDATA={
+  MONTHS,N,mLabel,mLabelFull,buckets,GRAN,
+  DOMAINS,PRODUCTS,PROD,DOM,PIDX,NPROD,
+  PROFS,GRADES,LOCS,EMPS,
+  SEGMENTS,SEG_KEYS,SEG_BY_KEY,segOf,HEALTH,healthOf,
+  DIMS,DIM_BY_KEY,DIM_ORDER,SERIES_METRICS,
+  PEOPLE,ALLOC,sumPct,mainProd,openQuota,
+  THIN,MINUS,fmtInt,fmtFte,fmtVal,fmtDelta,fmtPct,fmtPp,
+  prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification
+};
+})();
+
+</script>
+<script>
+/* ============================================================================
+   draw.js — рисовальный слой Product Executive Report на голом SVG.
+   Неймспейс: window.PXDRAW. Читает window.PXDATA (форматтеры чисел).
+
+   Правила движка (нарушать нельзя — это дизайн-система, а не вкус):
+
+   1. Ось значений ВСЕГДА от нуля. niceMax() отдаёт только верх, низ —
+      константный ноль. Урезанную ось здесь нельзя получить даже случайно.
+   2. Значение подписано у каждой точки и бара, поэтому оси Y нет вовсе:
+      ни линии, ни засечек, ни сетки. Остаётся базовая линия нуля.
+   3. Все подписи значений одного цвета (C_LABEL). За смысл отвечает цвет
+      марки, а не цвет цифры.
+   4. Скругляется дальний от нуля край бара.
+   5. Ось X устроена одинаково во всех видах: подпись ведра, а под первым
+      ведром и под каждым началом года — ещё и год.
+
+   Отличие от одноуровневого борта: ось строится не по фиксированным месяцам,
+   а по ВЁДРАМ гранулярности (месяц / квартал / год). Поэтому вся геометрия
+   принимает список ticks и не знает, что именно на ней подписано.
+
+   Все функции возвращают строку разметки и не трогают DOM — рисовальный код
+   целиком прогоняется тестами без браузера.
+   ========================================================================== */
+(function(){
+'use strict';
+const CD=window.PXDATA;
+
+const FONT='Inter, Helvetica, Arial, sans-serif';
+const C_LABEL='#2b2b2b';
+const C_AXIS='#8a909c', C_DIV='#e4e7ec', C_ZERO='#c9cdd6';
+const C_LINE='#3b6fe0', C_BENCH='#9aa0ac';
+
+/* ---------- Гамма потоков ----------
+   Это НЕ оценка: отток сиреневый, а не красный, именно чтобы не читаться
+   как «плохо». Одна гамма на весь отчёт: если найм бирюзовый в водопаде,
+   он бирюзовый и в динамике, и в трансформере.
+
+   Изменение аллокации — отдельная сущность, которой нет в управленческой
+   структуре, поэтому у неё свои тона, но внутри тех же двух семейств:
+   рост в семье прихода, снижение в семье ухода. Иначе на водопаде читалось
+   бы, что это третий и четвёртый вид движения, не связанные с первыми. */
+const C_HIRE  ='#97dece',   /* найм на продукт */
+      C_IN    ='#85cdfd',   /* вход на продукт: перевод из другого продукта */
+      C_OUT   ='#3c84ab',   /* выход с продукта */
+      C_ATTR  ='#ac87c5',   /* отток: человек ушёл из компании */
+      C_UP    ='#0ea293',   /* рост аллокации */
+      C_DN    ='#7f57a5',   /* снижение аллокации */
+      C_TOTAL ='#c7c8cc',   /* уровень: численность, итог */
+      C_QUOTA ='#7fb0c8';   /* открытые квоты */
+const C_GREEN='#80cf9a', C_RED='#ef8c8c', C_FLAT='#c7c8cc';
+
+/* ---------- Утилиты ---------- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function num(v){return Math.round(v*100)/100}
+function textW(s,size){return String(s).length*size*0.56}
+
+/* ---------- Единый конструктор подсказки ----------
+   {title, text, rows:[{label,value,color,dash}], note:'…'|['…']}
+   Экранирует входы САМ — снаружи esc() звать не надо.
+   Живёт здесь, а не в ui.js, только из-за порядка загрузки: draw.js не может
+   звать ui.js, а подсказки нужны и внутри SVG, и в разметке. */
+function tipHtml(o){
+  if(o==null)return '';
+  if(typeof o==='string')return o;
+  let s='';
+  if(o.title)s+='<span class="t-h">'+esc(o.title)+'</span>';
+  if(o.text) s+='<span class="t-x">'+esc(o.text)+'</span>';
+  (o.rows||[]).forEach(r=>{
+    if(!r)return;
+    const mk=r.color?'<i class="t-m'+(r.dash?' dash':'')+'" style="'+
+      (r.dash?'border-top-color:':'background:')+r.color+'"></i>':'';
+    s+='<span class="t-r'+(r.dash?' bench':'')+'">'+mk+
+       '<span class="t-l">'+esc(r.label)+'</span>'+
+       '<b class="t-v">'+esc(r.value)+'</b></span>';
+  });
+  const ns=o.note==null?[]:(Array.isArray(o.note)?o.note:[o.note]);
+  ns.forEach(n=>{if(n)s+='<span class="t-n">'+esc(n)+'</span>'});
+  return s;
+}
+function tip(o){return ' data-tip="'+esc(tipHtml(o))+'"'}
+
+function niceMax(vals){
+  let m=0;
+  vals.forEach(v=>{if(v!=null&&isFinite(v)&&Math.abs(v)>m)m=Math.abs(v)});
+  if(m===0)return 1;
+  const p=Math.pow(10,Math.floor(Math.log10(m))), n=m/p;
+  const s=n<=1?1:n<=1.2?1.2:n<=1.5?1.5:n<=2?2:n<=2.5?2.5:n<=3?3:n<=4?4:n<=5?5:n<=6?6:n<=8?8:10;
+  return s*p;
+}
+
+/* halo — белая подложка под цифрой: текст рисуется дважды, сначала толстой
+   белой обводкой, потом заливкой поверх. paint-order не используем: в части
+   браузеров он даёт двойной текст. */
+function txt(x,y,s,o){
+  o=o||{};
+  const common='<text x="'+num(x)+'" y="'+num(y)+'" font-size="'+(o.size||11)+'"'
+    +(o.weight?' font-weight="'+o.weight+'"':'')
+    +(o.s?' data-s="'+o.s+'"':'')
+    +' text-anchor="'+(o.anchor||'middle')+'"'
+    +(o.cls?' class="'+o.cls+'"':'')
+    +(o.delay?' style="animation-delay:'+o.delay+'ms"':'');
+  const body='>'+esc(s)+'</text>';
+  const face=common+' fill="'+(o.fill||C_LABEL)+'"'+body;
+  if(!o.halo)return face;
+  return common+' fill="#fff" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"'
+    +' aria-hidden="true"'+body+face;
+}
+function line(x1,y1,x2,y2,color,w,dash){
+  return '<line x1="'+num(x1)+'" y1="'+num(y1)+'" x2="'+num(x2)+'" y2="'+num(y2)+'"'
+    +' stroke="'+color+'" stroke-width="'+(w||1)+'"'+(dash?' stroke-dasharray="'+dash+'"':'')+'/>';
+}
+function rect(x,y,w,h,fill,r,extra){
+  return '<rect x="'+num(x)+'" y="'+num(y)+'" width="'+num(Math.max(0,w))+'" height="'+num(Math.max(0,h))+'"'
+    +(r?' rx="'+r+'"':'')+' fill="'+fill+'"'+(extra||'')+'/>';
+}
+/* Бар со скруглением только сверху: мягкий край смотрит от нуля. */
+function barUp(x,y,w,h,fill,extra){
+  h=Math.max(0,h);
+  const r=Math.min(3,w/2,h);
+  if(h<=0.5)return'';
+  return '<path d="M'+num(x)+' '+num(y+h)+'V'+num(y+r)+'Q'+num(x)+' '+num(y)+' '+num(x+r)+' '+num(y)
+    +'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y)+' '+num(x+w)+' '+num(y+r)+'V'+num(y+h)+'Z"'
+    +' fill="'+fill+'"'+(extra||'')+'/>';
+}
+function barDown(x,y,w,h,fill,extra){
+  h=Math.max(0,h);
+  const r=Math.min(3,w/2,h);
+  if(h<=0.5)return'';
+  return '<path d="M'+num(x)+' '+num(y)+'V'+num(y+h-r)+'Q'+num(x)+' '+num(y+h)+' '+num(x+r)+' '+num(y+h)
+    +'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y+h)+' '+num(x+w)+' '+num(y+h-r)+'V'+num(y)+'Z"'
+    +' fill="'+fill+'"'+(extra||'')+'/>';
+}
+function svg(w,h,body,cls){
+  return '<svg viewBox="0 0 '+num(w)+' '+num(h)+'" width="'+num(w)+'" height="'+num(h)+'"'
+    +' class="chart'+(cls?' '+cls:'')+'" font-family="'+FONT+'"'
+    +' role="img" style="display:block;overflow:visible">'+body+'</svg>';
+}
+
+/* ---------- Единая геометрия ----------
+   Все виды считают отступы от этих констант и своих чисел не заводят:
+   разъехавшиеся на пару пикселей зазоры читаются как грязь, а не как акцент. */
+const AXIS_H=30;        /* высота оси X: подпись ведра плюс год под ней */
+const HEAD_GAP=8;
+const VAL_SZ=11, VAL_W=700;
+const VAL_DY=9, VAL_ASC=8.5;
+const LBL_ROOM=Math.ceil(VAL_DY+VAL_ASC+HEAD_GAP);   /* = 26 */
+const PAD_X=6;
+const DRAW_MS=760;
+/* Обязан совпадать с --chart-gap в styles.css: один и тот же зазор задаётся
+   двумя механизмами — константой внутри SVG и CSS между двумя SVG. */
+const STACK_GAP=26;
+const TTL_SZ=12, TTL_W=700, C_INK='#1f1f1f';
+function valOpt(o){return Object.assign({size:VAL_SZ,weight:VAL_W,halo:true,cls:'fade'},o||{})}
+
+/* ---------- Формат значения ----------
+   Один вход на все графики: режим отчёта решает, целое перед нами или доля
+   ставки. Пока форматтеров было два, соседние подписи одного графика писали
+   одно и то же число по-разному. */
+function fv(o,v){return CD.fmtVal(o&&o.mode==='fte'?'fte':'hc',v)}
+function fd(o,v){return CD.fmtDelta(o&&o.mode==='fte'?'fte':'hc',v)}
+
+/* ---------- Шапка: заголовок слева, легенда справа ---------- */
+function header(w,title,legend){
+  let s='';
+  if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+  if(legend&&legend.length){
+    let x=w;
+    for(let i=legend.length-1;i>=0;i--){
+      const it=legend[i], tw=textW(it.name,11.5);
+      x-=tw;
+      const mx=x-6-16;
+      s+=txt(x,12,it.name,{size:11.5,fill:C_LABEL,anchor:'start'});
+      s+=it.dash?line(mx,8.5,mx+16,8.5,it.color,2.2,'5 3')
+                :(it.hollow?'<rect x="'+num(mx)+'" y="4.5" width="16" height="8" rx="2" fill="#fff" stroke="'+it.color+'" stroke-width="1.2" stroke-dasharray="3 2"/>'
+                           :rect(mx,4.5,16,8,it.color,2));
+      x-=16+14;
+    }
+  }
+  return s;
+}
+function headH(title,legend){return (title||(legend&&legend.length))?24:0}
+
+/* ---------- Ось X по вёдрам гранулярности ----------
+   Одна функция на все виды и никаких режимов: раньше у верхних панелей год
+   не подписывался, и один и тот же январь на соседних панелях выглядел
+   по-разному. Год стоит под первым ведром и под каждым началом года.
+   Неполное ведро (обрезанный квартал или год на краю окна) помечается
+   точкой: «2024» из шести месяцев рядом с полным «2025» иначе читается
+   как провал найма. */
+function axisX(ticks,x0,bandW,plotTop,plotBot,labelY){
+  let s='';
+  ticks.forEach((t,i)=>{
+    const cx=x0+bandW*(i+0.5);
+    s+=txt(cx,labelY,t.label+(t.partial?'·':''),{size:10.5,fill:C_AXIS});
+    if(t.isYearStart&&i>0&&plotBot>plotTop)
+      s+=line(x0+bandW*i,plotTop,x0+bandW*i,plotBot,C_DIV,1,'4 3');
+    if((i===0||t.isYearStart)&&String(t.label)!==String(t.year))
+      s+=txt(cx,labelY+12,t.year,{size:10.5,weight:700,fill:C_AXIS});
+  });
+  return s;
+}
+function tickTitle(t){return t.label+' '+t.year+(t.partial?' (неполный период)':'')}
+
+/* ============================================================================
+   1. Линия: динамика одной величины
+   ========================================================================== */
+function drawLine(a,w,h){
+  const ser=a.series, ticks=a.ticks, o=a.opt||{};
+  const hh=headH(o.title,o.legend);
+  h=h||o.h||300;
+  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
+  const all=ser.slice().concat(a.bench||[]);
+  const max=niceMax(all);
+  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+
+  let s=header(w,o.title,o.legend);
+  s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
+  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
+
+  if(a.bench){
+    let d='';
+    a.bench.forEach((v,i)=>{d+=(i?'L':'M')+num(x0+bandW*(i+0.5))+' '+num(Y(v))});
+    s+='<path class="lnb" data-s="bench" d="'+d+'" fill="none" stroke="'+C_BENCH+'" stroke-width="2" stroke-dasharray="5 3"/>';
+  }
+  let d='';
+  ser.forEach((v,i)=>{d+=(i?'L':'M')+num(x0+bandW*(i+0.5))+' '+num(Y(v))});
+  s+='<path class="ln" data-s="main" pathLength="1" d="'+d+'" fill="none" stroke="'+(o.color||C_LINE)+'"'
+    +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+
+  ser.forEach((v,i)=>{
+    const cx=x0+bandW*(i+0.5), cy=Y(v);
+    const rows=[{label:o.name||'Значение',value:fv(o,v),color:o.color||C_LINE}];
+    if(a.bench)rows.push({label:o.benchName||'база',value:fv(o,a.bench[i]),color:C_BENCH,dash:true});
+    const dly=DRAW_MS*(i/Math.max(1,ser.length-1))*0.9;
+    s+='<g class="ptg"'+tip({title:tickTitle(ticks[i]),rows,
+        note:i>0?'к предыдущему периоду: '+fd(o,v-ser[i-1]):null})+'>';
+    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
+    if(a.bench)s+='<circle class="dotb" cx="'+num(cx)+'" cy="'+num(Y(a.bench[i]))+'" r="0" fill="'+C_BENCH+'"/>';
+    s+='<circle class="dot" cx="'+num(cx)+'" cy="'+num(cy)+'" r="3.4" fill="#fff" stroke="'+(o.color||C_LINE)+'"'
+      +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
+    s+='</g>';
+    s+=txt(cx,cy-VAL_DY,fv(o,v),valOpt({delay:dly}));
+  });
+  return svg(w,h,s);
+}
+
+/* ============================================================================
+   2. Ресурсообеспеченность: занято + открытые квоты
+   ------------------------------------------------------------------------
+   Один бар на период: снизу закрытая часть (люди уже на продукте), сверху
+   открытая квота — белая с пунктирной обводкой. Вместе они дают план по
+   продукту, поэтому квота стоит НАД занятой частью, а не рядом: два бара
+   рядом читались бы как две независимые величины, и «сколько ещё осталось
+   нанять» приходилось бы считать в уме.
+
+   Подписей две: внутри занятой части — факт, над баром — план. Обе чёрные:
+   за смысл отвечает заливка.
+   ========================================================================== */
+function drawSupply(a,w,h){
+  const filled=a.filled, open=a.open, ticks=a.ticks, o=a.opt||{};
+  const hh=headH(o.title,o.legend);
+  h=h||o.h||300;
+  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
+  const total=filled.map((v,i)=>v+open[i]);
+  const max=niceMax(total);
+  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+  const bw=Math.min(64,bandW*0.62);
+
+  let s=header(w,o.title,o.legend);
+  s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
+  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
+  filled.forEach((v,i)=>{
+    const cx=x0+bandW*(i+0.5), yF=Y(v), yT=Y(total[i]);
+    const fill=total[i]?v/total[i]*100:0;
+    s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
+      rows:[{label:'Занято',value:fv(o,v),color:C_TOTAL},
+            {label:'Открытые квоты',value:CD.fmtInt(open[i]),color:C_QUOTA}],
+      note:['план по продуктам: '+fv(o,total[i]),
+            'укомплектованность: '+CD.fmtPct(fill,0)]})+'>';
+    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
+    /* Открытая часть рисуется первой и целиком до нуля: скруглять её снизу
+       нечего, снизу её накрывает занятая часть. */
+    if(open[i]>0){
+      s+=barUp(cx-bw/2,yT,bw,plotBot-yT,'#fff',
+        ' class="bar up" data-s="open" stroke="'+C_QUOTA+'" stroke-width="1.2" stroke-dasharray="3 2"'
+        +' style="animation-delay:'+(i*26)+'ms"');
+    }
+    s+=barUp(cx-bw/2,yF,bw,plotBot-yF,C_TOTAL,
+      ' class="bar up" data-s="filled" style="animation-delay:'+(i*26)+'ms"');
+    s+='</g>';
+    s+=txt(cx,yT-VAL_DY,fv(o,total[i]),valOpt({delay:240+i*26}));
+    if(plotBot-yF>18)s+=txt(cx,yF+15,fv(o,v),{size:VAL_SZ,weight:VAL_W,fill:'#3a3f4a',cls:'fade',delay:300+i*26});
+  });
+  return svg(w,h,s);
+}
+
+/* ============================================================================
+   3. Дивергентные бары: пришло вверх, ушло вниз — в одной вертикали.
+      Не рядом: рядом стоящие бары читаются как две разные категории, а это
+      один поток в двух направлениях. Шкала одна на оба плеча.
+   ========================================================================== */
+function drawDiverge(a,w,h){
+  const up=a.up, down=a.down, ticks=a.ticks, o=a.opt||{};
+  const hh=headH(o.title,o.legend);
+  h=h||o.h||300;
+  const top=hh+LBL_ROOM, bot=h-AXIS_H;
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
+  const zero=top+(bot-top)/2;
+  const arm=Math.max(8,(bot-top)/2-LBL_ROOM);
+  const max=niceMax(up.concat(down));
+  const bw=Math.min(52,bandW*0.58);
+
+  let s=header(w,o.title,o.legend);
+  s+=axisX(ticks,x0,bandW,top,bot,bot+15);
+  s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
+  up.forEach((v,i)=>{
+    const cx=x0+bandW*(i+0.5);
+    const hu=(v/max)*arm, hd=(down[i]/max)*arm;
+    s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
+      rows:[{label:o.upName||'Пришло',value:fv(o,v),color:C_HIRE},
+            {label:o.downName||'Ушло',value:fv(o,down[i]),color:C_ATTR}],
+      note:'сальдо: '+fd(o,v-down[i])})+'>';
+    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
+    s+=barUp(cx-bw/2,zero-hu,bw,hu,C_HIRE,' class="bar up" data-s="up" style="animation-delay:'+(i*26)+'ms"');
+    s+=barDown(cx-bw/2,zero,bw,hd,C_ATTR,' class="bar dn" data-s="dn" style="animation-delay:'+(i*26)+'ms"');
+    s+='</g>';
+    s+=txt(cx,zero-hu-VAL_DY,fv(o,v),valOpt({delay:240+i*26}));
+    s+=txt(cx,Math.min(zero+hd+VAL_DY+4,bot-2),fv(o,down[i]),valOpt({delay:240+i*26}));
+  });
+  return svg(w,h,s);
+}
+
+/* ============================================================================
+   4. Панели друг под другом: несколько метрик за один период.
+      У каждой своя шкала от нуля и своя полная ось X под ней — одна общая
+      ось внизу заставляла бегать глазами через весь блок.
+   ========================================================================== */
+function drawPanels(a,w,h){
+  const ps=a.panels, ticks=a.ticks, o=a.opt||{};
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
+  const GAP=STACK_GAP, HEAD=16, PLOT_MIN=58;
+  const minPanel=HEAD+LBL_ROOM+PLOT_MIN+AXIS_H+GAP;
+  h=Math.max(h||o.h||340,ps.length*minPanel+14);
+  const panelH=(h-14)/ps.length;
+  let s='';
+  ps.forEach((p,pi)=>{
+    const base=pi*panelH;
+    const top=base+HEAD+LBL_ROOM, bot=base+panelH-AXIS_H-GAP;
+    const max=niceMax(p.series);
+    const Y=v=>bot-(v/max)*(bot-top);
+    s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+    s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
+    ticks.forEach((t,i)=>{if(t.isYearStart&&i>0)s+=line(x0+bandW*i,top,x0+bandW*i,bot,C_DIV,1,'4 3')});
+    const pd=pi*140, bw=Math.min(56,bandW*0.64);
+    p.series.forEach((v,i)=>{
+      const cx=x0+bandW*(i+0.5), y=Y(v);
+      s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
+        rows:[{label:p.name,value:fv(o,v),color:p.color||C_LINE}],note:p.note})+'>';
+      s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
+      s+=barUp(cx-bw/2,y,bw,bot-y,p.color||C_LINE,' class="bar up" style="animation-delay:'+(pd+i*24)+'ms"');
+      s+='</g>';
+      s+=txt(cx,y-VAL_DY,fv(o,v),valOpt({delay:pd+300+i*24}));
+    });
+    s+=axisX(ticks,x0,bandW,bot,bot,bot+15);
+  });
+  return svg(w,h,s);
+}
+
+/* ============================================================================
+   5. Водопад: из чего сложилось изменение за период.
+      Уровни серые (это состояния, а не движения), движения — гаммой потоков.
+   ========================================================================== */
+function drawWaterfall(a,w,h){
+  const steps=a.steps, o=a.opt||{};
+  const hh=headH(o.title,o.legend);
+  h=h||o.h||320;
+  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H-12;
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/steps.length;
+  let acc=0; const lv=[];
+  steps.forEach(st=>{
+    if(st.total){acc=st.value;lv.push({from:0,to:st.value,total:true})}
+    else{const from=acc;acc+=st.value;lv.push({from,to:acc,total:false})}
+  });
+  const max=niceMax(lv.map(x=>Math.max(x.from,x.to)));
+  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+  const bw=Math.min(72,bandW*0.6);
+
+  let s=header(w,o.title,o.legend);
+  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
+  steps.forEach((st,i)=>{
+    const cx=x0+bandW*(i+0.5), g=lv[i];
+    const yTop=Y(Math.max(g.from,g.to)), yBot=Y(Math.min(g.from,g.to));
+    const col=st.color||(st.total?C_TOTAL:(st.value>=0?C_HIRE:C_ATTR));
+    const lab=st.total?fv(o,st.value):fd(o,st.value);
+    s+='<g class="barg"'+tip({title:st.name,
+      rows:[{label:st.total?'Уровень':'Изменение',value:lab,color:col}],
+      note:[st.hint||null,st.total?null:'накоплено: '+fv(o,g.to)]})+'>';
+    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
+    s+=barUp(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),col,' class="bar up" style="animation-delay:'+(i*34)+'ms"');
+    s+='</g>';
+    s+=txt(cx,yTop-VAL_DY,lab,valOpt({delay:240+i*34}));
+    /* Подпись шага в две строки: имена движений длиннее месяца, и в одну
+       строку они наезжают друг на друга уже на ноутбуке. */
+    wrap(st.name,Math.max(8,bandW-6)).forEach((ln,k)=>{
+      s+=txt(cx,plotBot+15+k*11,ln,{size:10.5,fill:C_AXIS});
+    });
+    if(i<steps.length-1)s+=line(cx+bw/2,Y(g.to),x0+bandW*(i+1.5)-bw/2,Y(g.to),C_DIV,1,'3 2');
+  });
+  return svg(w,h,s);
+}
+/* Перенос по словам под ширину полосы. Своя функция, потому что SVG не умеет
+   переносить текст сам, а <foreignObject> в автономном файле ненадёжен. */
+function wrap(s,px){
+  const words=String(s).split(' '), out=[];
+  let cur='';
+  words.forEach(word=>{
+    const t=cur?cur+' '+word:word;
+    if(textW(t,10.5)<=px||!cur)cur=t;
+    else{out.push(cur);cur=word}
+  });
+  if(cur)out.push(cur);
+  return out.slice(0,2);
+}
+
+/* ============================================================================
+   6. Спарклайн для строк трансформера
+   ========================================================================== */
+function sparkBars(series,w,h,o){
+  o=o||{};w=w||110;h=h||24;
+  const n=series.length, gap=w/n, bw=gap*0.66;
+  const max=niceMax(series);
+  let s='';
+  series.forEach((v,i)=>{
+    const bh=Math.max(1.5,(v/max)*(h-2));
+    s+=rect(i*gap+(gap-bw)/2,h-bh,bw,bh,o.color||C_FLAT,1,' class="sb"');
+  });
+  return '<svg viewBox="0 0 '+num(w)+' '+num(h)+'" width="100%" height="'+num(h)+'"'
+    +' preserveAspectRatio="none" class="spark" role="img" style="display:block">'+s+'</svg>';
+}
+
+/* ============================================================================
+   Реестр графиков.
+   chart() рисует сразу при номинальной ширине — значит рисовальный код можно
+   прогнать без браузера. В браузере app.js зовёт remeasure(), и график
+   перерисовывается под фактическую ширину: меняется ГЕОМЕТРИЯ, а не масштаб
+   всего SVG. Иначе на телефоне подписи стали бы нечитаемыми.
+   ========================================================================== */
+const KINDS={line:drawLine,supply:drawSupply,diverge:drawDiverge,
+             panels:drawPanels,waterfall:drawWaterfall};
+const NOMINAL_W=900;
+let _specs=new Map(), _sid=0;
+
+function build(spec,w,h){return KINDS[spec.kind](spec.args,Math.max(320,w),h||null)}
+function chart(kind,args,opt){
+  opt=Object.assign({},opt||{});
+  const id='k'+(++_sid);
+  const spec={kind,args:Object.assign({},args,{opt}),opt};
+  _specs.set(id,spec);
+  return '<div class="svgchart'+(opt.fill?' fill':'')+'" data-cid="'+id+'">'+
+    build(spec,NOMINAL_W,opt.h||null)+'</div>';
+}
+function remeasure(root,animate){
+  if(!root||!root.querySelectorAll)return;
+  const nodes=root.querySelectorAll('.svgchart[data-cid]');
+  for(let i=0;i<nodes.length;i++){
+    const el=nodes[i], sp=_specs.get(el.getAttribute('data-cid'));
+    if(!sp)continue;
+    const w=el.clientWidth||(el.parentNode&&el.parentNode.clientWidth)||NOMINAL_W;
+    const h=sp.opt.fill?(el.clientHeight||sp.opt.h||null):(sp.opt.h||null);
+    el.innerHTML=build(sp,w,h);
+    if(animate){el.classList.remove('anim');void el.offsetWidth;el.classList.add('anim')}
+  }
+}
+function reset(){_specs=new Map();_sid=0}
+
+window.PXDRAW={chart,remeasure,reset,tipHtml,tip,niceMax,textW,esc,sparkBars,
+  FONT,C_LABEL,C_AXIS,C_DIV,C_LINE,C_BENCH,
+  C_HIRE,C_IN,C_OUT,C_ATTR,C_UP,C_DN,C_TOTAL,C_QUOTA,C_GREEN,C_RED,C_FLAT};
+})();
+
+</script>
+<script>
+/* ============================================================================
+   ui.js — общие UI-примитивы Product Executive Report. Неймспейс: window.PXUI.
+   Загружается после data.js и draw.js, до screens/* и app.js.
+
+   Правило разбивки по файлам: экран НЕ пишет разметку сам. Ни SVG-строк,
+   ни <table>. Всё через PXUI и PXDRAW — тогда общим элементам физически
+   негде разойтись между экранами.
+   ========================================================================== */
+(function(){
+'use strict';
+const D=window.PXDATA, G=window.PXDRAW;
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ============================================================================
+   Кастомный тултип — ЕДИНСТВЕННЫЙ тултип отчёта.
+   Атрибут title= запрещён по всему проекту: он ждёт секунду, выглядит
+   системным и не умеет в вёрстку. Обработчик один и висит на document,
+   поэтому графики можно перерисовывать сколько угодно.
+   ========================================================================== */
+let _tipEl=null,_tipFor=null;
+function tipNode(){
+  if(!_tipEl){
+    _tipEl=document.createElement('div');
+    _tipEl.className='tip';_tipEl.setAttribute('role','tooltip');
+    document.body.appendChild(_tipEl);
+  }
+  return _tipEl;
+}
+function placeTip(el,x,y){
+  const w=el.offsetWidth||220,h=el.offsetHeight||60;
+  let l=x+16,t=y-h-14;
+  if(l+w>innerWidth-10)l=x-w-16;
+  if(l<10)l=10;
+  if(t<10)t=y+20;
+  el.style.left=Math.round(l)+'px';el.style.top=Math.round(t)+'px';
+}
+function hideTip(){if(_tipEl)_tipEl.classList.remove('on');_tipFor=null}
+if(typeof document!=='undefined'){
+  document.addEventListener('mousemove',e=>{
+    const t=e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
+    if(!t){if(_tipFor)hideTip();return}
+    const n=tipNode();
+    if(_tipFor!==t){_tipFor=t;n.innerHTML=t.getAttribute('data-tip')||''}
+    n.classList.add('on');placeTip(n,e.clientX,e.clientY);
+  },{passive:true});
+  document.addEventListener('mouseleave',hideTip,true);
+  document.addEventListener('click',hideTip,true);
+  addEventListener('scroll',hideTip,true);
+}
+/* Единственный способ поставить подсказку. Разметку собирает G.tipHtml —
+   один конструктор на SVG и на HTML, и он же экранирует входы. */
+function tip(o){return ' data-tip="'+esc(G.tipHtml(o))+'"'}
+
+/* ---------- Пилюля изменения ----------
+   Направление — знаком, а не стрелкой: стрелка и цвет кодировали один факт
+   дважды. Класс отвечает за оценку, знак — за направление. Численность
+   и движение НЕ окрашиваются: рост найма не «хорошо», а снижение оттока
+   не всегда «плохо» — оценка тут вне данных. */
+function delta(mode,v,o){
+  o=o||{};
+  const vs=o.vs?'<span class="d-vs">'+esc(o.vs)+'</span>':'';
+  const at=o.tip?tip(o.tip):'';
+  const txt=D.fmtDelta(mode,v);
+  if(Math.abs(v)<(mode==='fte'?0.05:0.5))return '<span class="delta flat"'+at+'>0'+vs+'</span>';
+  if(!o.rate)return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
+  const good=o.lowerBetter?v<0:v>0;
+  return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
+}
+
+/* ---------- Значок справки ----------
+   Один значок на весь отчёт: круг с «i», раскрывается наведением. Клик ради
+   одной строки описания — лишнее действие; объяснение длиннее трёх строк —
+   это уже панель, а не подсказка. */
+function info(o){
+  return '<span class="info"'+tip(o)+' aria-label="Пояснение">i</span>';
+}
+
+/* ---------- Карточка KPI ----------
+   Ровно четыре строки ВСЕГДА, даже если четвёртая пустая: иначе выравнивать
+   в полосе нечего. Пустая строка воздуха не занимает — это делает
+   .k-row:empty. Выравнивание держит subgrid, а не подбор высот. */
+function kpi(o){
+  return '<div class="kpi'+(o.cls?' '+o.cls:'')+'">'+
+    '<div class="k-label">'+(o.tag?'<span class="kpi-tag">'+esc(o.tag)+'</span>':'')+
+      esc(o.label)+(o.info||'')+'</div>'+
+    '<div class="k-val">'+o.value+'</div>'+
+    '<div class="k-row">'+(o.row1||'')+'</div>'+
+    '<div class="k-row">'+(o.row2||'')+'</div></div>';
+}
+
+/* ---------- Панель ---------- */
+function panel(o){
+  return '<div class="panel'+(o.cls?' '+o.cls:'')+'">'+
+    (o.title?'<div class="panel-h'+(o.tabs?' with-tabs':'')+'"><div class="h-txt"><span>'+o.title+'</span>'+
+      (o.sub?'<span class="sub">'+esc(o.sub)+'</span>':'')+'</div>'+(o.tabs||'')+'</div>':'')+
+    '<div class="panel-b'+(o.bodyCls?' '+o.bodyCls:'')+'">'+o.body+'</div></div>';
+}
+function subTabs(list,active,attr,cls){
+  return '<div class="sub-tabs'+(cls?' '+cls:'')+'">'+list.map(t=>'<button class="sub-tab'+(active===t[0]?' active':'')+
+    '" data-'+(attr||'subtab')+'="'+t[0]+'"'+(t[2]?tip(t[2]):'')+'>'+esc(t[1])+'</button>').join('')+'</div>';
+}
+function select(name,list,val,label){
+  return '<label class="ctl"><span>'+esc(label)+'</span><select data-sel="'+name+'">'+
+    list.map(o=>'<option value="'+esc(o[0])+'"'+(String(o[0])===String(val)?' selected':'')+'>'+esc(o[1])+'</option>').join('')+
+    '</select></label>';
+}
+
+/* ============================================================================
+   barTable — разбивка ТАБЛИЦЕЙ, а не кольцом и не горизонтальным бар-чартом.
+   Доля читается по числу точнее, чем по углу сектора, а таблица заодно даёт
+   абсолютное значение. Полоса растёт от левого края: у всех строк общий
+   старт, поэтому длины сравниваются глазом. Масштаб — от нуля до максимума
+   по столбцу.
+
+   o.items — [{key,name,note,value,value2,color,bad,tipNote}]
+   o.pick  — ключи выбранных строк: строка-фильтр подсвечивается и кликается
+   ========================================================================== */
+function barTable(o){
+  const items=o.items.slice();
+  const sum=items.reduce((a,x)=>a+x.value,0);
+  const max=G.niceMax(items.map(x=>x.value));
+  const sel=o.pick||[];
+  const clickable=!!o.rowAttr;
+  let h='<div class="tbl-wrap"><table class="ptable btable">'+
+    '<colgroup><col style="width:36%"><col style="width:15%">'+(o.col2?'<col style="width:14%">':'')+
+    '<col style="width:11%"><col></colgroup>'+
+    '<thead><tr><th class="txt">'+esc(o.head)+'</th><th>'+esc(o.col1)+'</th>'+
+    (o.col2?'<th>'+esc(o.col2)+'</th>':'')+
+    '<th>Доля</th><th class="txt bar-th">Распределение</th></tr></thead><tbody>';
+  items.forEach(x=>{
+    const share=sum?x.value/sum*100:0;
+    const on=sel.indexOf(x.key)>=0;
+    h+='<tr'+(clickable?' class="urow'+(on?' sel':'')+'" data-'+o.rowAttr+'="'+esc(x.key)+'"'+
+        ' tabindex="0" role="button" aria-pressed="'+(on?'true':'false')+'"':'')+'>'+
+      '<td class="txt"><span class="row-body">'+esc(x.name)+
+        (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span></td>'+
+      '<td class="lead">'+x.val1+'</td>'+
+      (o.col2?'<td>'+x.val2+'</td>':'')+
+      '<td>'+D.fmtPct(share,share<10?1:0)+'</td>'+
+      '<td class="barcell"'+tip({title:x.name,
+        rows:[{label:o.col1,value:x.val1,color:x.color},
+              o.col2?{label:o.col2,value:x.val2}:null,
+              {label:'доля',value:D.fmtPct(share,share<10?1:0)}].filter(Boolean),
+        note:[x.note||null,x.tipNote||null,clickable?'клик по строке фильтрует отчёт':null]})+
+      '><span class="cellbar"><i style="width:'+(x.value/max*100).toFixed(1)+'%;background:'+x.color+'"></i></span></td></tr>';
+  });
+  h+='<tr class="total"><td class="txt">ИТОГО</td><td class="lead">'+o.totalVal1+'</td>'+
+    (o.col2?'<td>'+o.totalVal2+'</td>':'')+'<td>100%</td><td class="barcell"></td></tr>';
+  return h+'</tbody></table></div>';
+}
+
+/* ============================================================================
+   Трансформер: сводная таблица движения
+   ------------------------------------------------------------------------
+   Колонки собраны в три смысловые группы — состояние, приход, уход — и
+   группы отбиты заливкой шапки из гаммы потоков. Это НЕ светофор: приход
+   не «хорошо», уход не «плохо». Оценки у движения нет, поэтому ни зелёного,
+   ни красного здесь не появляется.
+
+   Интенсивность заливки ячейки пропорциональна величине внутри столбца:
+   таблица из девяти числовых колонок читается как таблица, а форма
+   распределения по ней всё равно должна быть видна без построчного чтения.
+   ========================================================================== */
+const HEAT={hire:[151,222,206],in:[133,205,253],out:[60,132,171],attr:[172,135,197],
+            up:[14,162,147],dn:[127,87,165]};
+/* rgba собирается кодом, а не пишется в разметке экрана: литеральный цвет
+   в экране — ошибка, а вот рисовальный слой имеет на него право. */
+function heat(flow,v,max){
+  if(!v||!max)return '';
+  const c=HEAT[flow];
+  if(!c)return '';
+  const t=Math.min(1,Math.abs(v)/max);
+  return ' style="background:rgba('+c[0]+','+c[1]+','+c[2]+','+(0.10+t*0.42).toFixed(3)+')"';
+}
+
+const COLS=[
+  {k:'begin',name:'На начало',grp:'cnt'},
+  {k:'end',  name:'На конец', grp:'cnt',lead:true},
+  {k:'delta',name:'Прирост',  grp:'cnt',signed:true},
+  {k:'pct',  name:'Δ%',       grp:'cnt',pct:true},
+  {k:'hire', name:'Найм',     sub:'на продукт',grp:'in',flow:'hire'},
+  {k:'inp',  name:'Вход',     sub:'на продукт',grp:'in',flow:'in'},
+  {k:'attr', name:'Отток',    sub:'из компании',grp:'out',flow:'attr'},
+  {k:'out',  name:'Выход',    sub:'с продукта',grp:'out',flow:'out'},
+  {k:'alloc',name:'Изменение',sub:'аллокации',grp:'alloc',flow:'up',fteOnly:true}
+];
+const COL_HINT={
+  begin:'Значение на конец месяца, предшествующего периоду.',
+  end:'Значение на последний месяц периода.',
+  delta:'Разница между концом и началом периода. Складывается из всех четырёх видов движения.',
+  pct:'Прирост к значению на начало периода.',
+  hire:'Человек новый и в компании, и на продукте.',
+  inp:'Человек уже работал в компании, но на этом продукте не стоял: перевод с другого продукта или выход со скамейки.',
+  attr:'Человек ушёл из компании — аллокация закрылась вместе с ним.',
+  out:'Человек остался в компании, но с продукта ушёл: перевод на другой продукт или скамейка.',
+  alloc:'Человек оставался на продукте, но его процент занятости изменился. Показано сальдо роста и снижения.'
+};
+function colsFor(mode){return COLS.filter(c=>!c.fteOnly||mode==='fte')}
+function valOf(r,c,mode){
+  if(c.k==='alloc')return r.up-r.dn;
+  if(c.k==='pct')return r.begin?(r.end-r.begin)/r.begin*100:null;
+  if(c.k==='inp')return r.inp;
+  return r[c.k];
+}
+/* Ноль в колонке движения — это «ничего не произошло», и он не должен спорить
+   за внимание с настоящими числами. Гасим его, а не прячем: пустая ячейка
+   читалась бы как «данных нет». Прочерк оставлен только там, где сравнивать
+   действительно не с чем. */
+function zero(){return '<span class="zero">0</span>'}
+function cellText(v,c,mode){
+  if(v==null)return '—';
+  if(c.pct)return (v>0?'+':v<0?D.MINUS:'')+Math.abs(v).toFixed(1).replace('.',',')+'%';
+  const flat=Math.abs(v)<(mode==='fte'?0.05:0.5);
+  if(c.signed||c.k==='alloc')return flat?zero():D.fmtDelta(mode,v);
+  if(flat&&c.flow)return zero();
+  return D.fmtVal(mode,v);
+}
+/* Шапка трансформера: две строки. Верхняя — смысловые группы, нижняя — имена
+   колонок с пояснением второй строкой, мельче и не капсом: это пояснение,
+   а не имя колонки. */
+function pivotHead(cols,dimName){
+  const grp=[];
+  cols.forEach(c=>{
+    const last=grp[grp.length-1];
+    if(last&&last.g===c.grp)last.n++;else grp.push({g:c.grp,n:1});
+  });
+  const GN={cnt:'Численность',in:'Пришло',out:'Ушло',alloc:'Аллокация'};
+  let h='<thead><tr class="grp"><th class="txt" rowspan="2">'+esc(dimName)+'</th>';
+  grp.forEach(g=>{h+='<th class="g-'+g.g+'" colspan="'+g.n+'">'+GN[g.g]+'</th>'});
+  h+='</tr><tr>';
+  cols.forEach(c=>{
+    h+='<th'+tip({title:c.name+(c.sub?' '+c.sub:''),text:COL_HINT[c.k]})+'>'+esc(c.name)+
+      (c.sub?'<span class="hint-col">'+esc(c.sub)+'</span>':'')+'</th>';
+  });
+  return h+'</tr></thead>';
+}
+function pivotRow(r,cols,mode,maxes,o){
+  const lvl=o.lvl||1;
+  const open=o.open?' data-open="1"':'';
+  const caret=o.kids
+    ? '<button class="caret-btn"'+open+' data-pivot="'+esc(o.id)+'" aria-expanded="'+(o.open?'true':'false')+
+      '" aria-label="Раскрыть строку">'+(o.open?'▾':'▸')+'</button>'
+    : '<span class="caret-spacer" aria-hidden="true"></span>';
+  let h='<tr class="'+(o.total?'total top':'lvl'+lvl)+(o.kids?' urow':'')+'"'+
+    (o.kids?' data-pivot="'+esc(o.id)+'" tabindex="0" role="button" aria-expanded="'+(o.open?'true':'false')+'"':'')+'>'+
+    '<td class="txt"><span class="row-label">'+(o.total?'':caret)+
+      '<span class="row-body">'+esc(o.total?'ИТОГО':r.name)+
+      (o.note?'<span class="unit-sub">'+esc(o.note)+'</span>':'')+'</span></span></td>';
+  cols.forEach(c=>{
+    const v=valOf(r,c,mode);
+    const st=(!o.total&&c.flow)?heat(c.k==='alloc'?(v>=0?'up':'dn'):c.flow,v,maxes[c.k]):'';
+    h+='<td'+(c.lead?' class="lead"':'')+st+'>'+cellText(v,c,mode)+'</td>';
+  });
+  return h+'</tr>';
+}
+/* o: {rows, total, mode, dimName, open:Set, dimB} */
+function pivot(o){
+  const cols=colsFor(o.mode);
+  const maxes={};
+  cols.forEach(c=>{
+    if(!c.flow)return;
+    let m=0;
+    o.rows.forEach(r=>{const v=Math.abs(valOf(r,c,o.mode)||0);if(v>m)m=v});
+    maxes[c.k]=m;
+  });
+  /* grp2 — шапка в две строки. От неё зависит смещение липкой строки ИТОГО,
+     поэтому класс ставится там же, где рисуется вторая строка шапки. */
+  let h='<table class="ptable dense pivot grp2">'+pivotHead(cols,o.dimName)+'<tbody>';
+  h+=pivotRow(o.total,cols,o.mode,maxes,{total:true,note:o.totalNote});
+  o.rows.forEach(r=>{
+    const id=r.name;
+    const open=o.open&&o.open.indexOf(id)>=0;
+    h+=pivotRow(r,cols,o.mode,maxes,{id,kids:r.kids&&r.kids.length,open,
+      note:r.kids&&r.kids.length?r.kids.length+' '+plural(r.kids.length,'строка','строки','строк'):null});
+    if(open&&r.kids)r.kids.forEach(k=>{
+      h+=pivotRow(k,cols,o.mode,maxes,{lvl:2});
+    });
+  });
+  return h+'</tbody></table>';
+}
+function plural(n,a,b,c){
+  const m=n%100, k=n%10;
+  if(m>=11&&m<=14)return c;
+  if(k===1)return a;
+  if(k>=2&&k<=4)return b;
+  return c;
+}
+
+/* ============================================================================
+   Трансформер в динамике: строки — разрезы, столбцы — периоды
+   ------------------------------------------------------------------------
+   До трёх уровней вложенности. Уровни задаются пользователем, а не зашиты:
+   один и тот же вопрос («где именно растёт найм») читается то по продуктам
+   внутри домена, то по грейдам внутри профессии.
+   ========================================================================== */
+function seriesTable(o){
+  const bks=o.bks, mode=o.mode;
+  let max=0;
+  o.rows.forEach(r=>r.values.forEach(v=>{if(Math.abs(v)>max)max=Math.abs(v)}));
+  let h='<table class="ptable dense pivot stable"><thead><tr>'+
+    '<th class="txt">'+esc(o.dimName)+'</th>';
+  bks.forEach(b=>{h+='<th'+(b.partial?tip({title:b.label+' '+b.year,text:'Неполный период на краю окна: сравнивать его с полными нельзя.'}):'')+'>'+
+    esc(b.label)+(b.partial?'·':'')+'<span class="hint-col">'+b.year+'</span></th>'});
+  h+='<th class="vs">Итого</th></tr></thead><tbody>';
+  const row=(r)=>{
+    const caret=r.kids
+      ? '<button class="caret-btn"'+(r.open?' data-open="1"':'')+' data-srow="'+esc(r.id)+'" aria-expanded="'+(r.open?'true':'false')+'" aria-label="Раскрыть строку">'+(r.open?'▾':'▸')+'</button>'
+      : '<span class="caret-spacer" aria-hidden="true"></span>';
+    let s='<tr class="'+(r.total?'total top':'lvl'+r.lvl)+(r.kids?' urow':'')+'"'+
+      (r.kids?' data-srow="'+esc(r.id)+'" tabindex="0" role="button" aria-expanded="'+(r.open?'true':'false')+'"':'')+'>'+
+      '<td class="txt"><span class="row-label">'+(r.total?'':caret)+
+      '<span class="row-body">'+esc(r.name)+'</span></span></td>';
+    r.values.forEach(v=>{
+      /* Заливка ячейки показывает, где сосредоточена величина. У уровня
+         (численности) она бесполезна: все двенадцать месяцев близки, и таблица
+         просто заливается целиком. Поэтому у запасов заливки нет — там
+         сравнивают соседние числа, а не пятна. */
+      const st=(r.total||!o.flow)?'':heat(o.flow,v,max);
+      const flat=!o.stock&&Math.abs(v)<(mode==='fte'?0.05:0.5);
+      s+='<td'+st+'>'+(flat?zero():(o.stock?D.fmtVal(mode,v):D.fmtDelta(mode,v)))+'</td>';
+    });
+    s+='<td class="lead vs">'+(o.stock?D.fmtVal(mode,r.values[r.values.length-1])
+                                      :D.fmtDelta(mode,r.values.reduce((a,b)=>a+b,0)))+'</td>';
+    return s+'</tr>';
+  };
+  h+=row(Object.assign({},o.total,{total:true,name:'ИТОГО',lvl:0}));
+  o.rows.forEach(r=>{h+=row(r)});
+  return h+'</tbody></table>';
+}
+
+/* ============================================================================
+   Трансформер-матрица: разрез по строкам × разрез по столбцам
+   ------------------------------------------------------------------------
+   Набор атрибутов фиксирован — это не конструктор произвольных сводных
+   таблиц, а ответ на конкретный вопрос: как выбранная метрика распределена
+   по двум срезам сразу.
+   ========================================================================== */
+function matrixTable(o){
+  const m=o.m, mode=o.mode;
+  let max=0;
+  m.cells.forEach(v=>{if(Math.abs(v)>max)max=Math.abs(v)});
+  let h='<table class="ptable dense pivot mtx"><thead><tr><th class="txt">'+esc(o.yName)+
+    '<span class="hint-col">по столбцам: '+esc(o.xName.toLowerCase())+'</span></th>';
+  m.xs.forEach(x=>{h+='<th>'+esc(x)+'</th>'});
+  h+='<th class="vs">Итого</th></tr></thead><tbody>';
+  m.ys.forEach(y=>{
+    h+='<tr><td class="txt"><span class="row-label"><span class="caret-spacer" aria-hidden="true"></span>'+
+      '<span class="row-body">'+esc(y)+'</span></span></td>';
+    m.xs.forEach(x=>{
+      const v=m.cells.get(y+'\u0001'+x)||0;
+      h+='<td'+heat(o.flow||'hire',v,max)+tip({title:y+' · '+x,
+        rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
+        note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)})+'>'+
+        (v?D.fmtVal(mode,v):'<span class="zero">0</span>')+'</td>';
+    });
+    h+='<td class="lead vs">'+D.fmtVal(mode,m.ysum.get(y)||0)+'</td></tr>';
+  });
+  h+='<tr class="total"><td class="txt">ИТОГО</td>';
+  m.xs.forEach(x=>{h+='<td>'+D.fmtVal(mode,m.xsum.get(x)||0)+'</td>'});
+  h+='<td class="lead vs">'+D.fmtVal(mode,o.grand)+'</td></tr>';
+  return h+'</tbody></table>';
+}
+
+/* ---------- Легенда ---------- */
+function legend(items){
+  return '<div class="legend">'+items.map(i=>'<span class="sw">'+
+    (i.hollow?'<span class="dot hollow" style="border-color:'+i.color+'"></span>'
+             :'<span class="dot" style="background:'+i.color+'"></span>')+
+    esc(i.name)+'</span>').join('')+'</div>';
+}
+/* Сноска: где данные придуманы, где метрика не сходится, где инвариант
+   работает не всегда. Допущения помечаем честно, а не умалчиваем. */
+function note(t){return '<div class="tbl-note">'+t+'</div>'}
+/* Пустое состояние всегда говорит, ЧТО СДЕЛАТЬ, а не «нет данных». */
+function empty(title,text){
+  return '<div class="empty"><b>'+esc(title)+'</b>'+esc(text)+'</div>';
+}
+
+window.PXUI={esc,tip,delta,info,kpi,panel,subTabs,select,barTable,
+  pivot,COLS,colsFor,valOf,cellText,seriesTable,matrixTable,legend,note,empty,plural,heat};
+})();
+
+</script>
+<script>
+/* ============================================================================
+   screens/overview.js — вкладка «Ресурсы и движение». Неймспейс: PXSCREEN.overview
+
+   Одна вкладка = один вопрос целиком: из кого сейчас состоит продукт и как
+   этот состав менялся. Поэтому здесь стоят рядом состояние (сколько людей,
+   сколько аллокаций, сколько открытых квот), качество данных (сегменты,
+   здоровье, верификация) и движение (динамика, водопад, трансформер).
+   Разносить это по вкладкам нельзя: ответ собирается из всех трёх частей.
+
+   Экран не пишет разметку сам — только собирает данные и зовёт PXUI/PXDRAW.
+   ========================================================================== */
+(function(){
+'use strict';
+const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI;
+
+/* Подпись периода живёт в одном месте: «за период» без названия периода
+   читается как отклонение от чего угодно. */
+function periodName(st){
+  return D.MONTHS[st.i0].label+' '+D.MONTHS[st.i0].y+' — '+D.MONTHS[st.i1].label+' '+D.MONTHS[st.i1].y;
+}
+
+function kpis(m,st){
+  const hc=m.head.hc, fte=m.head.fte, v=m.verify, v0=m.verifyStart;
+  const openNow=m.supply.open[m.supply.open.length-1];
+  const filled=m.supply.filled[m.supply.filled.length-1];
+  const plan=openNow+filled;
+  const fillPct=plan?filled/plan*100:0;
+  const perHead=hc.end?fte.end/hc.end:0;
+  const mode=st.mode;
+  const cur=mode==='fte'?fte:hc;
+
+  return '<div class="kpis n5">'+
+    U.kpi({label:'Уникальные сотрудники',tag:'Люди',cls:mode==='hc'?'lead-card':'',
+      info:U.info({title:'Уникальные сотрудники',
+        text:'Люди, у которых в выбранном срезе есть хотя бы одна аллокация. Человек, стоящий на трёх продуктах, посчитан один раз.',
+        note:'Именно по этой метрике считаются HR-показатели: текучесть и оценки привязаны к человеку, а не к проценту его занятости.'}),
+      value:D.fmtInt(hc.end),
+      row1:U.delta('hc',hc.delta,{vs:'к началу периода',
+        tip:{title:'Изменение за период',text:'Разница между концом и началом периода: '+periodName(st)+'.'}}),
+      row2:'<span class="k-sub">на начало '+D.fmtInt(hc.begin)+'</span>'})+
+
+    U.kpi({label:'Сумма аллокаций, FTE',tag:'Аллокации',cls:mode==='fte'?'lead-card':'',
+      info:U.info({title:'Сумма аллокаций',
+        text:'Сумма процентов занятости всех людей на продуктах среза, делённая на сто. Один человек на 50% и 50% даёт 1,0 FTE.',
+        note:'Метрика отвечает на вопрос «сколько ставок стоит команда», а не «сколько в ней людей».'}),
+      value:D.fmtFte(fte.end),
+      row1:U.delta('fte',fte.delta,{vs:'к началу периода'}),
+      row2:'<span class="k-sub">на человека '+D.fmtFte(perHead)+'</span>'})+
+
+    U.kpi({label:'Продуктов в срезе',
+      info:U.info({title:'Верификация аллокаций',
+        text:'Доля продуктов, владельцы которых подтвердили состав команды. Данные каталога продуктов используются для расчёта P&L, поэтому неподтверждённая аллокация — это неверный P&L.',
+        note:'Считаются только продукты, на которых есть хотя бы один человек: пустой продукт подтверждать нечего.'}),
+      value:D.fmtInt(v.total),
+      row1:'<span class="sig-chip '+(v.share>=80?'good':v.share<60?'bad':'neutral')+'">верифицировано '+
+        D.fmtInt(v.ok)+' из '+D.fmtInt(v.total)+'</span>',
+      row2:'<span class="k-sub">'+D.fmtPct(v.share,0)+', на начало периода '+D.fmtPct(v0.share,0)+'</span>'})+
+
+    U.kpi({label:'Открытые квоты',
+      info:U.info({title:'Открытые квоты',
+        text:'Незакрытые позиции, заведённые на продуктах среза. Квота считается на продукте, поэтому её видно и в моменте, и в динамике.',
+        note:'Укомплектованность = занято / (занято + открытые квоты).'}),
+      value:D.fmtInt(openNow),
+      row1:'<span class="sig-chip '+(fillPct>=90?'good':fillPct<80?'bad':'neutral')+'">укомплектованность '+
+        D.fmtPct(fillPct,0)+'</span>',
+      row2:'<span class="k-sub">закрыто наймом за период '+D.fmtInt(m.head.hc.hire)+'</span>'})+
+
+    U.kpi({label:'Прирост за период',
+      info:U.info({title:'Прирост',
+        text:'Разница между концом и началом периода. Складывается из найма, входа на продукт, выхода с продукта и оттока'+
+          (mode==='fte'?', а в аллокациях — ещё и из изменения процентов.':'.')}),
+      value:D.fmtDelta(mode,cur.delta),
+      row1:'<span class="k-sub">'+D.fmtPct(cur.begin?cur.delta/cur.begin*100:0,1)+' к началу</span>',
+      row2:'<span class="k-sub">пришло '+D.fmtVal(mode,cur.hire+cur.inp)+' · ушло '+
+        D.fmtVal(mode,cur.out+cur.attr)+'</span>'})+
+  '</div>';
+}
+
+/* ---------- Водопад ----------
+   Шаги идут в порядке жизненного цикла: пришёл в компанию, пришёл на продукт,
+   изменил долю, ушёл с продукта, ушёл из компании. Изменение аллокации
+   существует только в режиме аллокаций — в людях оно бессмысленно. */
+function waterfall(m,st){
+  const t=m.tot, mode=st.mode;
+  const steps=[
+    {name:'На начало',total:true,value:t.begin,hint:periodName(st)},
+    {name:'Найм на продукт',value:t.hire,color:G.C_HIRE,hint:'человек новый и в компании, и на продукте'},
+    {name:'Вход на продукт',value:t.inp,color:G.C_IN,hint:'перевод с другого продукта или выход со скамейки'}
+  ];
+  if(mode==='fte'){
+    steps.push({name:'Рост аллокации',value:t.up,color:G.C_UP,hint:'человек остался, его процент занятости вырос'});
+    steps.push({name:'Снижение аллокации',value:-t.dn,color:G.C_DN,hint:'человек остался, его процент занятости снизился'});
+  }
+  steps.push({name:'Выход с продукта',value:-t.out,color:G.C_OUT,hint:'человек остался в компании, но ушёл с продукта'});
+  steps.push({name:'Отток из компании',value:-t.attr,color:G.C_ATTR,hint:'аллокация закрылась вместе с увольнением'});
+  steps.push({name:'На конец',total:true,value:t.end});
+  return G.chart('waterfall',{steps},{mode,h:330});
+}
+
+/* ---------- Динамика ----------
+   Три взгляда на одно и то же движение, поэтому это под-вкладки одной панели,
+   а не три панели подряд: одновременно нужен ровно один. */
+function dynamics(m,st){
+  const ticks=m.bks, mode=st.mode, f=m.flow;
+  const view=st.moveView;
+  let body;
+  if(view==='io'){
+    const up=f.hire.map((v,i)=>v+f.inp[i]);
+    const dn=f.out.map((v,i)=>v+f.attr[i]);
+    body=G.chart('diverge',{up,down:dn,ticks},
+      {mode,h:330,upName:'Пришло на продукт',downName:'Ушло с продукта',
+       legend:[{name:'пришло: найм и вход',color:G.C_HIRE},{name:'ушло: выход и отток',color:G.C_ATTR}]});
+  }else if(view==='kinds'){
+    const panels=[
+      {name:'Найм на продукт',series:f.hire,color:G.C_HIRE},
+      {name:'Вход на продукт',series:f.inp,color:G.C_IN},
+      {name:'Выход с продукта',series:f.out,color:G.C_OUT},
+      {name:'Отток из компании',series:f.attr,color:G.C_ATTR}
+    ];
+    if(mode==='fte'){
+      panels.push({name:'Изменение аллокации, сальдо',
+        series:f.up.map((v,i)=>v-f.dn[i]),color:G.C_UP,
+        note:'рост минус снижение процентов у тех, кто остался на продукте'});
+    }
+    body=G.chart('panels',{panels,ticks},{mode,h:panels.length*118});
+  }else{
+    body=G.chart('line',{series:m.stock,ticks},
+      {mode,h:330,color:G.C_LINE,name:mode==='fte'?'Сумма аллокаций':'Сотрудники на продуктах'});
+  }
+  const tabs=U.subTabs([
+    ['io','Пришло и ушло',{title:'Пришло и ушло',text:'Один поток в двух направлениях: вверх приход, вниз уход. Шкала общая, поэтому плечи сравнимы.'}],
+    ['kinds','По видам движения',{title:'По видам движения',text:'Четыре вида движения отдельными панелями с общей осью времени и своей шкалой от нуля у каждой.'}],
+    ['level','Уровень',{title:'Уровень',text:mode==='fte'?'Сумма аллокаций на конец каждого периода.':'Сотрудники на продуктах на конец каждого периода.'}]
+  ],view,'move');
+  return U.panel({title:'Динамика движения',
+    sub:'гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
+    tabs,body});
+}
+
+/* ---------- Сегменты аллокации ----------
+   Разбивка считается по ПАРАМ «человек × продукт»: один и тот же человек
+   бывает прямым ресурсом на одном продукте и парт-таймером на другом.
+   Строки кликаются — это и есть фильтр отчёта по сегменту. */
+function segments(m,st){
+  const items=m.segments.map(s=>({key:s.key,name:s.name,note:s.hint,
+    value:st.mode==='fte'?s.fte:s.people,
+    val1:D.fmtInt(s.people),val2:D.fmtFte(s.fte),
+    color:{direct:G.C_LINE,shared:G.C_IN,partial:G.C_UP,part:G.C_QUOTA}[s.key]}));
+  const pp=m.segments.reduce((a,s)=>a+s.people,0);
+  const ff=m.segments.reduce((a,s)=>a+s.fte,0);
+  const body=U.barTable({head:'Сегмент',col1:'Аллокаций, чел',col2:'FTE',items,
+      rowAttr:'seg',pick:st.segs,
+      totalVal1:D.fmtInt(pp),totalVal2:D.fmtFte(ff)})+
+    U.note('Считается по парам «человек × продукт» на '+D.mLabelFull(st.i1)+
+      ': один человек может быть прямым ресурсом на одном продукте и парт-таймером на другом, '+
+      'поэтому сумма строк (<b>'+D.fmtInt(pp)+'</b>) больше числа уникальных сотрудников (<b>'+
+      D.fmtInt(m.head.hc.end)+'</b>).');
+  return U.panel({title:'Сегменты аллокации',
+    sub:'клик по строке фильтрует весь отчёт',body});
+}
+
+/* ---------- Здоровье аллокаций ----------
+   Считается по ЧЕЛОВЕКУ: перебор ставки возникает из суммы по всем
+   продуктам и на отдельной паре не виден. Проблемные состояния красные —
+   здесь оценка есть: сумма больше ста процентов это ошибка данных,
+   а не особенность команды. */
+function health(m,st){
+  const items=m.health.map(h=>({key:h.key,name:h.name,note:h.hint,value:h.people,
+    val1:D.fmtInt(h.people),
+    /* Здесь светофор уместен: сумма аллокаций больше ста процентов — это
+       ошибка данных, а не особенность команды. Цвета берутся из рисовального
+       слоя, литералов в экране нет. */
+    color:h.bad?G.C_RED:(h.key==='norm'?G.C_GREEN:G.C_FLAT)}));
+  const total=m.health.reduce((a,h)=>a+h.people,0);
+  const bad=m.health.filter(h=>h.bad).reduce((a,h)=>a+h.people,0);
+  let body=U.barTable({head:'Состояние',col1:'Человек',items,
+    totalVal1:D.fmtInt(total)});
+  body+=bad
+    ? '<div class="flag">Проблемных аллокаций: <b>'+D.fmtInt(bad)+'</b> из '+D.fmtInt(total)+
+      '. Данные каталога продуктов идут в расчёт P&amp;L, поэтому расхождения надо править в каталоге, а не в отчёте.</div>'
+    : '<div class="flag ok"><span class="ok-dot"></span>Проблемных аллокаций нет: у всех сотрудников среза сумма аллокаций равна ставке.</div>';
+  body+=U.note('Состояние на '+D.mLabelFull(st.i1)+'. Сотрудники без аллокаций попадают в отчёт '+
+    'по организационной привязке к продукту — иначе целая проблемная категория из отчёта исчезает.');
+  return U.panel({title:'Здоровье аллокаций',sub:'сумма по всем продуктам, по человеку',body});
+}
+
+/* ---------- Ресурсообеспеченность ---------- */
+function supply(m,st){
+  const body=G.chart('supply',{filled:m.supply.filled,open:m.supply.open,ticks:m.bks},
+      {mode:st.mode,h:330,
+       legend:[{name:'занято',color:G.C_TOTAL},{name:'открытые квоты',color:G.C_QUOTA,hollow:true}]})+
+    U.note('Белая часть бара — то, что ещё не нанято. Открытые квоты показаны в штатных единицах '+
+      'и в режиме аллокаций тоже: квота открывается на ставку, а не на процент.');
+  return U.panel({title:'Ресурсообеспеченность',sub:'численность и открытые квоты',body});
+}
+
+/* ---------- Трансформер: один уровень детализации ----------
+   На главном экране трансформер решает одну задачу — показать те же
+   агрегированные метрики в разрезе. Три уровня и матрица живут на второй
+   вкладке: там это отдельная работа, а не взгляд по дороге. */
+function pivot(m,st){
+  const rows=st.dimB?D.rows2(st,st.dimA,st.dimB):D.rows(st,st.dimA);
+  const dimName=D.DIM_BY_KEY[st.dimA].name;
+  const dims=D.DIMS.map(d=>[d.key,d.name]);
+  const tabs='<div class="h-ctl">'+
+    U.select('dimA',dims,st.dimA,'Строки')+
+    U.select('dimB',[['','без второго уровня']].concat(dims.filter(d=>d[0]!==st.dimA)),st.dimB,'Второй уровень')+
+    '</div>';
+  const body='<div class="tbl-wrap">'+U.pivot({rows,total:m.tot,mode:st.mode,dimName,
+      open:st.open,totalNote:'уникальные значения по всему срезу'})+'</div>'+
+    U.note('Строки раскрываются кареткой. Сумма по строкам больше итога, когда разрез '+
+      'привязан к продукту: человек, аллоцированный на несколько продуктов, попадает в несколько строк, '+
+      'а в итоге считается один раз. Переходы между продуктами внутри среза видны в строках '+
+      'и схлопываются в итоге — портфель они не меняют.');
+  return U.panel({title:'Трансформер: движение в разрезе',
+    sub:'за период '+periodName(st),tabs,body});
+}
+
+function render(st){
+  const m=D.model(st);
+  if(!m.verify.total)return U.empty('На выбранных продуктах никого нет',
+    'Снимите один из фильтров слева — например, сегмент аллокации или грейд.');
+  return kpis(m,st)+'<div class="stack">'+
+    '<div class="grid2">'+supply(m,st)+
+      U.panel({title:'Как изменилось за период',sub:'водопад движения',
+        body:waterfall(m,st)+U.note('Уровни серые, движения — гаммой потоков. '+
+          'Отток сиреневый, а не красный: это категория, а не оценка.')})+'</div>'+
+    '<div class="grid-2-1">'+segments(m,st)+health(m,st)+'</div>'+
+    dynamics(m,st)+pivot(m,st)+'</div>';
+}
+
+window.PXSCREEN=window.PXSCREEN||{};
+window.PXSCREEN.overview={render,periodName};
+})();
+
+</script>
+<script>
+/* ============================================================================
+   screens/transformer.js — вкладка «Трансформер». Неймспейс: PXSCREEN.transformer
+
+   Здесь та же модель данных, но другой вопрос. На главном экране трансформер
+   отвечает «как выглядит движение в разрезе», здесь — «где именно и когда».
+   Отсюда два вида:
+
+   · В ДИНАМИКЕ. Строки — до трёх вложенных разрезов, столбцы — периоды.
+     Уровни выбирает пользователь: один и тот же вопрос читается то по
+     продуктам внутри домена, то по грейдам внутри профессии.
+   · МАТРИЦА. Строки — один разрез, столбцы — другой. Набор атрибутов
+     фиксирован: это не конструктор произвольных сводных таблиц, а ответ
+     на конкретный вопрос — как метрика легла сразу по двум срезам.
+
+   Метрика у обоих видов одна и та же и выбирается в шапке панели: там, где
+   меняется то, что она переключает.
+   ========================================================================== */
+(function(){
+'use strict';
+const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI;
+/* Разделитель уровней в ключе строки: тот же управляющий символ, что в data.js.
+   Не дефис и не двоеточие — в именах продуктов и локаций встречается что угодно,
+   а ключ обязан разбираться обратно без потерь. */
+const SEP='\u0001';
+
+function metricList(mode){
+  return D.SERIES_METRICS.filter(m=>!m.fteOnly||mode==='fte');
+}
+function metricOf(st){
+  const list=metricList(st.mode);
+  const hit=list.filter(m=>m.key===st.tmetric)[0];
+  return hit||list[0];
+}
+/* Порядок строк: смысловые разрезы (грейд, сегмент) держат свой порядок,
+   остальные сортируются по убыванию — иначе взгляд начинает с самого
+   мелкого и главное уезжает вниз. */
+function sortKeys(keys,dim,val){
+  const ord=D.DIM_ORDER[dim];
+  const ks=keys.slice();
+  if(ord)ks.sort((a,b)=>ord.indexOf(last(a))-ord.indexOf(last(b)));
+  else ks.sort((a,b)=>val(b)-val(a));
+  return ks;
+}
+function last(k){const p=k.split(SEP);return p[p.length-1]}
+function sum(a){return a.reduce((x,y)=>x+y,0)}
+
+/* ---------- Строки динамического трансформера ----------
+   Запрашиваются только те уровни, которые действительно раскрыты: считать
+   третий уровень, пока не раскрыт первый, — это работа впустую на каждом
+   изменении фильтра. */
+function dynRows(st,bks,dims,metric,open,stock){
+  const total=D.seriesRows(st,[],metric,bks);
+  const rank=arr=>stock?arr[arr.length-1]:sum(arr);
+  const maps=[D.seriesRows(st,[dims[0]],metric,bks)];
+  const needL2=dims[1]&&open.some(k=>k.indexOf(SEP)<0);
+  if(needL2)maps.push(D.seriesRows(st,[dims[0],dims[1]],metric,bks));
+  const needL3=dims[2]&&open.some(k=>k.split(SEP).length===2);
+  if(needL3)maps.push(D.seriesRows(st,[dims[0],dims[1],dims[2]],metric,bks));
+
+  const rows=[];
+  const push=(k,lvl)=>{
+    const values=Array.from(maps[lvl-1].get(k));
+    const isOpen=open.indexOf(k)>=0;
+    rows.push({id:k,name:last(k),lvl,values,kids:!!dims[lvl],open:isOpen});
+    if(!isOpen||!maps[lvl])return;
+    const kids=Array.from(maps[lvl].keys()).filter(x=>x.indexOf(k+SEP)===0);
+    sortKeys(kids,dims[lvl],x=>rank(Array.from(maps[lvl].get(x)))).forEach(x=>push(x,lvl+1));
+  };
+  sortKeys(Array.from(maps[0].keys()),dims[0],x=>rank(Array.from(maps[0].get(x)))).forEach(k=>push(k,1));
+  return {rows,total:{values:Array.from(total.get('')||new Array(bks.length).fill(0))}};
+}
+
+function dynView(st,m){
+  const met=metricOf(st);
+  const dims=[st.t1,st.t2,st.t3].filter(Boolean);
+  const {rows,total}=dynRows(st,m.bks,dims,met.key,st.topen,!!met.stock);
+  /* У запаса заливки нет: соседние месяцы отличаются на проценты, и таблица
+     заливается ровным пятном, которое ничего не сообщает. У потоков есть. */
+  const flow=met.stock?null:{in:'in',out:'out',attr:'attr',alloc:'up'}[met.key]||'hire';
+  const body='<div class="tbl-wrap">'+U.seriesTable({rows,total,bks:m.bks,mode:st.mode,
+      dimName:dims.map(d=>D.DIM_BY_KEY[d].name).join(' → '),
+      stock:!!met.stock,flow})+'</div>'+
+    U.note(met.stock
+      ? 'Значение на конец каждого периода. Колонка «Итого» повторяет последний период: складывать численность по месяцам нельзя.'
+      : 'Сумма за каждый период. Колонка «Итого» — сумма по всему окну.');
+  return body;
+}
+
+function mtxView(st,m){
+  const met=metricOf(st);
+  const mx=D.matrix(st,st.my,st.mxd,met.key,m.bks);
+  let grand=0;mx.xsum.forEach(v=>{grand+=v});
+  /* Итог матрицы берётся по столбцам, а не как сумма ячеек: в режиме людей
+     человек, попавший в две строки, посчитан в каждой, и сумма ячеек была бы
+     больше правды. Расхождение честно объяснено сноской под таблицей. */
+  /* В матрице заливка остаётся всегда, включая численность: здесь сравнивают
+     ячейки одного среза между собой, и пятно как раз показывает, где
+     сосредоточен ресурс. */
+  const flow={in:'in',out:'out',attr:'attr',alloc:'up'}[met.key]||'hire';
+  const body='<div class="tbl-wrap">'+U.matrixTable({m:mx,mode:st.mode,
+      yName:D.DIM_BY_KEY[st.my].name,xName:D.DIM_BY_KEY[st.mxd].name,
+      metricName:met.name,flow,grand})+'</div>'+
+    U.note('Метрика: <b>'+U.esc(met.name)+'</b>, режим: <b>'+
+      (st.mode==='fte'?'аллокации':'люди')+'</b>. '+
+      (st.mode==='fte'
+        ? 'В аллокациях итог сходится с суммой ячеек: проценты складываются.'
+        : 'В людях итог по строке или столбцу меньше суммы ячеек, если разрез привязан к продукту: человек на нескольких продуктах попадает в несколько ячеек, а в итоге считается один раз.'));
+  return body;
+}
+
+function render(st){
+  const m=D.model(st);
+  if(!m.verify.total)return U.empty('На выбранных продуктах никого нет',
+    'Снимите один из фильтров слева — например, сегмент аллокации или грейд.');
+  const dims=D.DIMS.map(d=>[d.key,d.name]);
+  const metrics=metricList(st.mode).map(x=>[x.key,x.name]);
+  const view=st.tview==='mtx'?'mtx':'dyn';
+  const tabs=U.subTabs([
+    ['dyn','В динамике',{title:'В динамике',text:'Строки — разрезы, столбцы — периоды. До трёх уровней вложенности.'}],
+    ['mtx','Матрица',{title:'Матрица',text:'Один разрез по строкам, другой по столбцам. Набор атрибутов фиксирован.'}]
+  ],view,'tview');
+
+  const ctl=view==='dyn'
+    ? '<div class="h-ctl">'+
+        U.select('tmetric',metrics,st.tmetric,'Метрика')+
+        U.select('t1',dims,st.t1,'Уровень 1')+
+        U.select('t2',[['','нет']].concat(dims.filter(d=>d[0]!==st.t1)),st.t2,'Уровень 2')+
+        U.select('t3',[['','нет']].concat(dims.filter(d=>d[0]!==st.t1&&d[0]!==st.t2)),st.t3,'Уровень 3')+
+      '</div>'
+    : '<div class="h-ctl">'+
+        U.select('tmetric',metrics,st.tmetric,'Метрика')+
+        U.select('my',dims,st.my,'Строки')+
+        U.select('mxd',dims.filter(d=>d[0]!==st.my),st.mxd,'Столбцы')+
+      '</div>';
+
+  return U.panel({title:'Трансформер',
+    sub:'период '+window.PXSCREEN.overview.periodName(st)+
+      ' · гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
+    tabs,body:ctl+(view==='dyn'?dynView(st,m):mtxView(st,m))});
+}
+
+window.PXSCREEN=window.PXSCREEN||{};
+window.PXSCREEN.transformer={render};
+})();
+
+</script>
+<script>
+/* ============================================================================
+   app.js — состояние, полка фильтров, обработчики. Неймспейс: window.PXAPP.
+   Загружается последним: читает data.js, draw.js, ui.js и экраны.
+
+   Три правила, из которых собран весь файл:
+
+   1. ВСЁ СОСТОЯНИЕ ЖИВЁТ В URL. Отчёт, который нельзя переслать коллеге
+      в том же виде, не дошёл. Поэтому любой обработчик меняет S и зовёт
+      render(), а render() пишет ссылку.
+   2. ОДИН ДЕЛЕГИРОВАННЫЙ ОБРАБОТЧИК на документ, порядок проверок от частного
+      к общему: широкие селекторы (строка таблицы) проверяются последними.
+   3. ФИЛЬТР ПРИМЕНЯЕТСЯ СРАЗУ. Кнопка «Применить» существует затем, чтобы
+      отложить перерасчёт, а он здесь занимает миллисекунды. Отложенное
+      применение только прячет от пользователя то, что он уже сделал.
+   ========================================================================== */
+(function(){
+'use strict';
+const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI, SC=window.PXSCREEN;
+
+/* ---------- Состояние ---------- */
+const DEF={
+  mode:'hc', tab:'overview',
+  i0:D.N-12, i1:D.N-1, gran:'m',
+  prods:[], segs:[], mainOnly:false,
+  prof:'', grade:'', loc:'', emp:'',
+  dimA:'product', dimB:'', open:[], moveView:'io',
+  tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
+  my:'prof', mxd:'grade',
+  treeOpen:[]
+};
+const S=Object.assign({},DEF);
+
+/* Состояние запроса для модели. Отдельная функция, потому что prodSet —
+   производная величина: держать её в S значит держать два источника правды. */
+function q(over){
+  return Object.assign({},S,{prodSet:D.prodSet(S.prods)},over||{});
+}
+
+/* ---------- Ссылка ----------
+   Пишется одним местом и читается одним местом. Ключи короткие: длинная
+   ссылка ломается в мессенджерах на переносе. */
+const LIST_KEYS=['prods','segs','open','topen','treeOpen'];
+function toURL(){
+  const p=[];
+  Object.keys(DEF).forEach(k=>{
+    const v=S[k], d=DEF[k];
+    if(LIST_KEYS.indexOf(k)>=0){
+      if(v.length)p.push(k+'='+encodeURIComponent(v.join('~')));
+    }else if(v!==d)p.push(k+'='+encodeURIComponent(v));
+  });
+  return location.pathname+(p.length?'#'+p.join('&'):'');
+}
+function fromURL(){
+  const h=location.hash.replace(/^#/,'');
+  if(!h)return;
+  h.split('&').forEach(part=>{
+    const i=part.indexOf('=');
+    if(i<0)return;
+    const k=part.slice(0,i), v=decodeURIComponent(part.slice(i+1));
+    if(!(k in DEF))return;
+    if(LIST_KEYS.indexOf(k)>=0)S[k]=v?v.split('~'):[];
+    else if(typeof DEF[k]==='number')S[k]=Math.max(0,Math.min(D.N-1,parseInt(v,10)||0));
+    else if(typeof DEF[k]==='boolean')S[k]=v==='1'||v==='true';
+    else S[k]=v;
+  });
+  if(S.i1<S.i0)S.i1=S.i0;
+}
+
+/* ---------- Полка фильтров ---------- */
+const PERIODS=[
+  ['12','Последние 12 месяцев'],
+  ['6','Последние 6 месяцев'],
+  ['24','Весь доступный период'],
+  ['y','Текущий календарный год'],
+  ['py','Прошлый календарный год']
+];
+function applyPeriod(key){
+  const last=D.N-1;
+  if(key==='12'){S.i0=last-11;S.i1=last}
+  else if(key==='6'){S.i0=last-5;S.i1=last}
+  else if(key==='24'){S.i0=0;S.i1=last}
+  else if(key==='y'){
+    const y=D.MONTHS[last].y;
+    S.i0=D.MONTHS.filter(m=>m.y===y)[0].i;S.i1=last;
+  }else if(key==='py'){
+    const y=D.MONTHS[last].y-1;
+    const ms=D.MONTHS.filter(m=>m.y===y);
+    S.i0=ms[0].i;S.i1=ms[ms.length-1].i;
+  }
+  /* Год как гранулярность на полугодовом окне даёт один столбец — это не
+     динамика, а число. Подкручиваем молча: пользователь просил период,
+     а не пустой график. */
+  if(S.i1-S.i0<11&&S.gran==='y')S.gran='q';
+  if(S.i1-S.i0<3&&S.gran==='q')S.gran='m';
+}
+function monthOpts(){return D.MONTHS.map(m=>[m.i,m.label+' '+m.y])}
+
+/* Счётчики в дереве продуктов: сколько человек на продукте сейчас, с учётом
+   ВСЕХ фильтров, кроме самого продуктового. Иначе выбор одного продукта
+   обнулял бы счётчики у всех остальных, и дерево переставало помогать. */
+function prodCounts(){
+  const st=Object.assign({},S,{prodSet:D.prodSet([]),mode:'hc'});
+  const map=Object.create(null);
+  D.rows(st,'product').forEach(r=>{map[r.name]=r.end});
+  return map;
+}
+function treeState(domId){
+  const kids=D.DOM[domId].kids;
+  const picked=kids.filter(k=>S.prods.indexOf(k)>=0).length;
+  if(S.prods.indexOf(domId)>=0||picked===kids.length&&picked)return 'on';
+  return picked?'part':'';
+}
+function shelf(){
+  const cnt=prodCounts();
+  let h='';
+
+  h+='<div class="fg"><div class="fg-h">Период<span class="sp"></span>'+
+    '<button data-reset="period">сбросить</button></div>'+
+    '<select data-sel="periodPreset" aria-label="Пресет периода">'+
+    '<option value="">Свой период</option>'+
+    PERIODS.map(p=>'<option value="'+p[0]+'">'+p[1]+'</option>').join('')+'</select>'+
+    '<div class="fg-row">'+
+      U.select('i0',monthOpts(),S.i0,'с')+U.select('i1',monthOpts(),S.i1,'по')+
+    '</div></div>';
+
+  h+='<div class="fg"><label>Гранулярность</label>'+
+    U.subTabs(D.GRAN.map(g=>[g.key,g.name]),S.gran,'gran','wide')+
+    '<div class="fhint">Запасы берутся на конец периода, потоки суммируются внутри него.</div></div>';
+
+  h+='<div class="fg"><div class="fg-h">Продукты каталога<span class="sp"></span>'+
+    (S.prods.length?'<button data-reset="prods">все</button>':'')+'</div><div class="opt-list">';
+  D.DOMAINS.forEach(dm=>{
+    const stt=treeState(dm.id), open=S.treeOpen.indexOf(dm.id)>=0;
+    const sum=dm.kids.reduce((a,k)=>a+(cnt[D.PROD[k].name]||0),0);
+    h+='<div class="tree-row">'+
+      '<button class="tree-tw" data-twist="'+dm.id+'" aria-label="'+(open?'Свернуть':'Развернуть')+'"'+
+        ' aria-expanded="'+(open?'true':'false')+'">'+(open?'▾':'▸')+'</button>'+
+      '<button class="opt-i'+(stt?' '+stt:'')+'" data-prod="'+dm.id+'" role="checkbox"'+
+        ' aria-checked="'+(stt==='on'?'true':stt==='part'?'mixed':'false')+'">'+
+        '<span class="box"></span><span class="nm">'+U.esc(dm.name)+'</span>'+
+        '<span class="cnt">'+D.fmtInt(sum)+'</span></button></div>';
+    if(!open)return;
+    dm.kids.forEach(k=>{
+      const on=S.prods.indexOf(k)>=0||S.prods.indexOf(dm.id)>=0;
+      h+='<button class="opt-i kid'+(on?' on':'')+'" data-prod="'+k+'" role="checkbox"'+
+        ' aria-checked="'+(on?'true':'false')+'"><span class="box"></span>'+
+        '<span class="nm">'+U.esc(D.PROD[k].name)+'</span>'+
+        '<span class="cnt">'+D.fmtInt(cnt[D.PROD[k].name]||0)+'</span></button>';
+    });
+  });
+  h+='</div><div class="fhint">Пустой выбор значит «все продукты»: новый продукт каталога '+
+    'появляется в отчёте сам, а не теряется у тех, кто однажды настроил фильтр.</div></div>';
+
+  h+='<div class="fg"><div class="fg-h">Сегмент аллокации<span class="sp"></span>'+
+    (S.segs.length?'<button data-reset="segs">все</button>':'')+'</div><div class="opt-list">';
+  D.SEGMENTS.forEach(s=>{
+    const on=S.segs.indexOf(s.key)>=0;
+    h+='<button class="opt-i'+(on?' on':'')+'" data-seg="'+s.key+'" role="checkbox" aria-checked="'+(on?'true':'false')+'">'+
+      '<span class="box"></span><span class="nm">'+U.esc(s.name)+
+      '<span class="sub">'+U.esc(s.hint)+'</span></span></button>';
+  });
+  h+='</div></div>';
+
+  h+='<div class="fg"><button class="sw-row'+(S.mainOnly?' on':'')+'" data-main="1" role="switch"'+
+    ' aria-checked="'+(S.mainOnly?'true':'false')+'"><span class="sw"></span>'+
+    '<span class="sw-t">Только основной продукт</span></button>'+
+    '<div class="fhint">Оставляет пары, где аллокация больше 50%. Тогда работает правило '+
+    '«один человек — один продукт», и на этих данных можно считать HR-метрики: '+
+    'текучесть и оценки привязаны к человеку, а не к проценту его занятости.</div></div>';
+
+  const any=[['','Все']];
+  h+='<div class="fg"><label>Профессия</label>'+
+    '<select data-sel="prof">'+opts(any.concat(D.PROFS.map(x=>[x,x])),S.prof)+'</select></div>';
+  h+='<div class="fg"><label>Грейд</label>'+
+    '<select data-sel="grade">'+opts(any.concat(D.GRADES.map(x=>[x,x])),S.grade)+'</select></div>';
+  h+='<div class="fg"><label>Локация</label>'+
+    '<select data-sel="loc">'+opts(any.concat(D.LOCS.map(x=>[x,x])),S.loc)+'</select></div>';
+  h+='<div class="fg"><label>Тип занятости</label>'+
+    '<select data-sel="emp">'+opts(any.concat(D.EMPS.map(x=>[x,x])),S.emp)+'</select></div>';
+  return h;
+}
+function opts(list,val){
+  return list.map(o=>'<option value="'+U.esc(o[0])+'"'+(String(o[0])===String(val)?' selected':'')+'>'+
+    U.esc(o[1])+'</option>').join('');
+}
+
+/* ---------- Шапка отчёта ----------
+   Чипы показывают ровно то, что сейчас сужает выборку, и снимаются кликом.
+   Чипа «ничего не выбрано» не существует: она занимает строку и ничего
+   не сообщает. */
+function chips(){
+  const out=[];
+  if(S.prods.length){
+    const names=S.prods.map(id=>D.DOM[id]?D.DOM[id].name:D.PROD[id].name);
+    out.push(['prods','Продукты: '+(names.length>2?names.slice(0,2).join(', ')+' и ещё '+(names.length-2):names.join(', '))]);
+  }
+  S.segs.forEach(k=>out.push(['seg:'+k,'Сегмент: '+D.SEG_BY_KEY[k].name]));
+  if(S.mainOnly)out.push(['mainOnly','Только основной продукт']);
+  ['prof','grade','loc','emp'].forEach(k=>{
+    if(S[k])out.push([k,{prof:'Профессия',grade:'Грейд',loc:'Локация',emp:'Занятость'}[k]+': '+S[k]]);
+  });
+  let h=out.map(c=>'<span class="chip">'+U.esc(c[1])+
+    '<button class="x" data-unchip="'+c[0]+'" aria-label="Снять фильтр">×</button></span>').join('');
+  h+='<span class="chip bench">Режим: <b>'+(S.mode==='fte'?'аллокации, FTE':'уникальные люди')+'</b></span>';
+  return h;
+}
+
+function reporthead(){
+  const scope=S.prods.length
+    ? (S.prods.length===1?(D.DOM[S.prods[0]]?D.DOM[S.prods[0]].name:D.PROD[S.prods[0]].name)
+                         :'Выбранные продукты ('+S.prods.length+')')
+    : 'Все продукты каталога';
+  return '<div class="rh-row"><div class="rh-main">'+
+    '<div class="rh-crumbs">Каталог продуктов · ресурсы и аллокации</div>'+
+    '<h1 class="rh-title">'+U.esc(scope)+'</h1>'+
+    '<div class="chips">'+chips()+'</div></div>'+
+    '<div class="rh-side">'+
+      '<span class="period">'+U.esc(SC.overview.periodName(q()))+'</span>'+
+      '<button class="btn ghost" data-help="1">Как читать отчёт</button>'+
+      '<button class="btn" data-link="1">Скопировать ссылку</button>'+
+    '</div></div>';
+}
+
+function modeRow(){
+  return '<div class="moderow">'+
+    '<span class="lbl">Считаем в</span>'+
+    U.subTabs([['hc','Люди',{title:'Люди',text:'Уникальные сотрудники. Человек, стоящий на трёх продуктах, считается один раз.'}],
+               ['fte','Аллокации, FTE',{title:'Аллокации',text:'Сумма процентов занятости. Один человек на 50% и 50% даёт 1,0 FTE.'}]],
+      S.mode,'mode')+
+    '<span class="sp"></span>'+
+    '<span class="hint-txt">Меняет смысл всех чисел отчёта разом</span>'+
+    '</div>'+
+    '<div class="tabs" role="tablist">'+
+      tab('overview','Ресурсы и движение')+tab('transformer','Трансформер')+
+    '</div>';
+}
+function tab(k,name){
+  return '<button class="tab'+(S.tab===k?' active':'')+'" data-tab="'+k+'" role="tab"'+
+    ' aria-selected="'+(S.tab===k?'true':'false')+'">'+U.esc(name)+'</button>';
+}
+
+/* ---------- Рендер ---------- */
+let raf=null;
+function render(animate){
+  G.reset();
+  const st=q();
+  document.getElementById('shelfBody').innerHTML=shelf();
+  document.getElementById('reporthead').innerHTML=reporthead();
+  const view=document.getElementById('view');
+  view.innerHTML=modeRow()+
+    (S.tab==='transformer'?SC.transformer.render(st):SC.overview.render(st));
+  /* Пресет периода подсвечивается по факту, а не по памяти: пользователь мог
+     подвинуть границы руками, и тогда пресет уже не тот. */
+  const sel=document.querySelector('[data-sel="periodPreset"]');
+  if(sel)sel.value=presetOf();
+  G.remeasure(view,animate!==false);
+  history.replaceState(null,'',toURL());
+}
+function presetOf(){
+  const last=D.N-1;
+  if(S.i1!==last)return S.i0===D.MONTHS.filter(m=>m.y===D.MONTHS[last].y-1)[0].i?'py':'';
+  if(S.i0===last-11)return '12';
+  if(S.i0===last-5)return '6';
+  if(S.i0===0)return '24';
+  if(S.i0===D.MONTHS.filter(m=>m.y===D.MONTHS[last].y)[0].i)return 'y';
+  return '';
+}
+function schedule(){
+  if(raf)cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(()=>{raf=null;render(true)});
+}
+
+/* ---------- Обработчики ----------
+   Один слушатель на документ, порядок от частного к общему. */
+function toggle(arr,v){
+  const i=arr.indexOf(v);
+  if(i<0)arr.push(v);else arr.splice(i,1);
+  return arr;
+}
+document.addEventListener('click',e=>{
+  const t=e.target;
+  if(!t||!t.closest)return;
+  const hit=s=>t.closest('['+s+']');
+  let el;
+
+  if((el=hit('data-twist'))){toggle(S.treeOpen,el.getAttribute('data-twist'));return schedule()}
+  if((el=hit('data-prod'))){
+    const id=el.getAttribute('data-prod');
+    if(D.DOM[id]){
+      /* Домен разворачивается в свои листья, а не хранится как узел: иначе
+         снятие одного продукта из выбранного домена нечем описать. */
+      const kids=D.DOM[id].kids;
+      const all=kids.every(k=>S.prods.indexOf(k)>=0)||S.prods.indexOf(id)>=0;
+      S.prods=S.prods.filter(x=>x!==id&&kids.indexOf(x)<0);
+      if(!all)kids.forEach(k=>S.prods.push(k));
+    }else toggle(S.prods,id);
+    return schedule();
+  }
+  if((el=hit('data-seg'))){toggle(S.segs,el.getAttribute('data-seg'));return schedule()}
+  if((el=hit('data-main'))){S.mainOnly=!S.mainOnly;return schedule()}
+  if((el=hit('data-unchip'))){
+    const v=el.getAttribute('data-unchip');
+    if(v==='prods')S.prods=[];
+    else if(v==='mainOnly')S.mainOnly=false;
+    else if(v.indexOf('seg:')===0)toggle(S.segs,v.slice(4));
+    else S[v]='';
+    return schedule();
+  }
+  if((el=hit('data-reset'))){
+    const v=el.getAttribute('data-reset');
+    if(v==='period'){applyPeriod('12')}
+    else if(v==='prods')S.prods=[];
+    else if(v==='segs')S.segs=[];
+    else if(v==='all')Object.assign(S,DEF,{prods:[],segs:[],open:[],topen:[],treeOpen:[]});
+    return schedule();
+  }
+  if((el=hit('data-mode'))){S.mode=el.getAttribute('data-mode');fixMetric();return schedule()}
+  if((el=hit('data-gran'))){S.gran=el.getAttribute('data-gran');return schedule()}
+  if((el=hit('data-move'))){S.moveView=el.getAttribute('data-move');return schedule()}
+  if((el=hit('data-tview'))){S.tview=el.getAttribute('data-tview');return schedule()}
+  if((el=hit('data-tab'))){S.tab=el.getAttribute('data-tab');return schedule()}
+  if((el=hit('data-pivot'))){toggle(S.open,el.getAttribute('data-pivot'));return schedule()}
+  if((el=hit('data-srow'))){toggle(S.topen,el.getAttribute('data-srow'));return schedule()}
+  if((el=hit('data-help'))){openHelp(true);return}
+  if((el=hit('data-helpclose'))){openHelp(false);return}
+  if((el=hit('data-link'))){copyLink(el);return}
+  if((el=hit('data-shelf'))){setShelf(!document.getElementById('shelf').classList.contains('open'));return}
+  if(t.id==='shelfScrim'){setShelf(false);return}
+});
+/* Клавиатура: кликабельная строка таблицы обязана работать без мыши. */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){openHelp(false);setShelf(false);return}
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  const t=e.target;
+  if(!t||!t.closest)return;
+  if(t.closest('[data-pivot],[data-srow],[data-seg],[data-prod],[data-main]')){
+    e.preventDefault();t.click();
+  }
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(!t||!t.getAttribute)return;
+  const k=t.getAttribute('data-sel');
+  if(!k)return;
+  if(k==='periodPreset'){if(t.value)applyPeriod(t.value);return schedule()}
+  if(k==='i0'||k==='i1'){
+    S[k]=parseInt(t.value,10);
+    if(S.i1<S.i0){if(k==='i0')S.i1=S.i0;else S.i0=S.i1}
+    if(S.i1-S.i0<11&&S.gran==='y')S.gran='q';
+    if(S.i1-S.i0<3&&S.gran==='q')S.gran='m';
+    return schedule();
+  }
+  S[k]=t.value;
+  /* Уровни трансформера не могут повторяться: одна и та же строка, вложенная
+     сама в себя, ничего не раскрывает. */
+  if(k==='t1'&&S.t2===S.t1)S.t2='';
+  if((k==='t1'||k==='t2')&&S.t3&&(S.t3===S.t1||S.t3===S.t2))S.t3='';
+  if(k==='dimA'&&S.dimB===S.dimA)S.dimB='';
+  if(k==='my'&&S.mxd===S.my)S.mxd=D.DIMS.filter(d=>d.key!==S.my)[0].key;
+  if(k==='t1'||k==='t2'||k==='t3')S.topen=[];
+  if(k==='dimA'||k==='dimB')S.open=[];
+  schedule();
+});
+/* Перерисовка под фактическую ширину: меняется геометрия графика, а не
+   масштаб всего SVG — иначе на телефоне подписи стали бы нечитаемыми.
+   Анимацию на resize не проигрываем. */
+let rt=null;
+addEventListener('resize',()=>{
+  clearTimeout(rt);
+  rt=setTimeout(()=>G.remeasure(document.getElementById('view'),false),140);
+});
+
+function fixMetric(){
+  const ok=D.SERIES_METRICS.filter(m=>!m.fteOnly||S.mode==='fte').map(m=>m.key);
+  if(ok.indexOf(S.tmetric)<0)S.tmetric='stock';
+}
+function openHelp(on){
+  document.getElementById('helpOvl').classList.toggle('hidden',!on);
+}
+function setShelf(on){
+  document.getElementById('shelf').classList.toggle('open',on);
+  document.getElementById('shelfScrim').classList.toggle('open',on);
+}
+function copyLink(btn){
+  const url=location.origin+location.pathname+location.hash;
+  const done=()=>{const t=btn.textContent;btn.textContent='Ссылка скопирована';setTimeout(()=>{btn.textContent=t},1600)};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(url).then(done,done);
+  else done();
+}
+
+fromURL();
+fixMetric();
+render(true);
+window.PXAPP={S,render,q};
+})();
+
+</script>
+</body>
+</html>
