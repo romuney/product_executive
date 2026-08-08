@@ -200,10 +200,6 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .kpis.n5{grid-template-columns:repeat(5,minmax(0,1fr))}
-/* Шесть колонок под пять карточек: первая занимает две. Разложение состава
-   живёт внутри той карточки, число которой оно разбирает, — отдельной панели
-   во всю ширину экрана этот сюжет не заслуживает. */
-.kpis.n6{grid-template-columns:repeat(6,minmax(0,1fr))}
 .kpi{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px}
 .kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:700;margin-bottom:7px;
   display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
@@ -219,21 +215,6 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 @supports (grid-template-rows:subgrid){
   .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
 }
-/* Широкая карточка: слева те же четыре строки, справа график. Из subgrid она
-   выходит намеренно — её содержимое раскладывается по горизонтали, и
-   выравнивать по строкам внутри неё нечего. Соседние карточки продолжают
-   выравниваться между собой. */
-.kpi.hero{grid-column:span 2;grid-row:span 4;display:flex;align-items:stretch;
-  gap:var(--s7);min-width:0}
-.kpi.hero .h-left{display:flex;flex-direction:column;min-width:118px;flex:0 0 auto}
-.kpi.hero .h-left .k-row:first-of-type{margin-top:auto}
-.kpi.hero .h-aside{flex:1;min-width:0;display:flex;flex-direction:column;
-  border-left:1px solid var(--line2);padding-left:var(--s7)}
-.kpi.hero .h-aside .svgchart{flex:1;min-height:0}
-.kpi.hero .h-cap{font-size:var(--fs-cap);color:var(--muted);font-weight:600;
-  margin-bottom:var(--s2);line-height:1.35}
-.kpi.hero .h-cap b{color:var(--ink2)}
-
 /* Риска состава: форма распределения без таблицы. Числа — в подсказке. */
 .mini-bar{display:flex;width:100%;height:10px;gap:2px;border-radius:var(--r1);overflow:hidden}
 .mini-bar i{display:block;min-width:2px;border-radius:var(--r1);cursor:help;
@@ -269,9 +250,17 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
    Иначе под узкой панелью копится серая пустота, которой там быть не должно. */
 .grid-60-40{display:grid;grid-template-columns:minmax(0,60fr) minmax(0,40fr);
   gap:var(--s8);align-items:stretch}
-.grid-60-40>.panel{display:flex;flex-direction:column;min-width:0}
+.grid-60-40>.panel,.grid-60-40>.col>.panel{display:flex;flex-direction:column;min-width:0}
 .grid-60-40>.panel>.panel-b{flex:1;min-height:0;display:flex;flex-direction:column}
 .grid-60-40 .panel-b.fill-b>.svgchart{flex:1;min-height:0}
+/* Колонка из двух панелей на месте одной. Верхняя стоит своей высотой —
+   у неё фиксированное число строк, — нижняя забирает весь остаток, чтобы
+   низ колонки совпал с низом соседней панели. Растягивать обе поровну
+   нельзя: под составом появилась бы пустота, которой там нечего делать. */
+.grid-60-40>.col{display:flex;flex-direction:column;gap:var(--s8);min-width:0}
+.grid-60-40>.col>.p-comp{flex:0 0 auto}
+.grid-60-40>.col>.p-wf{flex:1;min-height:0}
+.grid-60-40>.col>.p-wf>.panel-b{flex:1;min-height:0;display:flex;flex-direction:column}
 .p-dyn .chart-stack{flex:1;min-height:0;display:flex;flex-direction:column}
 .p-dyn .chart-stack>.svgchart{flex:0 0 auto}
 .stack{display:flex;flex-direction:column;gap:var(--s8)}
@@ -546,16 +535,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Пороги поставлены по замерам: полка 270px плюс минимальная ширина отчёта
    (примерно 860px под трансформер из десяти колонок) перестают помещаться
    около 1180px — там полка и уезжает в выдвижную панель. */
-@media(max-width:1360px){
-  /* Три колонки, а не четыре: широкая карточка занимает две, и при трёх
-     колонках второй ряд заполняется целиком — при четырёх в нём остаются
-     две пустые клетки. Порог по замеру: ниже 1360px колонка в шестиполосной
-     сетке становится уже 176px, минимальной ширины карточки. */
-  .kpis.n6{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
 @media(max-width:1320px){
   .kpis.n5{grid-template-columns:repeat(3,minmax(0,1fr))}
   .grid2,.grid-60-40{grid-template-columns:1fr}
+  /* Колонка развалилась в общий поток — растягивать водопад больше не по
+     чему, и он встаёт своей высотой, как обычная панель. */
+  .grid-60-40>.col{display:contents}
 }
 @media(max-width:1180px){
   .layout{display:block}
@@ -571,12 +556,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding:var(--s7) var(--s9)}
 }
 @media(max-width:900px){
-  .kpis,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)}
-  /* Двойная карточка на планшете занимает всю ширину и раскладывается
-     сверху вниз: график рядом с числом в 160px не читается. */
-  .kpi.hero{flex-direction:column;gap:var(--s5)}
-  .kpi.hero .h-aside{border-left:0;border-top:1px solid var(--line2);
-    padding-left:0;padding-top:var(--s5);min-height:118px}
+  .kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)}
   /* На узком экране таблица прокручивается, а не переносится: ужать числовые
      колонки нельзя — между значениями останется меньше воздуха, чем внутри них. */
   .tbl-wrap{overflow-x:auto}
@@ -585,8 +565,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .panel-h .sub-tabs{margin-left:0}
 }
 @media(max-width:640px){
-  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6{grid-template-columns:1fr}
-  .kpi.hero{grid-column:span 1}
+  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}
   .sub-tabs{display:flex;overflow-x:auto;max-width:100%}
   .panel-h{padding:var(--s6)}.panel-b{padding:var(--s5)}
   .content{padding:var(--s6)}

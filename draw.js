@@ -467,26 +467,24 @@ function drawStackDiverge(a,w,h){
    ========================================================================== */
 function drawBreakdown(a,w,h){
   const o=a.opt||{}, parts=a.parts, tot=a.total;
-  const compact=!!o.compact;
-  const lz=compact?9.5:11.5;
+  const lz=11.5;
   const hh=headH(o.title,o.legend);
   const rows=parts.length+1;
-  const rowH=compact?21:30;
+  const rowH=28;
   h=h||o.h||(hh+rows*rowH+4);
   /* Каскад центрируется по высоте контейнера, а не прижимается к верху:
      строки фиксированной высоты, и остаток лучше разделить пополам,
      чем оставить пустую полосу снизу. */
   const top=hh+Math.max(2,(h-hh-rows*rowH)/2);
-  const bh=Math.min(compact?13:18,rowH*0.66);
+  const bh=Math.min(18,rowH*0.66);
   const anyOn=parts.some(p=>p.on);
 
-  const nameOf=p=>(compact&&p.short)||p.name;
-  const names=[tot.name].concat(parts.map(nameOf));
+  const names=[tot.name].concat(parts.map(p=>p.name));
   const nameW=Math.min(w*0.4,Math.max.apply(null,names.map(s=>textW(s,lz)))+2);
   /* Числа стоят в СВОЕЙ колонке справа, а не у конца полосы: у каскада
      концы на разной высоте и на разном месте, и бегающее число читать
      нельзя. В колонке они выстраиваются по разряду, как в таблице. */
-  const valW=textW(CD.fmtInt(tot.value),VAL_SZ)+(compact?30:42);
+  const valW=textW(fv(o,tot.value),VAL_SZ)+42;
   const x0=PAD_X+nameW+7;
   const plotW=Math.max(20,w-x0-PAD_X-valW);
   const max=niceMax([tot.value]);
@@ -505,14 +503,14 @@ function drawBreakdown(a,w,h){
     g+=(from===0||to===0&&from===tot.value
         ? barRight(xa,y,xb-xa,bh,color,' class="bar rt" style="animation-delay:'+(i*34)+'ms"')
         : barFloat(xa,y,xb-xa,bh,color,' class="bar rt" style="animation-delay:'+(i*34)+'ms"'));
-    g+=txt(xVal,y+bh/2+VAL_ASC*0.42,CD.fmtInt(val),
+    g+=txt(xVal,y+bh/2+VAL_ASC*0.42,fv(o,val),
       {size:VAL_SZ,weight:VAL_W,fill:C_LABEL,anchor:'end',cls:'fade',delay:240+i*34});
-    if(share!=null)g+=txt(xVal-textW(CD.fmtInt(tot.value),VAL_SZ)-4,y+bh/2+lz*0.36,
+    if(share!=null)g+=txt(xVal-textW(fv(o,tot.value),VAL_SZ)-4,y+bh/2+lz*0.36,
       CD.fmtPct(share,share<10?1:0),{size:lz,weight:700,fill:C_AXIS,anchor:'end'});
     return g+'</g>';
   };
   s+=row(0,tot.name,tot.value,0,tot.value,C_TOTAL,false,null,
-    tip({title:tot.name,rows:[{label:'Всего',value:CD.fmtInt(tot.value),color:C_TOTAL}],
+    tip({title:tot.name,rows:[{label:'Всего',value:fv(o,tot.value),color:C_TOTAL}],
          note:'разбирается на части ниже: человек попадает ровно в одну'}));
   let rem=tot.value;
   parts.forEach((p,i)=>{
@@ -522,9 +520,9 @@ function drawBreakdown(a,w,h){
        читаются как независимые величины, а не как разбор целого. */
     const cy=top+i*rowH;
     s+=line(X(from),cy+(rowH+bh)/2,X(from),cy+rowH+(rowH-bh)/2,C_DIV,1,'3 2');
-    s+=row(i+1,nameOf(p),p.value,from,to,p.color,anyOn&&!p.on,share,
+    s+=row(i+1,p.name,p.value,from,to,p.color,anyOn&&!p.on,share,
       tip({title:p.name,
-        rows:[{label:'Сотрудников',value:CD.fmtInt(p.value),color:p.color},
+        rows:[{label:o.mode==='fte'?'FTE':'Сотрудников',value:fv(o,p.value),color:p.color},
               {label:'Доля',value:CD.fmtPct(share,share<10?1:0)}],
         note:[p.hint||null,'клик фильтрует отчёт']})+
       ' data-seg="'+p.key+'" tabindex="0" role="button"'+

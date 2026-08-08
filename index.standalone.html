@@ -207,10 +207,6 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .kpis.n5{grid-template-columns:repeat(5,minmax(0,1fr))}
-/* Шесть колонок под пять карточек: первая занимает две. Разложение состава
-   живёт внутри той карточки, число которой оно разбирает, — отдельной панели
-   во всю ширину экрана этот сюжет не заслуживает. */
-.kpis.n6{grid-template-columns:repeat(6,minmax(0,1fr))}
 .kpi{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px}
 .kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:700;margin-bottom:7px;
   display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
@@ -226,21 +222,6 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 @supports (grid-template-rows:subgrid){
   .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
 }
-/* Широкая карточка: слева те же четыре строки, справа график. Из subgrid она
-   выходит намеренно — её содержимое раскладывается по горизонтали, и
-   выравнивать по строкам внутри неё нечего. Соседние карточки продолжают
-   выравниваться между собой. */
-.kpi.hero{grid-column:span 2;grid-row:span 4;display:flex;align-items:stretch;
-  gap:var(--s7);min-width:0}
-.kpi.hero .h-left{display:flex;flex-direction:column;min-width:118px;flex:0 0 auto}
-.kpi.hero .h-left .k-row:first-of-type{margin-top:auto}
-.kpi.hero .h-aside{flex:1;min-width:0;display:flex;flex-direction:column;
-  border-left:1px solid var(--line2);padding-left:var(--s7)}
-.kpi.hero .h-aside .svgchart{flex:1;min-height:0}
-.kpi.hero .h-cap{font-size:var(--fs-cap);color:var(--muted);font-weight:600;
-  margin-bottom:var(--s2);line-height:1.35}
-.kpi.hero .h-cap b{color:var(--ink2)}
-
 /* Риска состава: форма распределения без таблицы. Числа — в подсказке. */
 .mini-bar{display:flex;width:100%;height:10px;gap:2px;border-radius:var(--r1);overflow:hidden}
 .mini-bar i{display:block;min-width:2px;border-radius:var(--r1);cursor:help;
@@ -276,9 +257,17 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
    Иначе под узкой панелью копится серая пустота, которой там быть не должно. */
 .grid-60-40{display:grid;grid-template-columns:minmax(0,60fr) minmax(0,40fr);
   gap:var(--s8);align-items:stretch}
-.grid-60-40>.panel{display:flex;flex-direction:column;min-width:0}
+.grid-60-40>.panel,.grid-60-40>.col>.panel{display:flex;flex-direction:column;min-width:0}
 .grid-60-40>.panel>.panel-b{flex:1;min-height:0;display:flex;flex-direction:column}
 .grid-60-40 .panel-b.fill-b>.svgchart{flex:1;min-height:0}
+/* Колонка из двух панелей на месте одной. Верхняя стоит своей высотой —
+   у неё фиксированное число строк, — нижняя забирает весь остаток, чтобы
+   низ колонки совпал с низом соседней панели. Растягивать обе поровну
+   нельзя: под составом появилась бы пустота, которой там нечего делать. */
+.grid-60-40>.col{display:flex;flex-direction:column;gap:var(--s8);min-width:0}
+.grid-60-40>.col>.p-comp{flex:0 0 auto}
+.grid-60-40>.col>.p-wf{flex:1;min-height:0}
+.grid-60-40>.col>.p-wf>.panel-b{flex:1;min-height:0;display:flex;flex-direction:column}
 .p-dyn .chart-stack{flex:1;min-height:0;display:flex;flex-direction:column}
 .p-dyn .chart-stack>.svgchart{flex:0 0 auto}
 .stack{display:flex;flex-direction:column;gap:var(--s8)}
@@ -553,16 +542,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Пороги поставлены по замерам: полка 270px плюс минимальная ширина отчёта
    (примерно 860px под трансформер из десяти колонок) перестают помещаться
    около 1180px — там полка и уезжает в выдвижную панель. */
-@media(max-width:1360px){
-  /* Три колонки, а не четыре: широкая карточка занимает две, и при трёх
-     колонках второй ряд заполняется целиком — при четырёх в нём остаются
-     две пустые клетки. Порог по замеру: ниже 1360px колонка в шестиполосной
-     сетке становится уже 176px, минимальной ширины карточки. */
-  .kpis.n6{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
 @media(max-width:1320px){
   .kpis.n5{grid-template-columns:repeat(3,minmax(0,1fr))}
   .grid2,.grid-60-40{grid-template-columns:1fr}
+  /* Колонка развалилась в общий поток — растягивать водопад больше не по
+     чему, и он встаёт своей высотой, как обычная панель. */
+  .grid-60-40>.col{display:contents}
 }
 @media(max-width:1180px){
   .layout{display:block}
@@ -578,12 +563,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding:var(--s7) var(--s9)}
 }
 @media(max-width:900px){
-  .kpis,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)}
-  /* Двойная карточка на планшете занимает всю ширину и раскладывается
-     сверху вниз: график рядом с числом в 160px не читается. */
-  .kpi.hero{flex-direction:column;gap:var(--s5)}
-  .kpi.hero .h-aside{border-left:0;border-top:1px solid var(--line2);
-    padding-left:0;padding-top:var(--s5);min-height:118px}
+  .kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)}
   /* На узком экране таблица прокручивается, а не переносится: ужать числовые
      колонки нельзя — между значениями останется меньше воздуха, чем внутри них. */
   .tbl-wrap{overflow-x:auto}
@@ -592,8 +572,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .panel-h .sub-tabs{margin-left:0}
 }
 @media(max-width:640px){
-  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6{grid-template-columns:1fr}
-  .kpi.hero{grid-column:span 1}
+  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}
   .sub-tabs{display:flex;overflow-x:auto;max-width:100%}
   .panel-h{padding:var(--s6)}.panel-b{padding:var(--s5)}
   .content{padding:var(--s6)}
@@ -856,10 +835,10 @@ const EMP_W=[[0,86],[1,14]];
 /* short — для тесных мест (ось мини-графика в карточке). Полное имя всегда
    остаётся в подсказке: сокращение экономит место, а не смысл. */
 const SEGMENTS=[
-  {key:'direct', name:'Прямые ресурсы', short:'Прямые',    hint:'аллокация больше 50%'},
-  {key:'shared', name:'Шаренные',       short:'Шаренные',  hint:'аллокация ровно 50/50'},
-  {key:'partial',name:'Частичные',      short:'Частичные', hint:'аллокация от 30 до 50%'},
-  {key:'part',   name:'Парт-таймеры',   short:'Парт-тайм', hint:'аллокация меньше 30%'}
+  {key:'direct', name:'Прямые ресурсы', hint:'аллокация больше 50%'},
+  {key:'shared', name:'Шаренные',       hint:'аллокация ровно 50/50'},
+  {key:'partial',name:'Частичные',      hint:'аллокация от 30 до 50%'},
+  {key:'part',   name:'Парт-таймеры',   hint:'аллокация меньше 30%'}
 ];
 const SEG_KEYS=SEGMENTS.map(s=>s.key);
 /* Границы заданы так, что интервалы не пересекаются и покрывают всю шкалу:
@@ -2164,26 +2143,24 @@ function drawStackDiverge(a,w,h){
    ========================================================================== */
 function drawBreakdown(a,w,h){
   const o=a.opt||{}, parts=a.parts, tot=a.total;
-  const compact=!!o.compact;
-  const lz=compact?9.5:11.5;
+  const lz=11.5;
   const hh=headH(o.title,o.legend);
   const rows=parts.length+1;
-  const rowH=compact?21:30;
+  const rowH=28;
   h=h||o.h||(hh+rows*rowH+4);
   /* Каскад центрируется по высоте контейнера, а не прижимается к верху:
      строки фиксированной высоты, и остаток лучше разделить пополам,
      чем оставить пустую полосу снизу. */
   const top=hh+Math.max(2,(h-hh-rows*rowH)/2);
-  const bh=Math.min(compact?13:18,rowH*0.66);
+  const bh=Math.min(18,rowH*0.66);
   const anyOn=parts.some(p=>p.on);
 
-  const nameOf=p=>(compact&&p.short)||p.name;
-  const names=[tot.name].concat(parts.map(nameOf));
+  const names=[tot.name].concat(parts.map(p=>p.name));
   const nameW=Math.min(w*0.4,Math.max.apply(null,names.map(s=>textW(s,lz)))+2);
   /* Числа стоят в СВОЕЙ колонке справа, а не у конца полосы: у каскада
      концы на разной высоте и на разном месте, и бегающее число читать
      нельзя. В колонке они выстраиваются по разряду, как в таблице. */
-  const valW=textW(CD.fmtInt(tot.value),VAL_SZ)+(compact?30:42);
+  const valW=textW(fv(o,tot.value),VAL_SZ)+42;
   const x0=PAD_X+nameW+7;
   const plotW=Math.max(20,w-x0-PAD_X-valW);
   const max=niceMax([tot.value]);
@@ -2202,14 +2179,14 @@ function drawBreakdown(a,w,h){
     g+=(from===0||to===0&&from===tot.value
         ? barRight(xa,y,xb-xa,bh,color,' class="bar rt" style="animation-delay:'+(i*34)+'ms"')
         : barFloat(xa,y,xb-xa,bh,color,' class="bar rt" style="animation-delay:'+(i*34)+'ms"'));
-    g+=txt(xVal,y+bh/2+VAL_ASC*0.42,CD.fmtInt(val),
+    g+=txt(xVal,y+bh/2+VAL_ASC*0.42,fv(o,val),
       {size:VAL_SZ,weight:VAL_W,fill:C_LABEL,anchor:'end',cls:'fade',delay:240+i*34});
-    if(share!=null)g+=txt(xVal-textW(CD.fmtInt(tot.value),VAL_SZ)-4,y+bh/2+lz*0.36,
+    if(share!=null)g+=txt(xVal-textW(fv(o,tot.value),VAL_SZ)-4,y+bh/2+lz*0.36,
       CD.fmtPct(share,share<10?1:0),{size:lz,weight:700,fill:C_AXIS,anchor:'end'});
     return g+'</g>';
   };
   s+=row(0,tot.name,tot.value,0,tot.value,C_TOTAL,false,null,
-    tip({title:tot.name,rows:[{label:'Всего',value:CD.fmtInt(tot.value),color:C_TOTAL}],
+    tip({title:tot.name,rows:[{label:'Всего',value:fv(o,tot.value),color:C_TOTAL}],
          note:'разбирается на части ниже: человек попадает ровно в одну'}));
   let rem=tot.value;
   parts.forEach((p,i)=>{
@@ -2219,9 +2196,9 @@ function drawBreakdown(a,w,h){
        читаются как независимые величины, а не как разбор целого. */
     const cy=top+i*rowH;
     s+=line(X(from),cy+(rowH+bh)/2,X(from),cy+rowH+(rowH-bh)/2,C_DIV,1,'3 2');
-    s+=row(i+1,nameOf(p),p.value,from,to,p.color,anyOn&&!p.on,share,
+    s+=row(i+1,p.name,p.value,from,to,p.color,anyOn&&!p.on,share,
       tip({title:p.name,
-        rows:[{label:'Сотрудников',value:CD.fmtInt(p.value),color:p.color},
+        rows:[{label:o.mode==='fte'?'FTE':'Сотрудников',value:fv(o,p.value),color:p.color},
               {label:'Доля',value:CD.fmtPct(share,share<10?1:0)}],
         note:[p.hint||null,'клик фильтрует отчёт']})+
       ' data-seg="'+p.key+'" tabindex="0" role="button"'+
@@ -2521,11 +2498,6 @@ function kpi(o){
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
     '<div class="k-row">'+(o.row2||'')+'</div>';
-  /* Широкая карточка выходит из subgrid и раскладывается на две колонки:
-     слева те же четыре строки, справа график. Строк по-прежнему четыре —
-     полоса выравнивается по ним, как и раньше. */
-  if(o.aside)return '<div class="kpi hero'+(o.cls?' '+o.cls:'')+'">'+
-    '<div class="h-left">'+body+'</div><div class="h-aside">'+o.aside+'</div></div>';
   return '<div class="kpi'+(o.cls?' '+o.cls:'')+'">'+body+'</div>';
 }
 
@@ -2907,16 +2879,15 @@ function periodName(st){
 }
 
 /* ---------- Полоса KPI ----------
-   Пять карточек, но первая — двойной ширины: в ней живёт разложение состава.
-   Раньше это была отдельная панель во всю ширину экрана, и парт-таймеры
-   занимали столько же места, сколько всё движение аллокаций. Разложение —
-   не самостоятельный сюжет, а ответ на вопрос «из кого состоят эти 581»,
-   поэтому оно стоит внутри той самой карточки, число которой разбирает.
+   Пять равных карточек: пять чисел, которыми открывается разговор.
+   Карточка — это одно число, дельта и подпись; график внутрь карточки
+   не помещается читаемым. Разложение состава какое-то время жило врезкой
+   в двойной карточке «Уникальные сотрудники» — там оно мельчило имена
+   и доли до нечитаемого, поэтому уехало отдельной панелью над водопадом.
 
-   Здоровье аллокаций по той же причине сжалось до карточки с риской:
-   вопрос «в порядке ли данные» требует одного числа и сигнала, а не
-   таблицы на треть экрана. Подробности — по наведению и в трансформере
-   по разрезу «сегмент». */
+   Здоровье аллокаций осталось карточкой с риской: вопрос «в порядке ли
+   данные» требует одного числа и сигнала, а не таблицы на треть экрана.
+   Подробности — по наведению и в трансформере по разрезу «сегмент». */
 function kpis(m,st){
   const hc=m.head.hc, fte=m.head.fte, v=m.verify, v0=m.verifyStart;
   const openNow=m.supply.open[m.supply.open.length-1];
@@ -2926,13 +2897,6 @@ function kpis(m,st){
   const perHead=hc.end?fte.end/hc.end:0;
   const mode=st.mode;
 
-  const COL={direct:G.C_LINE,shared:G.C_IN,partial:G.C_UP,part:G.C_QUOTA};
-  const parts=m.segments.map(s=>({key:s.key,name:s.name,
-    short:D.SEG_BY_KEY[s.key].short,value:s.people,
-    color:COL[s.key],hint:s.hint,on:st.segs.indexOf(s.key)>=0}));
-  const breakdown=G.chart('breakdown',
-    {total:{name:'Всего',value:m.segTotal},parts},{compact:true,fill:true,h:126});
-
   const hTotal=m.health.reduce((a,h)=>a+h.people,0);
   const hNorm=m.health.filter(h=>h.key==='norm')[0].people;
   const hBad=m.health.filter(h=>h.bad).reduce((a,h)=>a+h.people,0);
@@ -2940,7 +2904,7 @@ function kpis(m,st){
   const HCOL={norm:G.C_GREEN,over:G.C_RED,under:G.C_FLAT,low:G.C_RED,zero:G.C_RED};
   const hItems=m.health.map(h=>({name:h.name,value:h.people,hint:h.hint,color:HCOL[h.key]}));
 
-  return '<div class="kpis n6">'+
+  return '<div class="kpis n5">'+
     U.kpi({label:'Уникальные сотрудники',cls:mode==='hc'?'lead-card':'',
       info:U.info({title:'Уникальные сотрудники',
         text:'Люди, у которых в выбранном срезе есть хотя бы одна аллокация. Человек, стоящий на трёх продуктах, посчитан один раз.',
@@ -2948,10 +2912,7 @@ function kpis(m,st){
       value:D.fmtInt(hc.end),
       row1:U.delta('hc',hc.delta,{vs:'к началу периода',
         tip:{title:'Изменение за период',text:'Разница между концом и началом периода: '+periodName(st)+'.'}}),
-      row2:'<span class="k-sub">на начало '+D.fmtInt(hc.begin)+'</span>',
-      aside:'<div class="h-cap">Состав команды'+
-        (st.segs.length?' · <b>'+st.segs.map(k=>U.esc(D.SEG_BY_KEY[k].name.toLowerCase())).join(', ')+'</b>':' · клик фильтрует')+
-        '</div>'+breakdown})+
+      row2:'<span class="k-sub">на начало '+D.fmtInt(hc.begin)+'</span>'})+
 
     U.kpi({label:'Сумма аллокаций, FTE',cls:mode==='fte'?'lead-card':'',
       info:U.info({title:'Сумма аллокаций',
@@ -2991,6 +2952,38 @@ function kpis(m,st){
   '</div>';
 }
 
+/* ---------- Состав команды ----------
+   Стоит НАД водопадом и в одной с ним колонке, потому что разбирает то самое
+   число, которым водопад заканчивается: «на конец периода 581» → «вот из кого
+   эти 581 состоят». Читается сверху вниз как один сюжет, а не как два блока
+   в разных концах экрана.
+
+   Отдельная панель, а не врезка в карточку: внутри карточки на разложение
+   оставалось меньше двухсот пикселей ширины, имена сегментов приходилось
+   резать до «прямые / шаренные / 30–50 / <30», а доли набирать девятым
+   кеглем. Разбивка, которую нельзя прочитать, не разбивка.
+
+   Целое здесь считается БЕЗ фильтра по сегментам — так возвращает модель.
+   Иначе выбор одной категории съедал бы ориентир, частью которого она
+   является. */
+function composition(m,st){
+  /* Цвета из палитры потоков: это категории, а не оценка. Порядок тот же,
+     что в фильтре слева, — от самой плотной занятости к самой редкой. */
+  const COL={direct:G.C_LINE,shared:G.C_IN,partial:G.C_UP,part:G.C_QUOTA};
+  const fte=st.mode==='fte';
+  const parts=m.segments.map(s=>({key:s.key,name:s.name,value:fte?s.fte:s.people,
+    color:COL[s.key],hint:s.hint,on:st.segs.indexOf(s.key)>=0}));
+  const total=fte?parts.reduce((a,p)=>a+p.value,0):m.segTotal;
+  const body=G.chart('breakdown',{total:{name:'Всего',value:total},parts},{mode:st.mode})+
+    U.note('Сегмент считается по максимальной аллокации человека внутри среза, '+
+      'поэтому каждый попадает ровно в одну часть. Клик по части фильтрует отчёт.');
+  return U.panel({title:'Состав команды',
+    sub:st.segs.length
+      ? 'фильтр: '+st.segs.map(k=>D.SEG_BY_KEY[k].name.toLowerCase()).join(', ')
+      : 'по типу аллокации на конец периода',
+    body,cls:'p-comp'});
+}
+
 /* ---------- Водопад ----------
    Шаги идут в порядке жизненного цикла: пришёл в компанию, пришёл на продукт,
    изменил долю, ушёл с продукта, ушёл из компании. Изменение аллокации
@@ -3020,8 +3013,10 @@ function waterfall(m,st){
   steps.push({name:'На конец периода',short:'На конец',total:true,value:t.end});
   /* fill:true — водопад берёт высоту из панели, а не из константы: он стоит
      рядом со стопкой из двух графиков, и колонки обязаны заканчиваться
-     на одной линии. Иначе под узкой панелью копится серая пустота. */
-  return G.chart('waterfall',{steps},{mode,fill:true,h:520});
+     на одной линии. Иначе под узкой панелью копится серая пустота.
+     h — только для первой отрисовки до замера: с составом над водопадом
+     колонке достаётся примерно столько. */
+  return G.chart('waterfall',{steps},{mode,fill:true,h:300});
 }
 
 /* ---------- Динамика ----------
@@ -3117,16 +3112,20 @@ function render(st){
   if(!m.verify.total)return U.empty('На выбранных продуктах никого нет',
     'Снимите один из фильтров слева — например, сегмент аллокации или грейд.');
   /* Порядок блоков — это порядок вопросов. Сколько людей → из кого они
-     состоят → как менялось → где именно менялось. Разложение состава стоит
-     сразу под карточками, потому что оно и есть легенда первой карточки,
-     а движение и трансформер идут подряд: их читают одним взглядом,
-     прокручивая экран. */
-  /* Динамика стоит слева и шире: это главный сюжет экрана, и читают его
-     первым. Водопад справа отвечает на следующий вопрос — «из чего
-     сложилось» — и потому уже. Обе панели одной высоты: график умеет занять
-     любую высоту, серой пустоте под колонкой взяться неоткуда. */
+     состоят → как менялось → где именно менялось.
+
+     Динамика стоит слева и шире: это главный сюжет экрана, и читают его
+     первым. Справа колонка из двух панелей: состав команды и водопад.
+     Состав сверху, потому что он разбирает то число, которым водопад
+     заканчивается, и потому что читать сверху вниз «из кого состоит →
+     как получилось» естественнее, чем наоборот.
+
+     Высоту колонки задаёт динамика. Состав занимает свои пять строк,
+     водопад забирает весь остаток: график умеет занять любую высоту,
+     и серой пустоте под колонкой взяться неоткуда. */
   return kpis(m,st)+'<div class="stack">'+
     '<div class="grid-60-40">'+dynamics(m,st)+
+      '<div class="col">'+composition(m,st)+
       U.panel({title:'Как изменилось за период',sub:'водопад движения',
         cls:'p-wf',bodyCls:'fill-b',
         body:waterfall(m,st)+U.note(
@@ -3134,6 +3133,7 @@ function render(st){
           'работал в компании, но на этом продукте не стоял. <b>Выход</b> — ушёл с продукта, '+
           'но остался в компании. <b>Отток</b> — ушёл из компании.'+
           (st.mode==='fte'?' <b>Рост и снижение аллокации</b> — процент изменился у того, кто с продукта не уходил.':''))})+
+      '</div>'+
     '</div>'+pivot(m,st)+'</div>';
 }
 

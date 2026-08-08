@@ -86,11 +86,6 @@ function kpi(o){
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
     '<div class="k-row">'+(o.row2||'')+'</div>';
-  /* Широкая карточка выходит из subgrid и раскладывается на две колонки:
-     слева те же четыре строки, справа график. Строк по-прежнему четыре —
-     полоса выравнивается по ним, как и раньше. */
-  if(o.aside)return '<div class="kpi hero'+(o.cls?' '+o.cls:'')+'">'+
-    '<div class="h-left">'+body+'</div><div class="h-aside">'+o.aside+'</div></div>';
   return '<div class="kpi'+(o.cls?' '+o.cls:'')+'">'+body+'</div>';
 }
 
