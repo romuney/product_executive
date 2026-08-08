@@ -415,11 +415,15 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .ptg:hover .dot{r:5.2;stroke-width:2.6}
 .svgchart .dot,.svgchart .bar{transition:filter .12s,r .12s,stroke-width .12s}
 @keyframes tp-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes tp-growx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes tp-fade{from{opacity:0}to{opacity:1}}
 @keyframes tp-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 .svgchart.anim .bar{transform-box:fill-box;animation:tp-grow .48s cubic-bezier(.22,.61,.36,1) both}
 .svgchart.anim .bar.up{transform-origin:50% 100%}
 .svgchart.anim .bar.dn{transform-origin:50% 0}
+/* Горизонтальная полоса растёт слева направо: направление роста повторяет
+   направление чтения, как вертикальный бар повторяет направление шкалы. */
+.svgchart.anim .bar.rt{transform-origin:0 50%;animation-name:tp-growx}
 .svgchart.anim .ln{stroke-dasharray:1;stroke-dashoffset:1;
   animation:tp-draw .76s cubic-bezier(.4,0,.2,1) both}
 .svgchart.anim .lnb{animation:tp-fade .5s ease-out both;animation-delay:.1s}
@@ -1642,6 +1646,17 @@ function rect(x,y,w,h,fill,r,extra){
   return '<rect x="'+num(x)+'" y="'+num(y)+'" width="'+num(Math.max(0,w))+'" height="'+num(Math.max(0,h))+'"'
     +(r?' rx="'+r+'"':'')+' fill="'+fill+'"'+(extra||'')+'/>';
 }
+/* ---------- Скругление: правило одно на весь отчёт ----------
+   Марка, ПРИЛИПАЮЩАЯ к оси, скругляется только с дальнего от оси края:
+   у нуля край ровный, потому что там марка обрезана осью, а не заканчивается.
+   Марка, висящая В ВОЗДУХЕ (шаг водопада, сегмент стопки, часть разложения),
+   скругляется со всех сторон: она ничем не обрезана, и полуобрезанный угол
+   заставляет искать причину, которой нет. */
+function barFloat(x,y,w,h,fill,extra){
+  h=Math.max(0,h);
+  if(h<=0.5)return'';
+  return rect(x,y,w,h,fill,Math.min(3,w/2,h/2),extra);
+}
 /* Бар со скруглением только сверху: мягкий край смотрит от нуля. */
 function barUp(x,y,w,h,fill,extra){
   h=Math.max(0,h);
@@ -1657,6 +1672,15 @@ function barDown(x,y,w,h,fill,extra){
   if(h<=0.5)return'';
   return '<path d="M'+num(x)+' '+num(y)+'V'+num(y+h-r)+'Q'+num(x)+' '+num(y+h)+' '+num(x+r)+' '+num(y+h)
     +'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y+h)+' '+num(x+w)+' '+num(y+h-r)+'V'+num(y)+'Z"'
+    +' fill="'+fill+'"'+(extra||'')+'/>';
+}
+/* Горизонтальный бар, прилипающий к оси СЛЕВА: скругляется правый край. */
+function barRight(x,y,w,h,fill,extra){
+  w=Math.max(0,w);
+  const r=Math.min(3,h/2,w);
+  if(w<=0.5)return'';
+  return '<path d="M'+num(x)+' '+num(y)+'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y)+' '+num(x+w)+' '+num(y+r)
+    +'V'+num(y+h-r)+'Q'+num(x+w)+' '+num(y+h)+' '+num(x+w-r)+' '+num(y+h)+'H'+num(x)+'Z"'
     +' fill="'+fill+'"'+(extra||'')+'/>';
 }
 function svg(w,h,body,cls){
@@ -1844,8 +1868,13 @@ function drawSupply(a,w,h){
         ' class="bar up" data-s="open" stroke="'+C_TOTAL+'" stroke-width="1.4"'
         +' style="animation-delay:'+(i*26)+'ms"');
     }
-    if(filled[i]>0)s+=barUp(cx-bw/2,yF,bw,plotBot-yF,C_TOTAL,
-      ' class="bar up" data-s="filled" style="animation-delay:'+(i*26)+'ms"');
+    /* Занятая часть скругляется сверху, только если над ней ничего нет.
+       Когда сверху стоит квота, занятая часть обрезана ею, а не
+       заканчивается, — и её верхний край ровный, иначе по бокам скругления
+       появляется белая щель. */
+    if(filled[i]>0)s+=(open[i]>0
+      ? rect(cx-bw/2,yF,bw,plotBot-yF,C_TOTAL,0,' class="bar up" data-s="filled" style="animation-delay:'+(i*26)+'ms"')
+      : barUp(cx-bw/2,yF,bw,plotBot-yF,C_TOTAL,' class="bar up" data-s="filled" style="animation-delay:'+(i*26)+'ms"'));
     s+='</g>';
     s+=txt(cx,yT-VAL_DY,fv(o,total[i]),valOpt({delay:240+i*26}));
     if(showF&&showO&&plotBot-yF>18)
@@ -1874,6 +1903,11 @@ function drawStackDiverge(a,w,h){
   h=h||o.h||320;
   const top=hh+LBL_ROOM, bot=h-AXIS_H;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
+  /* Зазор между сегментами стопки: без него скругления соседних кубиков
+     сливаются в один бар, и структура пропадает ровно там, где её и надо
+     показать. Два пикселя на двух-трёх сегментах искажают высоту плеча
+     меньше, чем толщина линии, — а состав становится виден. */
+  const SEG_GAP=2;
   const sumAt=(arr,i)=>arr.reduce((s,x)=>s+x.series[i],0);
   const upT=ticks.map((_,i)=>sumAt(up,i)), dnT=ticks.map((_,i)=>sumAt(dn,i));
   const zero=top+(bot-top)/2;
@@ -1895,6 +1929,10 @@ function drawStackDiverge(a,w,h){
     const tipDn={title:tickTitle(t),
       rows:dn.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
       note:'всего ушло: '+fv(o,dnT[i])};
+    /* Подписано ТОЛЬКО плечо целиком. Цифра в каждом сегменте превращала
+       график в таблицу: двенадцать периодов по четыре числа читать всё равно
+       никто не станет, а итог плеча — то, ради чего сюда смотрят. Состав
+       разбирается наведением или выключением серии в легенде. */
     s+='<g class="barg"'+tip(tipUp)+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(zero-hh)+'"/>';
     let acc=0;
@@ -1902,14 +1940,15 @@ function drawStackDiverge(a,w,h){
       const seg=(x.series[i]/max)*arm;
       if(seg>0.5){
         const y=zero-acc-seg;
-        /* Скругляется только дальний от нуля край стопки — верхний сегмент. */
-        s+=(k===up.length-1||acc+seg>=hUp-0.5
+        /* Сегмент у самой оси обрезан ею — у него ровный нижний край.
+           Остальные висят в воздухе и скруглены со всех сторон. */
+        s+=(acc<0.01
              ? barUp(cx-bw/2,y,bw,seg,x.color,' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"')
-             : rect(cx-bw/2,y,bw,seg,x.color,0,' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"'));
-        if(seg>=15)s+=txt(cx,y+seg/2+4,fv(o,x.series[i]),{size:VAL_SZ,weight:VAL_W,fill:'#1f1f1f',cls:'fade',delay:300+i*26});
+             : barFloat(cx-bw/2,y,bw,seg,x.color,' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"'));
+        acc+=seg+SEG_GAP;
       }
-      acc+=seg;
     });
+    const topUp=acc>0?acc-SEG_GAP:0;
     s+='</g>';
     s+='<g class="barg"'+tip(tipDn)+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(zero)+'" width="'+num(bandW)+'" height="'+num(bot-zero)+'"/>';
@@ -1918,26 +1957,38 @@ function drawStackDiverge(a,w,h){
       const seg=(x.series[i]/max)*arm;
       if(seg>0.5){
         const y=zero+acc;
-        s+=(k===dn.length-1||acc+seg>=hDn-0.5
+        s+=(acc<0.01
              ? barDown(cx-bw/2,y,bw,seg,x.color,' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"')
-             : rect(cx-bw/2,y,bw,seg,x.color,0,' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"'));
-        if(seg>=15)s+=txt(cx,y+seg/2+4,fv(o,x.series[i]),{size:VAL_SZ,weight:VAL_W,fill:'#fff',cls:'fade',delay:300+i*26});
+             : barFloat(cx-bw/2,y,bw,seg,x.color,' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"'));
+        acc+=seg+SEG_GAP;
       }
-      acc+=seg;
     });
+    const botDn=acc>0?acc-SEG_GAP:0;
     s+='</g>';
-    if(upT[i]>0)s+=txt(cx,zero-hUp-VAL_DY,fv(o,upT[i]),valOpt({delay:240+i*26}));
-    if(dnT[i]>0)s+=txt(cx,Math.min(zero+hDn+VAL_DY+4,bot-2),fv(o,dnT[i]),valOpt({delay:240+i*26}));
+    /* Итог прихода стоит НАД стопкой, итог ухода — ПОД ней: число уходит
+       в ту же сторону, в какую растёт плечо. */
+    if(upT[i]>0)s+=txt(cx,zero-topUp-VAL_DY,fv(o,upT[i]),valOpt({delay:240+i*26}));
+    if(dnT[i]>0)s+=txt(cx,Math.min(zero+botDn+VAL_DY+4,bot-2),fv(o,dnT[i]),valOpt({delay:240+i*26}));
   });
   return svg(w,h,s);
 }
-
 /* ============================================================================
-   2в. Разложение итога: перевёрнутый водопад.
+   2в. Разложение итога: каскад СВЕРХУ ВНИЗ.
    ------------------------------------------------------------------------
-   Слева итог целиком, дальше он разбирается на части до нуля. Это легенда
-   метрики, а не самостоятельный график: главное число всегда на экране,
-   и видно, какой его частью является выбранная категория.
+   Первая полоса — целое, дальше оно разбирается на части до нуля. Каждая
+   часть начинается там, где кончилась предыдущая, поэтому видно и величину
+   части, и её место в целом.
+
+   Категории идут ПО ВЕРТИКАЛИ, а не по горизонтали. Категории на оси X
+   читаются как время: глаз, приученный к динамике, видит в «прямые →
+   шаренные → частичные» последовательность, которой нет. По вертикали
+   такой иллюзии не возникает, а имена категорий перестают тесниться
+   и переноситься по слогам.
+
+   По сути это таблица с полосой в ячейке: имя слева, полоса в середине,
+   число и доля справа — ровно та форма разбивки, которую предписывает
+   дизайн-система. Полоса здесь каскадная, а не от общего левого края,
+   потому что показывает не только величину, но и остаток.
 
    Части кликаются — это и есть фильтр отчёта. Когда фильтр включён,
    невыбранные части гасятся, но с экрана не уходят: иначе исчезает целое,
@@ -1945,67 +1996,68 @@ function drawStackDiverge(a,w,h){
    ========================================================================== */
 function drawBreakdown(a,w,h){
   const o=a.opt||{}, parts=a.parts, tot=a.total;
-  /* compact — вариант для KPI-карточки. Целое там уже написано главным
-     числом карточки, поэтому столбец итога не рисуется: он повторил бы
-     то же значение рядом. Каскад всё равно начинается с вершины шкалы —
-     от неё и отсчитываются части. */
   const compact=!!o.compact;
-  const lz=compact?9.5:10.5;
+  const lz=compact?9.5:11.5;
   const hh=headH(o.title,o.legend);
-  h=h||o.h||300;
-  const axisH=compact?(AXIS_H-8):AXIS_H;
-  const plotTop=hh+(compact?14:LBL_ROOM), plotBot=h-axisH-(compact?0:12);
-  const n=parts.length+(compact?0:1);
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/n;
-  const max=niceMax([tot.value]);
-  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
-  const bw=Math.min(compact?54:78,bandW*(compact?0.66:0.6));
+  const rows=parts.length+1;
+  const rowH=compact?21:30;
+  h=h||o.h||(hh+rows*rowH+4);
+  /* Каскад центрируется по высоте контейнера, а не прижимается к верху:
+     строки фиксированной высоты, и остаток лучше разделить пополам,
+     чем оставить пустую полосу снизу. */
+  const top=hh+Math.max(2,(h-hh-rows*rowH)/2);
+  const bh=Math.min(compact?13:18,rowH*0.66);
   const anyOn=parts.some(p=>p.on);
 
+  const nameOf=p=>(compact&&p.short)||p.name;
+  const names=[tot.name].concat(parts.map(nameOf));
+  const nameW=Math.min(w*0.4,Math.max.apply(null,names.map(s=>textW(s,lz)))+2);
+  /* Числа стоят в СВОЕЙ колонке справа, а не у конца полосы: у каскада
+     концы на разной высоте и на разном месте, и бегающее число читать
+     нельзя. В колонке они выстраиваются по разряду, как в таблице. */
+  const valW=textW(CD.fmtInt(tot.value),VAL_SZ)+(compact?30:42);
+  const x0=PAD_X+nameW+7;
+  const plotW=Math.max(20,w-x0-PAD_X-valW);
+  const max=niceMax([tot.value]);
+  const X=v=>x0+(v/max)*plotW;
+  const xVal=w-PAD_X;
+
   let s=header(w,o.title,o.legend,{lock:true});
-  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
-  const cell=(i,name,val,from,to,color,dim,attr)=>{
-    const cx=x0+bandW*(i+0.5), yTop=Y(Math.max(from,to)), yBot=Y(Math.min(from,to));
+  const row=(i,name,val,from,to,color,dim,share,attr)=>{
+    const cy=top+i*rowH, y=cy+(rowH-bh)/2;
+    const xa=X(Math.min(from,to)), xb=X(Math.max(from,to));
     let g='<g class="barg'+(dim?' dim':'')+'"'+attr+'>';
-    g+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
-    g+=barUp(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),color,' class="bar up" style="animation-delay:'+(i*34)+'ms"');
-    g+='</g>';
-    /* Кегль подписи значения не меняется даже в компактном варианте: это
-       ЕДИНСТВЕННЫЙ кегль цифры на графике во всём отчёте. Ужимается
-       геометрия — отступ подписи от марки, — а не сама цифра. */
-    g+=txt(cx,yTop-(compact?6:VAL_DY),CD.fmtInt(val),valOpt({delay:240+i*34}));
-    wrap(name,Math.max(8,bandW-4),2,lz).forEach((ln,k)=>{
-      g+=txt(cx,plotBot+(compact?12:15)+k*(lz+1),ln,{size:lz,fill:C_AXIS});
-    });
-    return g;
+    g+='<rect class="hit" x="0" y="'+num(cy)+'" width="'+num(w)+'" height="'+num(rowH)+'"/>';
+    g+=txt(PAD_X,y+bh/2+lz*0.36,name,{size:lz,fill:C_AXIS,anchor:'start'});
+    /* Полоса целого прилипает к оси слева — у неё скруглён только правый
+       край. Части висят в воздухе и скруглены со всех сторон. */
+    g+=(from===0||to===0&&from===tot.value
+        ? barRight(xa,y,xb-xa,bh,color,' class="bar rt" style="animation-delay:'+(i*34)+'ms"')
+        : barFloat(xa,y,xb-xa,bh,color,' class="bar rt" style="animation-delay:'+(i*34)+'ms"'));
+    g+=txt(xVal,y+bh/2+VAL_ASC*0.42,CD.fmtInt(val),
+      {size:VAL_SZ,weight:VAL_W,fill:C_LABEL,anchor:'end',cls:'fade',delay:240+i*34});
+    if(share!=null)g+=txt(xVal-textW(CD.fmtInt(tot.value),VAL_SZ)-4,y+bh/2+lz*0.36,
+      CD.fmtPct(share,share<10?1:0),{size:lz,weight:700,fill:C_AXIS,anchor:'end'});
+    return g+'</g>';
   };
-  let idx=0;
-  if(!compact){
-    s+=cell(0,tot.name,tot.value,0,tot.value,C_TOTAL,false,
-      tip({title:tot.name,rows:[{label:'Всего',value:CD.fmtInt(tot.value),color:C_TOTAL}],
-           note:'разбирается на части справа: человек попадает ровно в одну'}));
-    idx=1;
-  }
+  s+=row(0,tot.name,tot.value,0,tot.value,C_TOTAL,false,null,
+    tip({title:tot.name,rows:[{label:'Всего',value:CD.fmtInt(tot.value),color:C_TOTAL}],
+         note:'разбирается на части ниже: человек попадает ровно в одну'}));
   let rem=tot.value;
   parts.forEach((p,i)=>{
     const from=rem, to=rem-p.value;
     const share=tot.value?p.value/tot.value*100:0;
-    /* Пунктирная связка от остатка предыдущего столбца к началу следующего:
-       без неё столбцы разной высоты читаются как независимые величины,
-       а не как разбор целого на части. */
-    if(i+idx>0)s+=line(x0+bandW*(i+idx-0.5)+bw/2,Y(from),x0+bandW*(i+idx+0.5)-bw/2,Y(from),C_DIV,1,'3 2');
-    s+=cell(i+idx,(compact&&p.short)||p.name,p.value,from,to,p.color,anyOn&&!p.on,
+    /* Вертикальная связка на границе остатка: без неё полосы разной длины
+       читаются как независимые величины, а не как разбор целого. */
+    const cy=top+i*rowH;
+    s+=line(X(from),cy+(rowH+bh)/2,X(from),cy+rowH+(rowH-bh)/2,C_DIV,1,'3 2');
+    s+=row(i+1,nameOf(p),p.value,from,to,p.color,anyOn&&!p.on,share,
       tip({title:p.name,
         rows:[{label:'Сотрудников',value:CD.fmtInt(p.value),color:p.color},
               {label:'Доля',value:CD.fmtPct(share,share<10?1:0)}],
         note:[p.hint||null,'клик фильтрует отчёт']})+
       ' data-seg="'+p.key+'" tabindex="0" role="button"'+
       ' aria-pressed="'+(p.on?'true':'false')+'"');
-    /* Доля стоит под именем: она отвечает на «какая это часть целого»,
-       а число сверху — на «сколько это людей». Два разных вопроса. */
-    s+=txt(x0+bandW*(i+idx+0.5),
-      plotBot+(compact?12:15)+wrap((compact&&p.short)||p.name,Math.max(8,bandW-4),2,lz).length*(lz+1),
-      CD.fmtPct(share,share<10?1:0),{size:lz,weight:700,fill:C_AXIS});
     rem=to;
   });
   return svg(w,h,s);
@@ -2077,7 +2129,11 @@ function drawWaterfall(a,w,h){
       rows:[{label:st.total?'Уровень':'Изменение',value:lab,color:col}],
       note:[st.hint||null,st.total?null:'накоплено: '+fv(o,g.to)]})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
-    s+=barUp(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),col,' class="bar up" style="animation-delay:'+(i*34)+'ms"');
+    /* Уровень стоит на нуле — у него ровный низ. Шаг движения висит между
+       двумя уровнями и ничем не обрезан, поэтому скруглён со всех сторон. */
+    s+=(st.total
+      ? barUp(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),col,' class="bar up" style="animation-delay:'+(i*34)+'ms"')
+      : barFloat(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),col,' class="bar up" style="animation-delay:'+(i*34)+'ms"'));
     s+='</g>';
     s+=txt(cx,yTop-VAL_DY,lab,valOpt({delay:240+i*34}));
     /* Подпись шага переносится по словам: имена движений длиннее месяца,
@@ -2696,7 +2752,7 @@ function kpis(m,st){
     short:D.SEG_BY_KEY[s.key].short,value:s.people,
     color:COL[s.key],hint:s.hint,on:st.segs.indexOf(s.key)>=0}));
   const breakdown=G.chart('breakdown',
-    {total:{name:'Все сотрудники',value:m.segTotal},parts},{compact:true,fill:true,h:126});
+    {total:{name:'Всего',value:m.segTotal},parts},{compact:true,fill:true,h:126});
 
   const hTotal=m.health.reduce((a,h)=>a+h.people,0);
   const hNorm=m.health.filter(h=>h.key==='norm')[0].people;

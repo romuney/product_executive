@@ -44,7 +44,7 @@ function kpis(m,st){
     short:D.SEG_BY_KEY[s.key].short,value:s.people,
     color:COL[s.key],hint:s.hint,on:st.segs.indexOf(s.key)>=0}));
   const breakdown=G.chart('breakdown',
-    {total:{name:'Все сотрудники',value:m.segTotal},parts},{compact:true,fill:true,h:126});
+    {total:{name:'Всего',value:m.segTotal},parts},{compact:true,fill:true,h:126});
 
   const hTotal=m.health.reduce((a,h)=>a+h.people,0);
   const hNorm=m.health.filter(h=>h.key==='norm')[0].people;
