@@ -422,6 +422,48 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .svgchart.anim .lnb{animation:tp-fade .5s ease-out both;animation-delay:.1s}
 .svgchart.anim .fade,.svgchart.anim .dot{animation:tp-fade .3s ease-out both}
 
+/* ===== Список сотрудников ===== */
+.plist-tools{align-items:flex-end}
+.plist-tools .srch{flex:1;max-width:340px}
+.plist-tools input[type=search]{border:1px solid var(--line);background:#fff;
+  border-radius:var(--r3);padding:8px var(--s6);font:inherit;font-size:13px;
+  font-weight:600;color:var(--ink);width:100%}
+.plist-tools input[type=search]:focus{outline-color:var(--act)}
+/* Чипы-события: набор фильтров, а не подписи. Невыбранные приглушены,
+   но остаются кликабельными — это переключатель, а не легенда. */
+.ev-filter{margin:0 0 var(--s7)}
+.ev-filter .chip{cursor:pointer;gap:var(--s3)}
+.ev-filter .chip b{font-variant-numeric:tabular-nums}
+.ev-filter .chip.off{background:#fff;border-color:var(--line);color:var(--ink2)}
+.ev-filter .chip.off b{color:var(--muted)}
+.ev-filter .chip.off:hover{background:#fafbfc;border-color:#d8dce4}
+.plist td{vertical-align:top}
+.plist td.allocs{white-space:normal;max-width:280px}
+.plist .al{display:inline-block;font-size:var(--fs-note);font-weight:600;color:var(--ink2);
+  background:#f4f6fa;border-radius:var(--r2);padding:2px var(--s3);margin:0 2px 2px 0;
+  font-variant-numeric:tabular-nums}
+.plist .al i{font-style:normal;color:var(--muted)}
+.plist td.evs{white-space:normal;max-width:300px}
+/* Событие раскрашено гаммой потоков — той же, что на графиках. Один поток
+   выглядит одинаково и в баре, и в чипе, и в строке списка. */
+.ev{display:inline-block;font-size:var(--fs-cap);font-weight:600;border-radius:var(--r2);
+  padding:2px var(--s3);margin:0 2px 2px 0;white-space:nowrap;cursor:help;color:var(--ink2)}
+.ev b{font-weight:800}
+.ev.e-hire{background:#e6f6f1}
+.ev.e-in{background:#e6f2fd}
+.ev.e-out{background:#e3edf3}
+.ev.e-attr{background:#efe8f4}
+.ev.e-up{background:#e0f2ef}
+.ev.e-dn{background:#ece5f3}
+.more{margin-top:var(--s6);text-align:center}
+/* Внешние строки и столбцы матрицы перетоков — границы портфеля,
+   а не ещё один продукт: помечены фоном. */
+.mtx .ext,.mtx tr.ext-row td{background:#fafbfc}
+.mtx tr.ext-row td.txt .row-body{color:var(--muted);font-weight:700}
+.mtx td.self{background:#f4f5f7;color:var(--muted2)}
+.pivot td.drill{cursor:pointer}
+.pivot td.drill:hover{box-shadow:inset 0 0 0 2px var(--act)}
+
 /* ===== Легенда, сноски, пустое состояние ===== */
 .legend{display:flex;gap:var(--s8);flex-wrap:wrap;align-items:center;margin:0 0 var(--s6);
   font-size:12px;color:var(--ink2)}

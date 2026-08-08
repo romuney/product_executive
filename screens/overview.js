@@ -212,6 +212,7 @@ function pivot(m,st){
     '</div>';
   const quotaSplit=!!D.DIM_BY_KEY[st.dimB||st.dimA].quota;
   const body='<div class="tbl-wrap">'+U.pivot({rows,total,mode:st.mode,dimName,
+      dim:st.dimA,dimB:st.dimB,
       open:st.open,totalNote:'уникальные значения по всему срезу'})+'</div>'+
     U.note('Каретка у строки ИТОГО раскрывает и сворачивает всё дерево разом. '+
       'Сумма по строкам больше итога, когда разрез привязан к продукту: человек, '+

@@ -12,7 +12,7 @@
 const fs=require('fs'), path=require('path'), dir=__dirname;
 global.window={};
 require('./data.js');require('./draw.js');require('./ui.js');
-require('./screens/overview.js');require('./screens/transformer.js');
+require('./screens/overview.js');require('./screens/transformer.js');require('./screens/people.js');
 const SEP='\u0001';
 const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI, SC=window.PXSCREEN;
 
@@ -27,7 +27,7 @@ function head(t){console.log('\n'+t)}
 const read=f=>fs.readFileSync(path.join(dir,f),'utf8');
 const SRC={css:read('styles.css'),data:read('data.js'),draw:read('draw.js'),
   ui:read('ui.js'),app:read('app.js'),html:read('index.html'),
-  ov:read('screens/overview.js'),tr:read('screens/transformer.js')};
+  ov:read('screens/overview.js'),tr:read('screens/transformer.js'),pl:read('screens/people.js')};
 
 /* ---------- Состояния, на которых гоняем весь отчёт ----------
    Не один «удобный» срез, а набор: пустой фильтр, один продукт, режим
@@ -191,12 +191,12 @@ ok('есть viewport',SRC.html.indexOf('name="viewport"')>0);
 
 /* Литеральный цвет в экране — ошибка. Рисовальный слой и ui.js (там живёт
    заливка ячеек и разбивок) имеют на него право, экраны — нет. */
-[['screens/overview.js',SRC.ov],['screens/transformer.js',SRC.tr],['app.js',SRC.app]]
+[['screens/overview.js',SRC.ov],['screens/transformer.js',SRC.tr],['screens/people.js',SRC.pl],['app.js',SRC.app]]
   .forEach(([n,s])=>{
     const hex=(s.match(/#[0-9a-fA-F]{6}\b/g)||[]);
     ok('нет литеральных цветов в '+n,hex.length===0,hex.join(' '));
   });
-ok('в разметке нет атрибута title=',!/\stitle="/.test(SRC.ov+SRC.tr+SRC.ui+SRC.app));
+ok('в разметке нет атрибута title=',!/\stitle="/.test(SRC.ov+SRC.tr+SRC.pl+SRC.ui+SRC.app));
 ok('стрелок в дельтах нет: направление знаком',
   !/[↑↓↗]/.test(SRC.ui+SRC.ov+SRC.tr));
 ok('минус типографский',SRC.data.indexOf("MINUS='−'")>0);
@@ -244,10 +244,66 @@ CASES.forEach(c=>{
 })();
 
 /* ============================================================================
+   6б. Детализация до людей
+   ------------------------------------------------------------------------
+   Список — конец цепочки вопросов, и он обязан сходиться с началом: сколько
+   событий насчитал трансформер по продуктам, столько же строк должно найтись
+   в списке. Расхождение здесь означает, что пользователь кликнул по числу
+   и получил другой набор людей.
+   ========================================================================== */
+head('6б. Списки сотрудников и перетоки');
+CASES.forEach(c=>{
+  const s=st(c.over);
+  const list=D.peopleList(s);
+  const rows=D.rows(s,'product');
+  ['hire','in','out','attr'].forEach(k=>{
+    const byRows=rows.reduce((a,r)=>a+(k==='in'?r.inp:r[k]),0);
+    let byEv=0;list.forEach(p=>p.events.forEach(e=>{if(e.kind===k)byEv++}));
+    /* Сверять можно только в людях: в аллокациях строка трансформера
+       считает проценты, а список — события. */
+    if(s.mode!=='fte')ok('события «'+k+'» сходятся с трансформером · '+c.name,
+      byRows===byEv,byRows+' != '+byEv);
+    else pass++;
+  });
+  ok('список не пуст · '+c.name,list.length>0);
+  ok('у всех есть имя · '+c.name,list.every(p=>p.name&&p.name.indexOf(' ')>0));
+  ok('стаж не больше окна данных · '+c.name,list.every(p=>p.tenure<=D.N));
+  ok('сумма аллокаций совпадает со строками · '+c.name,
+    list.every(p=>Math.abs(p.sum-p.allocs.reduce((a,x)=>a+x.pct,0))<0.001));
+  /* Фильтры-события не должны выдумывать людей: любой отбор — подмножество. */
+  SC.people.FILTERS.forEach(f=>{
+    const sub=SC.people.filtered(Object.assign({},s,{evt:f[0],q:''}),list);
+    ok('фильтр «'+(f[1])+'» — подмножество · '+c.name,sub.length<=list.length);
+  });
+  /* Перетоки: сумма по строкам обязана совпасть с суммой по столбцам —
+     каждое событие попадает ровно в одну клетку. */
+  ['domain','product'].forEach(dim=>{
+    const t=D.transfers(s,dim);
+    let ys=0,xs=0,cells=0;
+    t.ysum.forEach(v=>{ys+=v});t.xsum.forEach(v=>{xs+=v});t.cells.forEach(v=>{cells+=v});
+    ok('перетоки («'+dim+'»): строки = столбцы · '+c.name,ys===xs,ys+' != '+xs);
+    ok('перетоки («'+dim+'»): клетки = итог · '+c.name,cells===ys,cells+' != '+ys);
+  });
+  let people='';
+  try{people=SC.people.render(Object.assign({},s,{evt:'',q:'',pAll:false}))}
+  catch(e){ok('вкладка сотрудников рендерится · '+c.name,false,e.message)}
+  ok('список сотрудников непустой · '+c.name,people.length>2000);
+  ok('в списке есть выгрузка · '+c.name,people.indexOf('data-csv')>0);
+  ok('в списке есть поиск · '+c.name,people.indexOf('data-q')>0);
+  ok('в списке есть фильтры-события · '+c.name,people.indexOf('data-evt="hire"')>0);
+  const ov=SC.overview.render(s);
+  ok('числа движения ведут в список · '+c.name,ov.indexOf('data-drill="hire|')>0);
+  let flow='';
+  try{flow=SC.transformer.render(Object.assign({},s,{tview:'flow'}))}
+  catch(e){ok('перетоки рендерятся · '+c.name,false,e.message)}
+  ok('вид «перетоки» непустой · '+c.name,flow.length>1200);
+});
+
+/* ============================================================================
    7. Порядок загрузки
    ========================================================================== */
 head('7. Сборка');
-const order=['data.js','draw.js','ui.js','screens/overview.js','screens/transformer.js','app.js'];
+const order=['data.js','draw.js','ui.js','screens/overview.js','screens/transformer.js','screens/people.js','app.js'];
 let prev=-1;
 order.forEach(f=>{
   const i=SRC.html.indexOf('src="'+f+'"');

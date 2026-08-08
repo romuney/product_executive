@@ -211,11 +211,11 @@ const COLS=[
   {k:'pct',  name:'Δ%',       grp:'cnt',pct:true},
   {k:'quota',name:'Квоты',    sub:'открытые сейчас',grp:'cnt'},
   {k:'fill', name:'Укомплект.',sub:'сейчас',grp:'cnt',rate:true},
-  {k:'hire', name:'Найм',     sub:'на продукт',grp:'in',flow:'hire'},
-  {k:'inp',  name:'Вход',     sub:'на продукт',grp:'in',flow:'in'},
-  {k:'attr', name:'Отток',    sub:'из компании',grp:'out',flow:'attr'},
-  {k:'out',  name:'Выход',    sub:'с продукта',grp:'out',flow:'out'},
-  {k:'alloc',name:'Изменение',sub:'аллокации',grp:'alloc',flow:'up',fteOnly:true}
+  {k:'hire', name:'Найм',     sub:'на продукт',grp:'in',flow:'hire',evt:'hire'},
+  {k:'inp',  name:'Вход',     sub:'на продукт',grp:'in',flow:'in',evt:'in'},
+  {k:'attr', name:'Отток',    sub:'из компании',grp:'out',flow:'attr',evt:'attr'},
+  {k:'out',  name:'Выход',    sub:'с продукта',grp:'out',flow:'out',evt:'out'},
+  {k:'alloc',name:'Изменение',sub:'аллокации',grp:'alloc',flow:'up',fteOnly:true,evt:'alloc'}
 ];
 const COL_HINT={
   begin:'Значение на конец месяца, предшествующего периоду.',
@@ -298,7 +298,17 @@ function pivotRow(r,cols,mode,maxes,o){
   cols.forEach(c=>{
     const v=valOf(r,c,mode);
     const st=(!o.total&&c.flow)?heat(c.k==='alloc'?(v>=0?'up':'dn'):c.flow,v,maxes[c.k]):'';
-    h+='<td'+(c.lead?' class="lead"':'')+st+'>'+cellText(v,c,mode)+'</td>';
+    /* Число движения — точка входа в список людей за ним. Любой вопрос
+       «сколько пришло» продолжается вопросом «а кто именно», и держать
+       ответ в другом отчёте значит не ответить вовсе. */
+    const drill=c.evt&&v
+      ? ' data-drill="'+c.evt+'|'+esc(o.dim||'')+'|'+esc(o.total?'':r.name)+'"'+
+        ' tabindex="0" role="button"'+
+        tip({title:c.name+(c.sub?' '+c.sub:''),text:COL_HINT[c.k],
+             note:'клик открывает список этих сотрудников'})
+      : '';
+    h+='<td'+(c.lead?' class="lead"':'')+(drill?' class="drill"':'')+st+drill+'>'+
+      cellText(v,c,mode)+'</td>';
   });
   return h+'</tr>';
 }
@@ -322,10 +332,10 @@ function pivot(o){
   o.rows.forEach(r=>{
     const id=r.name;
     const open=o.open&&o.open.indexOf(id)>=0;
-    h+=pivotRow(r,cols,o.mode,maxes,{id,kids:r.kids&&r.kids.length,open,
+    h+=pivotRow(r,cols,o.mode,maxes,{id,kids:r.kids&&r.kids.length,open,dim:o.dim,
       note:r.kids&&r.kids.length?r.kids.length+' '+plural(r.kids.length,'строка','строки','строк'):null});
     if(open&&r.kids)r.kids.forEach(k=>{
-      h+=pivotRow(k,cols,o.mode,maxes,{lvl:2});
+      h+=pivotRow(k,cols,o.mode,maxes,{lvl:2,dim:o.dimB});
     });
   });
   return h+'</tbody></table>';
@@ -396,19 +406,30 @@ function matrixTable(o){
   const m=o.m, mode=o.mode;
   let max=0;
   m.cells.forEach(v=>{if(Math.abs(v)>max)max=Math.abs(v)});
+  /* Внешние строки и столбцы матрицы перетоков — это не разрез, а границы
+     портфеля: найм и скамейка слева, отток и скамейка справа. Они помечены
+     фоном, чтобы не читаться как ещё один продукт. */
+  const ext=m.external||{ys:[],xs:[]};
+  const isExtY=y=>ext.ys.indexOf(y)>=0, isExtX=x=>ext.xs.indexOf(x)>=0;
   let h='<table class="ptable dense pivot mtx"><thead><tr><th class="txt">'+esc(o.yName)+
     '<span class="hint-col">по столбцам: '+esc(o.xName.toLowerCase())+'</span></th>';
-  m.xs.forEach(x=>{h+='<th>'+esc(x)+'</th>'});
+  m.xs.forEach(x=>{h+='<th'+(isExtX(x)?' class="ext"':'')+'>'+esc(x)+'</th>'});
   h+='<th class="vs">Итого</th></tr></thead><tbody>';
   m.ys.forEach(y=>{
-    h+='<tr><td class="txt"><span class="row-label"><span class="caret-spacer" aria-hidden="true"></span>'+
+    h+='<tr'+(isExtY(y)?' class="ext-row"':'')+'><td class="txt"><span class="row-label">'+
+      '<span class="caret-spacer" aria-hidden="true"></span>'+
       '<span class="row-body">'+esc(y)+'</span></span></td>';
     m.xs.forEach(x=>{
-      const v=m.cells.get(y+'\u0001'+x)||0;
-      h+='<td'+heat(o.flow||'hire',v,max)+tip({title:y+' · '+x,
-        rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
-        note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)})+'>'+
-        (v?D.fmtVal(mode,v):'<span class="zero">0</span>')+'</td>';
+      const v=m.cells.get(y+''+x)||0;
+      /* Диагональ перетоков — переход продукта в самого себя. Такого события
+         не бывает, и клетка помечена точкой, а не заполнена нулём: ноль
+         сказал бы «переходов не было», хотя вопрос не имеет смысла. */
+      const self=o.diag&&y===x;
+      h+='<td'+(self?' class="self"':'')+(self?'':heat(o.flow||'hire',v,max))+
+        (self?'':tip({title:y+(o.diag?' → ':' · ')+x,
+          rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
+          note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)}))+'>'+
+        (self?'·':(v?D.fmtVal(mode,v):'<span class="zero">0</span>'))+'</td>';
     });
     h+='<td class="lead vs">'+D.fmtVal(mode,m.ysum.get(y)||0)+'</td></tr>';
   });

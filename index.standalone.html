@@ -429,6 +429,48 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .svgchart.anim .lnb{animation:tp-fade .5s ease-out both;animation-delay:.1s}
 .svgchart.anim .fade,.svgchart.anim .dot{animation:tp-fade .3s ease-out both}
 
+/* ===== Список сотрудников ===== */
+.plist-tools{align-items:flex-end}
+.plist-tools .srch{flex:1;max-width:340px}
+.plist-tools input[type=search]{border:1px solid var(--line);background:#fff;
+  border-radius:var(--r3);padding:8px var(--s6);font:inherit;font-size:13px;
+  font-weight:600;color:var(--ink);width:100%}
+.plist-tools input[type=search]:focus{outline-color:var(--act)}
+/* Чипы-события: набор фильтров, а не подписи. Невыбранные приглушены,
+   но остаются кликабельными — это переключатель, а не легенда. */
+.ev-filter{margin:0 0 var(--s7)}
+.ev-filter .chip{cursor:pointer;gap:var(--s3)}
+.ev-filter .chip b{font-variant-numeric:tabular-nums}
+.ev-filter .chip.off{background:#fff;border-color:var(--line);color:var(--ink2)}
+.ev-filter .chip.off b{color:var(--muted)}
+.ev-filter .chip.off:hover{background:#fafbfc;border-color:#d8dce4}
+.plist td{vertical-align:top}
+.plist td.allocs{white-space:normal;max-width:280px}
+.plist .al{display:inline-block;font-size:var(--fs-note);font-weight:600;color:var(--ink2);
+  background:#f4f6fa;border-radius:var(--r2);padding:2px var(--s3);margin:0 2px 2px 0;
+  font-variant-numeric:tabular-nums}
+.plist .al i{font-style:normal;color:var(--muted)}
+.plist td.evs{white-space:normal;max-width:300px}
+/* Событие раскрашено гаммой потоков — той же, что на графиках. Один поток
+   выглядит одинаково и в баре, и в чипе, и в строке списка. */
+.ev{display:inline-block;font-size:var(--fs-cap);font-weight:600;border-radius:var(--r2);
+  padding:2px var(--s3);margin:0 2px 2px 0;white-space:nowrap;cursor:help;color:var(--ink2)}
+.ev b{font-weight:800}
+.ev.e-hire{background:#e6f6f1}
+.ev.e-in{background:#e6f2fd}
+.ev.e-out{background:#e3edf3}
+.ev.e-attr{background:#efe8f4}
+.ev.e-up{background:#e0f2ef}
+.ev.e-dn{background:#ece5f3}
+.more{margin-top:var(--s6);text-align:center}
+/* Внешние строки и столбцы матрицы перетоков — границы портфеля,
+   а не ещё один продукт: помечены фоном. */
+.mtx .ext,.mtx tr.ext-row td{background:#fafbfc}
+.mtx tr.ext-row td.txt .row-body{color:var(--muted);font-weight:700}
+.mtx td.self{background:#f4f5f7;color:var(--muted2)}
+.pivot td.drill{cursor:pointer}
+.pivot td.drill:hover{box-shadow:inset 0 0 0 2px var(--act)}
+
 /* ===== Легенда, сноски, пустое состояние ===== */
 .legend{display:flex;gap:var(--s8);flex-wrap:wrap;align-items:center;margin:0 0 var(--s6);
   font-size:12px;color:var(--ink2)}
@@ -866,8 +908,28 @@ function healthOf(sum){
      выход с продукта  — человек остался в компании, аллокация обнулилась;
      отток с продукта  — человек ушёл из компании.
    ========================================================================== */
+/* ---------- Имена ----------
+   Отчёт доходит до списка конкретных людей, а список без имён не читается:
+   «сотрудник #418» невозможно обсудить на встрече. Имена ВЫМЫШЛЕННЫЕ
+   и собираются детерминированно из двух наборов — это макет, и об этом
+   написано в шапке отчёта.
+
+   Пол нужен только чтобы имя и фамилия согласовались между собой.
+   Атрибутом человека он не становится и разрезом отчёта не является:
+   в вопросах про ресурсообеспеченность ему нечего делать. */
+const NAME_A=['Александр','Дмитрий','Максим','Сергей','Андрей','Алексей','Артём','Илья',
+  'Кирилл','Михаил','Никита','Матвей','Роман','Егор','Арсений','Иван','Денис','Тимофей',
+  'Владислав','Григорий'];
+const NAME_B=['Анна','Мария','Елена','Дарья','Алина','Ирина','Екатерина','Ольга','Наталья',
+  'Полина','Ксения','Юлия','Татьяна','София','Виктория','Марина','Светлана','Валерия',
+  'Анастасия','Кристина'];
+const SURN=['Иванов','Смирнов','Кузнецов','Попов','Васильев','Петров','Соколов','Михайлов',
+  'Новиков','Фёдоров','Морозов','Волков','Алексеев','Лебедев','Семёнов','Егоров','Павлов',
+  'Козлов','Степанов','Николаев','Орлов','Андреев','Макаров','Никитин','Захаров','Зайцев',
+  'Соловьёв','Борисов','Яковлев','Григорьев'];
+
 const NPEOPLE=760;
-const PEOPLE=[], ALLOC=[];
+const PEOPLE=[], ALLOC=[], USED_NAME=Object.create(null);
 /* home — «организационный дом» человека: продукт, к которому он относится
    структурно. Нужен ровно для одного случая — здоровья аллокаций: человек
    с нулевой аллокацией не попадает ни на один продукт, и без якоря его
@@ -879,7 +941,19 @@ for(let id=0;id<NPEOPLE;id++){
     const t=(from<0?ri(0,N-1):from+ri(3,18));
     if(t<N)to=t;
   }
+  /* Имя должно быть уникальным: два «Александра Козлова» в списке невозможно
+     обсудить — приходится сверять строки по глазам. Поэтому при совпадении
+     перебираем фамилию, а не дописываем к имени служебный номер. */
+  const b=chance(0.44);
+  const first=b?NAME_B[ri(0,NAME_B.length-1)]:NAME_A[ri(0,NAME_A.length-1)];
+  let nm='', tries=0;
+  do{
+    const sn=SURN[ri(0,SURN.length-1)];
+    nm=first+' '+(b?sn+'а':sn);
+  }while(USED_NAME[nm]&&++tries<60);
+  USED_NAME[nm]=1;
   PEOPLE.push({id,
+    name:nm,
     prof:PROFS[wpick(PROF_W)],grade:GRADES[wpick(GRADE_W)],
     loc:LOCS[wpick(LOC_W)],emp:EMPS[wpick(EMP_W)],
     from,to,home:PRODUCTS[ri(0,NPROD-1)].id});
@@ -961,7 +1035,16 @@ PEOPLE.forEach(p=>{
        перетасовка каждый месяц дала бы движение, которого в жизни не бывает. */
     if(m>start){
       if(chance(0.008)){bench=ri(1,5);prods=[];cur=[];continue}   /* уход на скамейку */
-      if(chance(0.030)&&cur.length<3){                    /* вход на новый продукт */
+      /* ПЕРЕВОД: в один месяц человек уходит с одного продукта и приходит
+         на другой с той же долей. Пока перевода не было отдельным событием,
+         он распадался на независимые «ушёл» и «пришёл» в разные месяцы,
+         и матрица перетоков показывала нули между всеми продуктами —
+         как будто люди приходят только из найма и уходят только в отток. */
+      if(chance(0.014)&&cur.length){
+        const k=ri(0,cur.length-1), free=[];
+        for(let z=0;z<NPROD;z++)if(prods.indexOf(z)<0)free.push(z);
+        prods[k]=free[ri(0,free.length-1)];
+      }else if(chance(0.030)&&cur.length<3){              /* вход на новый продукт */
         const free=[];
         for(let k=0;k<NPROD;k++)if(prods.indexOf(k)<0)free.push(k);
         const add=free[ri(0,free.length-1)];
@@ -1502,6 +1585,147 @@ function model(st){
   };
 }
 
+/* ============================================================================
+   10. Детализация до людей
+   ------------------------------------------------------------------------
+   Любая метрика ресурсообеспеченности упирается в один и тот же следующий
+   вопрос: «а кто эти люди?». Без ответа отчёт заканчивается там, где
+   начинается работа — HRBP всё равно пойдёт выгружать список руками.
+
+   События считаются ПО ПАРАМ «человек × продукт», а не по присутствию
+   человека в срезе: в списке нужно видеть, на какой продукт человек пришёл
+   и с какого ушёл. Поэтому число строк списка по событию сходится
+   со строками трансформера по продукту, а не с его итогом.
+   ========================================================================== */
+const EVENTS=[
+  {key:'hire',name:'Найм на продукт',   short:'найм'},
+  {key:'in',  name:'Вход на продукт',   short:'вход'},
+  {key:'out', name:'Выход с продукта',  short:'выход'},
+  {key:'attr',name:'Отток из компании', short:'отток'},
+  {key:'up',  name:'Рост аллокации',    short:'аллокация +'},
+  {key:'dn',  name:'Снижение аллокации',short:'аллокация −'}
+];
+const EVENT_BY_KEY=Object.create(null);EVENTS.forEach(e=>{EVENT_BY_KEY[e.key]=e});
+
+function personEvents(st,pid){
+  const p=PEOPLE[pid], out=[];
+  PAIRS_BY_PID[pid].forEach(ai=>{
+    const a=ALLOC[ai];
+    if(!inScope(st,a.prod))return;
+    for(let m=st.i0;m<=st.i1;m++){
+      const cur=active(st,a,p,m), prev=m>0?active(st,a,p,m-1):0;
+      if(prev<=0&&cur>0)out.push({kind:p.from===m?'hire':'in',m,prod:a.prod,pct:cur});
+      else if(prev>0&&cur<=0)out.push({kind:p.to===m-1?'attr':'out',m,prod:a.prod,pct:prev});
+      else if(prev>0&&cur>0&&cur!==prev)
+        out.push({kind:cur>prev?'up':'dn',m,prod:a.prod,pct:cur,was:prev});
+    }
+  });
+  return out.sort((x,y)=>x.m-y.m||x.prod-y.prod);
+}
+
+/* Список сотрудников среза. Человек попадает сюда, если он был на продуктах
+   среза хоть один месяц окна — или если он вообще не аллоцирован, но
+   организационно относится к продукту среза: «скамейка» это тоже ответ
+   на вопрос «кто у меня есть». */
+function peopleList(st){
+  const i1=st.i1, out=[];
+  PEOPLE.forEach(p=>{
+    if(!personPass(st,p))return;
+    const alive=(p.from<0||p.from<=i1)&&(p.to==null||p.to>=i1);
+    const allocs=[];
+    let anyActive=false, sum=0;
+    PAIRS_BY_PID[p.id].forEach(ai=>{
+      const a=ALLOC[ai];
+      if(!inScope(st,a.prod))return;
+      for(let m=st.i0;m<=i1&&!anyActive;m++)if(active(st,a,p,m))anyActive=true;
+      const v=active(st,a,p,i1);
+      if(v){allocs.push({prod:a.prod,pct:v});sum+=v}
+    });
+    const bench=alive&&sumPct[p.id][i1]===0&&inScope(st,PIDX[p.home]);
+    /* События считаются ДО решения о включении: человек, уволившийся первым
+       месяцем окна, к концу периода уже нигде не активен, но его уход —
+       событие этого периода, и в списке «кто ушёл» он обязан быть. Пока
+       список строился только по активности, такие люди пропадали, и число
+       строк не сходилось с числом в трансформере. */
+    const ev=personEvents(st,p.id);
+    if(!anyActive&&!bench&&!ev.length)return;
+    allocs.sort((x,y)=>y.pct-x.pct);
+    out.push({pid:p.id,name:p.name,prof:p.prof,grade:p.grade,loc:p.loc,emp:p.emp,
+      from:p.from,to:p.to,alive,allocs,sum,
+      seg:allocs.length?scopeSeg(st,p.id,i1):null,
+      health:healthOf(sumPct[p.id][i1]),
+      /* Стаж на продукте — сколько месяцев подряд человек стоит на своей
+         главной аллокации. Отвечает на «новичок он или старожил» без
+         отдельной таблицы: первый же вопрос после «кто эти люди». */
+      tenure:tenureOn(st,p.id,allocs.length?allocs[0].prod:-1,i1),
+      events:ev});
+  });
+  out.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  return out;
+}
+function tenureOn(st,pid,prodIdx,m){
+  if(prodIdx<0)return 0;
+  const a=PAIR[pid+'|'+prodIdx];
+  if(!a)return 0;
+  let n=0;
+  for(let i=m;i>=0&&a.pct[i]>0;i--)n++;
+  return n;
+}
+
+/* ---------- Матрица перетоков: откуда и куда ----------
+   Переход засчитывается, только когда у человека в один месяц ровно один
+   уход и ровно один приход: тогда связь однозначна. Всё остальное честно
+   уходит в «извне» и «наружу» — придумывать соответствие между двумя
+   уходами и тремя приходами значит рисовать данные, которых нет.
+   Про это написано сноской под матрицей. */
+function transfers(st,dimKey){
+  const key=idx=>dimKey==='domain'?PRODUCTS[idx].domName:PRODUCTS[idx].name;
+  const cells=new Map(), fromSum=new Map(), toSum=new Map();
+  const add=(f,t,v)=>{
+    const k=f+''+t;
+    cells.set(k,(cells.get(k)||0)+v);
+    fromSum.set(f,(fromSum.get(f)||0)+v);
+    toSum.set(t,(toSum.get(t)||0)+v);
+  };
+  PEOPLE.forEach(p=>{
+    if(!personPass(st,p))return;
+    const pairs=PAIRS_BY_PID[p.id].map(ai=>ALLOC[ai]).filter(a=>inScope(st,a.prod));
+    if(!pairs.length)return;
+    for(let m=st.i0;m<=st.i1;m++){
+      const gone=[],came=[];
+      pairs.forEach(a=>{
+        const cur=active(st,a,p,m), prev=m>0?active(st,a,p,m-1):0;
+        if(prev>0&&cur<=0)gone.push(a.prod);
+        if(prev<=0&&cur>0)came.push(a.prod);
+      });
+      if(!gone.length&&!came.length)continue;
+      if(gone.length===1&&came.length===1){add(key(gone[0]),key(came[0]),1);continue}
+      /* Внешние категории различаются по тому, ОСТАЛСЯ ли человек в срезе.
+         Пришёл, уже стоя на других продуктах, — это не «со скамейки», а
+         расширение присутствия. Ушёл, оставшись на других, — не «на
+         скамейку», а сокращение. Свалить их в одну кучу значило бы
+         показать движение туда, где его не было. */
+      let before=0,after=0;
+      pairs.forEach(a=>{
+        if(m>0&&active(st,a,p,m-1))before++;
+        if(active(st,a,p,m))after++;
+      });
+      came.forEach(k=>add(p.from===m?'Найм':(before?'Расширение':'Со скамейки'),key(k),1));
+      gone.forEach(k=>add(key(k),p.to===m-1?'Отток':(after?'Сокращение':'На скамейку'),1));
+    }
+  });
+  const names=dimKey==='domain'?DOMAINS.map(d=>d.name):PRODUCTS.map(x=>x.name);
+  const inScopeName=n=>dimKey==='domain'
+    ? DOM_BY_NAME[n].kids.some(k=>inScope(st,PIDX[k]))
+    : inScope(st,PROD_BY_NAME[n]);
+  const EXT_Y=['Найм','Со скамейки','Расширение'];
+  const EXT_X=['Отток','На скамейку','Сокращение'];
+  const ys=names.filter(inScopeName).concat(EXT_Y).filter(n=>fromSum.get(n));
+  const xs=names.filter(inScopeName).concat(EXT_X).filter(n=>toSum.get(n));
+  let grand=0;fromSum.forEach(v=>{grand+=v});
+  return {ys,xs,cells,ysum:fromSum,xsum:toSum,grand,external:{ys:EXT_Y,xs:EXT_X}};
+}
+
 /* ---------- Набор продуктов из состояния фильтра ----------
    Хранится СПИСОК ВЫБРАННЫХ листьев: пустой список означает «все продукты».
    Инверсия намеренная — новый продукт каталога появляется у всех сам, а не
@@ -1525,7 +1749,7 @@ window.PXDATA={
   PEOPLE,ALLOC,sumPct,mainProd,openQuota,
   THIN,MINUS,fmtInt,fmtFte,fmtVal,fmtDelta,fmtPct,fmtPp,
   prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification,
-  quotaOf,quotaTotal
+  quotaOf,quotaTotal,EVENTS,EVENT_BY_KEY,peopleList,personEvents,transfers
 };
 })();
 
@@ -2482,11 +2706,11 @@ const COLS=[
   {k:'pct',  name:'Δ%',       grp:'cnt',pct:true},
   {k:'quota',name:'Квоты',    sub:'открытые сейчас',grp:'cnt'},
   {k:'fill', name:'Укомплект.',sub:'сейчас',grp:'cnt',rate:true},
-  {k:'hire', name:'Найм',     sub:'на продукт',grp:'in',flow:'hire'},
-  {k:'inp',  name:'Вход',     sub:'на продукт',grp:'in',flow:'in'},
-  {k:'attr', name:'Отток',    sub:'из компании',grp:'out',flow:'attr'},
-  {k:'out',  name:'Выход',    sub:'с продукта',grp:'out',flow:'out'},
-  {k:'alloc',name:'Изменение',sub:'аллокации',grp:'alloc',flow:'up',fteOnly:true}
+  {k:'hire', name:'Найм',     sub:'на продукт',grp:'in',flow:'hire',evt:'hire'},
+  {k:'inp',  name:'Вход',     sub:'на продукт',grp:'in',flow:'in',evt:'in'},
+  {k:'attr', name:'Отток',    sub:'из компании',grp:'out',flow:'attr',evt:'attr'},
+  {k:'out',  name:'Выход',    sub:'с продукта',grp:'out',flow:'out',evt:'out'},
+  {k:'alloc',name:'Изменение',sub:'аллокации',grp:'alloc',flow:'up',fteOnly:true,evt:'alloc'}
 ];
 const COL_HINT={
   begin:'Значение на конец месяца, предшествующего периоду.',
@@ -2569,7 +2793,17 @@ function pivotRow(r,cols,mode,maxes,o){
   cols.forEach(c=>{
     const v=valOf(r,c,mode);
     const st=(!o.total&&c.flow)?heat(c.k==='alloc'?(v>=0?'up':'dn'):c.flow,v,maxes[c.k]):'';
-    h+='<td'+(c.lead?' class="lead"':'')+st+'>'+cellText(v,c,mode)+'</td>';
+    /* Число движения — точка входа в список людей за ним. Любой вопрос
+       «сколько пришло» продолжается вопросом «а кто именно», и держать
+       ответ в другом отчёте значит не ответить вовсе. */
+    const drill=c.evt&&v
+      ? ' data-drill="'+c.evt+'|'+esc(o.dim||'')+'|'+esc(o.total?'':r.name)+'"'+
+        ' tabindex="0" role="button"'+
+        tip({title:c.name+(c.sub?' '+c.sub:''),text:COL_HINT[c.k],
+             note:'клик открывает список этих сотрудников'})
+      : '';
+    h+='<td'+(c.lead?' class="lead"':'')+(drill?' class="drill"':'')+st+drill+'>'+
+      cellText(v,c,mode)+'</td>';
   });
   return h+'</tr>';
 }
@@ -2593,10 +2827,10 @@ function pivot(o){
   o.rows.forEach(r=>{
     const id=r.name;
     const open=o.open&&o.open.indexOf(id)>=0;
-    h+=pivotRow(r,cols,o.mode,maxes,{id,kids:r.kids&&r.kids.length,open,
+    h+=pivotRow(r,cols,o.mode,maxes,{id,kids:r.kids&&r.kids.length,open,dim:o.dim,
       note:r.kids&&r.kids.length?r.kids.length+' '+plural(r.kids.length,'строка','строки','строк'):null});
     if(open&&r.kids)r.kids.forEach(k=>{
-      h+=pivotRow(k,cols,o.mode,maxes,{lvl:2});
+      h+=pivotRow(k,cols,o.mode,maxes,{lvl:2,dim:o.dimB});
     });
   });
   return h+'</tbody></table>';
@@ -2667,19 +2901,30 @@ function matrixTable(o){
   const m=o.m, mode=o.mode;
   let max=0;
   m.cells.forEach(v=>{if(Math.abs(v)>max)max=Math.abs(v)});
+  /* Внешние строки и столбцы матрицы перетоков — это не разрез, а границы
+     портфеля: найм и скамейка слева, отток и скамейка справа. Они помечены
+     фоном, чтобы не читаться как ещё один продукт. */
+  const ext=m.external||{ys:[],xs:[]};
+  const isExtY=y=>ext.ys.indexOf(y)>=0, isExtX=x=>ext.xs.indexOf(x)>=0;
   let h='<table class="ptable dense pivot mtx"><thead><tr><th class="txt">'+esc(o.yName)+
     '<span class="hint-col">по столбцам: '+esc(o.xName.toLowerCase())+'</span></th>';
-  m.xs.forEach(x=>{h+='<th>'+esc(x)+'</th>'});
+  m.xs.forEach(x=>{h+='<th'+(isExtX(x)?' class="ext"':'')+'>'+esc(x)+'</th>'});
   h+='<th class="vs">Итого</th></tr></thead><tbody>';
   m.ys.forEach(y=>{
-    h+='<tr><td class="txt"><span class="row-label"><span class="caret-spacer" aria-hidden="true"></span>'+
+    h+='<tr'+(isExtY(y)?' class="ext-row"':'')+'><td class="txt"><span class="row-label">'+
+      '<span class="caret-spacer" aria-hidden="true"></span>'+
       '<span class="row-body">'+esc(y)+'</span></span></td>';
     m.xs.forEach(x=>{
-      const v=m.cells.get(y+'\u0001'+x)||0;
-      h+='<td'+heat(o.flow||'hire',v,max)+tip({title:y+' · '+x,
-        rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
-        note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)})+'>'+
-        (v?D.fmtVal(mode,v):'<span class="zero">0</span>')+'</td>';
+      const v=m.cells.get(y+''+x)||0;
+      /* Диагональ перетоков — переход продукта в самого себя. Такого события
+         не бывает, и клетка помечена точкой, а не заполнена нулём: ноль
+         сказал бы «переходов не было», хотя вопрос не имеет смысла. */
+      const self=o.diag&&y===x;
+      h+='<td'+(self?' class="self"':'')+(self?'':heat(o.flow||'hire',v,max))+
+        (self?'':tip({title:y+(o.diag?' → ':' · ')+x,
+          rows:[{label:o.metricName,value:D.fmtVal(mode,v)}],
+          note:'доля в строке: '+D.fmtPct(m.ysum.get(y)?v/m.ysum.get(y)*100:0,0)}))+'>'+
+        (self?'·':(v?D.fmtVal(mode,v):'<span class="zero">0</span>'))+'</td>';
     });
     h+='<td class="lead vs">'+D.fmtVal(mode,m.ysum.get(y)||0)+'</td></tr>';
   });
@@ -2924,6 +3169,7 @@ function pivot(m,st){
     '</div>';
   const quotaSplit=!!D.DIM_BY_KEY[st.dimB||st.dimA].quota;
   const body='<div class="tbl-wrap">'+U.pivot({rows,total,mode:st.mode,dimName,
+      dim:st.dimA,dimB:st.dimB,
       open:st.open,totalNote:'уникальные значения по всему срезу'})+'</div>'+
     U.note('Каретка у строки ИТОГО раскрывает и сворачивает всё дерево разом. '+
       'Сумма по строкам больше итога, когда разрез привязан к продукту: человек, '+
@@ -3077,17 +3323,47 @@ function mtxView(st,m){
   return body;
 }
 
+/* ---------- Перетоки: откуда и куда ----------
+   Единственный вид, где переходы между продуктами видны напрямую. В обычном
+   трансформере они схлопываются в итоге — портфель они не меняют, — и вопрос
+   «кто у кого забрал людей» остаётся без ответа. Здесь он и живёт. */
+function dim0(st){return st.fdim==='product'?'product':'domain'}
+function flowView(st,m){
+  const dim=dim0(st);
+  const mx=D.transfers(st,dim);
+  const body='<div class="tbl-wrap">'+U.matrixTable({m:mx,mode:'hc',diag:true,
+      yName:'Откуда',xName:'Куда',metricName:'Переходов',flow:'in',grand:mx.grand})+'</div>'+
+    U.note('Строки — откуда человек ушёл, столбцы — куда пришёл, в людях. '+
+      'Переход между продуктами засчитывается, только когда в один месяц у человека '+
+      'ровно один уход и ровно один приход: тогда связь однозначна. Остальное уходит '+
+      'во внешние строки и столбцы. <b>Найм</b> — человек новый в компании. '+
+      '<b>Со скамейки</b> — вернулся из состояния без аллокаций. '+
+      '<b>Расширение</b> — взял ещё один продукт, ни с какого не уходя. '+
+      '<b>Отток</b> — ушёл из компании, <b>На скамейку</b> — остался без аллокаций, '+
+      '<b>Сокращение</b> — ушёл с продукта, но остался на других. '+
+      'Придумывать соответствие между двумя уходами и тремя приходами значит рисовать '+
+      'данные, которых нет.');
+  return body;
+}
+
 function render(st){
   const m=D.model(st);
   if(!m.verify.total)return U.empty('На выбранных продуктах никого нет',
     'Снимите один из фильтров слева — например, сегмент аллокации или грейд.');
   const dims=D.DIMS.map(d=>[d.key,d.name]);
   const metrics=metricList(st.mode).map(x=>[x.key,x.name]);
-  const view=st.tview==='mtx'?'mtx':'dyn';
+  const view=st.tview==='mtx'?'mtx':st.tview==='flow'?'flow':'dyn';
   const tabs=U.subTabs([
     ['dyn','В динамике',{title:'В динамике',text:'Строки — разрезы, столбцы — периоды. До трёх уровней вложенности.'}],
-    ['mtx','Матрица',{title:'Матрица',text:'Один разрез по строкам, другой по столбцам. Набор атрибутов фиксирован.'}]
+    ['mtx','Матрица',{title:'Матрица',text:'Один разрез по строкам, другой по столбцам. Набор атрибутов фиксирован.'}],
+    ['flow','Перетоки',{title:'Перетоки',text:'Кто у кого забрал людей: строки — откуда, столбцы — куда.'}]
   ],view,'tview');
+
+  if(view==='flow')return U.panel({title:'Трансформер',
+    sub:'период '+window.PXSCREEN.overview.periodName(st)+' · переходы между продуктами',
+    tabs,body:'<div class="h-ctl">'+
+      U.select('fdim',[['domain','Домен'],['product','Продукт']],dim0(st),'Уровень')+
+      '</div>'+flowView(st,m)});
 
   const ctl=view==='dyn'
     ? '<div class="h-ctl">'+
@@ -3110,6 +3386,167 @@ function render(st){
 
 window.PXSCREEN=window.PXSCREEN||{};
 window.PXSCREEN.transformer={render};
+})();
+
+</script>
+<script>
+/* ============================================================================
+   screens/people.js — вкладка «Сотрудники». Неймспейс: PXSCREEN.people
+
+   Это конец любой цепочки вопросов в отчёте. «Сколько людей на продукте» →
+   «сколько из них пришло за квартал» → «а КТО эти люди и когда пришли».
+   Раньше третий вопрос упирался в пустоту, и HRBP всё равно шёл выгружать
+   список руками — а значит и первые два он смотрел не здесь.
+
+   Список наследует ВСЕ фильтры отчёта и добавляет к ним два своих: событие
+   за период и поиск по имени. Отдельного набора фильтров у него нет
+   намеренно: полка слева одна на весь отчёт, и переключение вкладки не
+   должно менять выборку.
+   ========================================================================== */
+(function(){
+'use strict';
+const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI;
+
+const PAGE=60;
+
+/* Фильтры-события. «Проблемные аллокации» и «Без аллокации» стоят рядом
+   с событиями движения, потому что вопрос у них один и тот же: покажи
+   поимённо тех, кто стоит за цифрой на карточке. */
+const FILTERS=[
+  ['',     'Все'],
+  ['hire', 'Найм на продукт'],
+  ['in',   'Вход на продукт'],
+  ['out',  'Выход с продукта'],
+  ['attr', 'Отток из компании'],
+  ['alloc','Изменение аллокации'],
+  ['bad',  'Проблемные аллокации'],
+  ['bench','Без аллокации']
+];
+function match(p,evt){
+  if(!evt)return true;
+  /* Ушедший из компании не «проблемная аллокация»: у него нулевая сумма
+     потому, что его больше нет, а не потому, что данные кривые. */
+  if(evt==='bad')return p.alive&&(p.health==='over'||p.health==='low'||p.health==='zero');
+  /* «Без аллокации» — это скамейка, а не увольнение: у ушедшего аллокаций
+     тоже нет, но искать его надо по оттоку. */
+  if(evt==='bench')return !p.allocs.length&&p.alive;
+  if(evt==='alloc')return p.events.some(e=>e.kind==='up'||e.kind==='dn');
+  return p.events.some(e=>e.kind===evt);
+}
+function filtered(st,list){
+  const q=(st.q||'').trim().toLowerCase();
+  return list.filter(p=>{
+    if(!match(p,st.evt))return false;
+    if(!q)return true;
+    return p.name.toLowerCase().indexOf(q)>=0||
+           p.prof.toLowerCase().indexOf(q)>=0||
+           p.allocs.some(a=>D.PRODUCTS[a.prod].name.toLowerCase().indexOf(q)>=0);
+  });
+}
+
+const EV_CLS={hire:'e-hire',in:'e-in',out:'e-out',attr:'e-attr',up:'e-up',dn:'e-dn'};
+/* Одно и то же событие в один месяц на двух продуктах — это по-прежнему одно
+   событие в жизни человека, и рисовать «найм март, найм март» бессмысленно:
+   строка превращается в шум, а продукт всё равно не назван. Схлопываем
+   в один чип со счётчиком, продукты перечисляем в подсказке. */
+function groupEvents(evs){
+  const m=new Map();
+  evs.forEach(e=>{
+    const k=e.kind+'|'+e.m;
+    if(!m.has(k))m.set(k,{kind:e.kind,m:e.m,prods:[],pct:e.pct,was:e.was});
+    m.get(k).prods.push(e.prod);
+  });
+  return Array.from(m.values());
+}
+function evChip(g){
+  const n=D.EVENT_BY_KEY[g.kind], one=g.prods.length===1;
+  return '<span class="ev '+EV_CLS[g.kind]+'"'+U.tip({title:n.name,
+    text:g.prods.map(p=>D.PRODUCTS[p].name).join(', ')+' — '+D.mLabelFull(g.m)+'.',
+    rows:one&&g.was!=null?[{label:'Было',value:g.was+'%'},{label:'Стало',value:g.pct+'%'}]
+        :one?[{label:'Аллокация',value:g.pct+'%'}]:[]})+'>'+
+    U.esc(n.short)+' <b>'+U.esc(D.MONTHS[g.m].label)+'</b>'+
+    (one?'':' ×'+g.prods.length)+'</span>';
+}
+function since(p){
+  if(p.from<0)return 'до окна';
+  return D.MONTHS[p.from].label+' '+D.MONTHS[p.from].y;
+}
+function allocCell(p){
+  if(!p.allocs.length)return '<span class="k-sub">нет аллокаций</span>';
+  return p.allocs.map(a=>'<span class="al"><i>'+U.esc(D.PRODUCTS[a.prod].name)+
+    '</i> '+a.pct+'%</span>').join(' ');
+}
+
+function table(st,list){
+  let h='<div class="tbl-wrap"><table class="ptable dense plist"><thead><tr>'+
+    '<th class="txt">Сотрудник</th><th class="txt">Локация</th>'+
+    '<th class="txt">Аллокации на '+U.esc(D.MONTHS[st.i1].label)+'</th>'+
+    '<th>Σ</th><th>Стаж<span class="hint-col">мес на осн.</span></th>'+
+    '<th class="txt">В компании с</th>'+
+    '<th class="txt">События за период</th></tr></thead><tbody>';
+  list.forEach(p=>{
+    const bad=p.alive&&(p.health==='over'||p.health==='low'||p.health==='zero');
+    const hn=D.HEALTH.filter(x=>x.key===p.health)[0];
+    h+='<tr><td class="txt"><span class="row-body">'+U.esc(p.name)+
+        '<span class="unit-sub">'+U.esc(p.prof)+' · '+U.esc(p.grade)+
+        (p.emp!=='Штат'?' · '+U.esc(p.emp):'')+'</span></span></td>'+
+      '<td class="txt">'+U.esc(p.loc)+'</td>'+
+      '<td class="txt allocs">'+allocCell(p)+'</td>'+
+      '<td class="lead"'+U.tip({title:'Сумма аллокаций',
+          rows:[{label:'Всего',value:p.sum+'%'}],note:hn?hn.name+': '+hn.hint:null})+'>'+
+        p.sum+'%'+(bad?' <span class="sig-chip bad">!</span>':'')+'</td>'+
+      '<td>'+(p.tenure?D.fmtInt(p.tenure):'—')+'</td>'+
+      '<td class="txt">'+U.esc(since(p))+
+        (p.to!=null?'<span class="unit-sub">ушёл '+U.esc(D.MONTHS[p.to].label+' '+D.MONTHS[p.to].y)+'</span>':'')+
+        '</td>'+
+      '<td class="txt evs">'+(p.events.length?groupEvents(p.events).map(evChip).join(''):'<span class="k-sub">—</span>')+
+        '</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+
+function render(st){
+  const all=D.peopleList(st);
+  const list=filtered(st,all);
+  const shown=st.pAll?list:list.slice(0,PAGE);
+  const onProd=all.filter(p=>p.allocs.length).length;
+  const bench=all.length-onProd;
+
+  const chips='<div class="chips ev-filter">'+FILTERS.map(f=>{
+    const n=f[0]?all.filter(p=>match(p,f[0])).length:all.length;
+    return '<button class="chip'+(st.evt===f[0]?'':' off')+'" data-evt="'+f[0]+'"'+
+      ' aria-pressed="'+(st.evt===f[0]?'true':'false')+'">'+U.esc(f[1])+
+      '<b>'+D.fmtInt(n)+'</b></button>';
+  }).join('')+'</div>';
+
+  const tools='<div class="h-ctl plist-tools">'+
+    '<label class="ctl srch"><span>Поиск</span>'+
+      '<input type="search" data-q="1" value="'+U.esc(st.q||'')+'"'+
+      ' placeholder="имя, профессия или продукт"></label>'+
+    '<button class="btn" data-csv="people">Выгрузить CSV</button></div>';
+
+  const body=chips+tools+
+    (list.length?table(st,shown):U.empty('Никто не подошёл под фильтр',
+      'Снимите событие или очистите поиск — фильтры отчёта слева при этом останутся.'))+
+    (list.length>shown.length
+      ? '<div class="more"><button class="btn" data-pall="1">Показать все '+
+        D.fmtInt(list.length)+'</button></div>'
+      : '')+
+    U.note('Показано <b>'+D.fmtInt(shown.length)+'</b> из '+D.fmtInt(list.length)+
+      ' по текущему фильтру. Всего в срезе <b>'+D.fmtInt(onProd)+'</b> на продуктах'+
+      (bench?' и <b>'+D.fmtInt(bench)+'</b> без аллокации':'')+
+      '. События считаются по паре «человек × продукт»: один человек может '+
+      'и прийти на один продукт, и уйти с другого в один и тот же месяц, '+
+      'поэтому сумма событий сходится со строками трансформера по продукту, а не с его итогом. '+
+      'Имена вымышленные — отчёт собран на синтетических данных.');
+
+  return U.panel({title:'Сотрудники',
+    sub:'все фильтры отчёта действуют · клик по числу в трансформере приводит сюда',
+    body,cls:'p-people'});
+}
+
+window.PXSCREEN=window.PXSCREEN||{};
+window.PXSCREEN.people={render,filtered,match,FILTERS};
 })();
 
 </script>
@@ -3141,7 +3578,8 @@ const DEF={
   prof:'', grade:'', loc:'', emp:'',
   dimA:'domain', dimB:'product', open:[], moveView:'io',
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
-  my:'prof', mxd:'grade',
+  my:'prof', mxd:'grade', fdim:'domain',
+  evt:'', q:'', pAll:false,
   treeOpen:[]
 };
 const S=Object.assign({},DEF);
@@ -3348,6 +3786,7 @@ function modeRow(){
     '</div>'+
     '<div class="tabs" role="tablist">'+
       tab('overview','Ресурсы и движение')+tab('transformer','Трансформер')+
+      tab('people','Сотрудники')+
     '</div>';
 }
 function tab(k,name){
@@ -3364,12 +3803,19 @@ function render(animate){
   document.getElementById('reporthead').innerHTML=reporthead();
   const view=document.getElementById('view');
   view.innerHTML=modeRow()+
-    (S.tab==='transformer'?SC.transformer.render(st):SC.overview.render(st));
+    (S.tab==='transformer'?SC.transformer.render(st)
+     :S.tab==='people'?SC.people.render(st)
+     :SC.overview.render(st));
   /* Пресет периода подсвечивается по факту, а не по памяти: пользователь мог
      подвинуть границы руками, и тогда пресет уже не тот. */
   const sel=document.querySelector('[data-sel="periodPreset"]');
   if(sel)sel.value=presetOf();
   G.remeasure(view,animate!==false);
+  if(_qFocus){
+    const inp=view.querySelector('[data-q]');
+    if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)}
+    _qFocus=false;
+  }
   history.replaceState(null,'',toURL());
 }
 function presetOf(){
@@ -3443,6 +3889,17 @@ document.addEventListener('click',e=>{
     if(box)G.toggleSeries(box.getAttribute('data-cid'),el.getAttribute('data-sid'));
     return;
   }
+  /* ---------- Провал в список людей ----------
+     Число движения в трансформере ведёт на вкладку сотрудников с уже
+     наложенными фильтрами: событие плюс тот срез, в строке которого стояло
+     число. Иначе пользователю пришлось бы вручную повторить фильтр, который
+     он только что задал кликом. */
+  if((el=hit('data-drill'))){
+    const [evt,dim,val]=el.getAttribute('data-drill').split('|');
+    if(val)applyRowFilter(dim,val);
+    S.evt=evt;S.q='';S.pAll=false;S.tab='people';
+    return schedule();
+  }
   if((el=hit('data-pivot'))){
     const id=el.getAttribute('data-pivot');
     if(id==='*'){
@@ -3468,6 +3925,9 @@ document.addEventListener('click',e=>{
     }else toggle(S.topen,id);
     return schedule();
   }
+  if((el=hit('data-evt'))){S.evt=el.getAttribute('data-evt');S.pAll=false;return schedule()}
+  if((el=hit('data-pall'))){S.pAll=true;return schedule()}
+  if((el=hit('data-csv'))){exportCsv();return}
   if((el=hit('data-help'))){openHelp(true);return}
   if((el=hit('data-helpclose'))){openHelp(false);return}
   if((el=hit('data-link'))){copyLink(el);return}
@@ -3487,6 +3947,16 @@ document.addEventListener('keydown',e=>{
     if(t.click)t.click();
     else t.dispatchEvent(new MouseEvent('click',{bubbles:true}));
   }
+});
+/* Поиск набирается по буквам, поэтому перерисовка идёт на input, а не на
+   change: ждать ухода фокуса, чтобы увидеть результат, никто не станет.
+   Фокус и позиция каретки восстанавливаются после перерисовки. */
+let _qFocus=false;
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(!t||!t.getAttribute||!t.getAttribute('data-q'))return;
+  S.q=t.value;S.pAll=false;_qFocus=true;
+  schedule();
 });
 document.addEventListener('change',e=>{
   const t=e.target;
@@ -3520,6 +3990,59 @@ addEventListener('resize',()=>{
   clearTimeout(rt);
   rt=setTimeout(()=>G.remeasure(document.getElementById('view'),false),140);
 });
+
+/* Клик по строке трансформера переносится в фильтры отчёта: разрезы
+   трансформера и фильтры полки — одни и те же сущности, поэтому «показать
+   людей этой строки» это просто выставить соответствующий фильтр. */
+function applyRowFilter(dim,val){
+  if(dim==='product'){
+    const p=D.PRODUCTS.filter(x=>x.name===val)[0];
+    if(p)S.prods=[p.id];
+  }else if(dim==='domain'){
+    const d=D.DOMAINS.filter(x=>x.name===val)[0];
+    if(d)S.prods=[d.id];
+  }else if(dim==='seg'){
+    const s=D.SEGMENTS.filter(x=>x.name===val)[0];
+    if(s)S.segs=[s.key];
+  }else if(dim==='prof'||dim==='grade'||dim==='loc'||dim==='emp')S[dim]=val;
+}
+
+/* ---------- Выгрузка ----------
+   Аналитический отчёт без выгрузки заканчивается там, где начинается
+   работа: HRBP всё равно пересобирает список в таблице. CSV собирается
+   из того же состояния, что и экран, поэтому выгрузка и картинка
+   не могут разойтись. BOM обязателен — без него Excel читает кириллицу
+   как кракозябры. */
+function csvCell(v){
+  const s=String(v==null?'':v);
+  return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function download(name,text){
+  const blob=new Blob(['﻿'+text],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+}
+function exportCsv(){
+  const st=q();
+  const list=SC.people.filtered(st,D.peopleList(st));
+  const head=['Сотрудник','Профессия','Грейд','Локация','Занятость','Продукты',
+    'Аллокация, %','Сегмент','Здоровье','Стаж на основном, мес','В компании с','События за период'];
+  const rows=list.map(p=>[
+    p.name,p.prof,p.grade,p.loc,p.emp,
+    p.allocs.map(a=>D.PRODUCTS[a.prod].name+' '+a.pct+'%').join(' | '),
+    p.sum,
+    p.seg?D.SEG_BY_KEY[p.seg].name:'',
+    (D.HEALTH.filter(h=>h.key===p.health)[0]||{}).name||'',
+    p.tenure||'',
+    p.from<0?'до начала окна':D.mLabel(p.from),
+    p.events.map(e=>D.EVENT_BY_KEY[e.kind].short+' '+D.PRODUCTS[e.prod].name+' '+D.mLabel(e.m)).join(' | ')
+  ]);
+  const name='product-executive_'+D.MONTHS[st.i0].y+'-'+(D.MONTHS[st.i0].m+1)+
+    '_'+D.MONTHS[st.i1].y+'-'+(D.MONTHS[st.i1].m+1)+'.csv';
+  download(name,[head].concat(rows).map(r=>r.map(csvCell).join(';')).join('\n'));
+}
 
 function fixMetric(){
   const ok=D.SERIES_METRICS.filter(m=>!m.fteOnly||S.mode==='fte').map(m=>m.key);

@@ -25,7 +25,8 @@ const DEF={
   prof:'', grade:'', loc:'', emp:'',
   dimA:'domain', dimB:'product', open:[], moveView:'io',
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
-  my:'prof', mxd:'grade',
+  my:'prof', mxd:'grade', fdim:'domain',
+  evt:'', q:'', pAll:false,
   treeOpen:[]
 };
 const S=Object.assign({},DEF);
@@ -232,6 +233,7 @@ function modeRow(){
     '</div>'+
     '<div class="tabs" role="tablist">'+
       tab('overview','Ресурсы и движение')+tab('transformer','Трансформер')+
+      tab('people','Сотрудники')+
     '</div>';
 }
 function tab(k,name){
@@ -248,12 +250,19 @@ function render(animate){
   document.getElementById('reporthead').innerHTML=reporthead();
   const view=document.getElementById('view');
   view.innerHTML=modeRow()+
-    (S.tab==='transformer'?SC.transformer.render(st):SC.overview.render(st));
+    (S.tab==='transformer'?SC.transformer.render(st)
+     :S.tab==='people'?SC.people.render(st)
+     :SC.overview.render(st));
   /* Пресет периода подсвечивается по факту, а не по памяти: пользователь мог
      подвинуть границы руками, и тогда пресет уже не тот. */
   const sel=document.querySelector('[data-sel="periodPreset"]');
   if(sel)sel.value=presetOf();
   G.remeasure(view,animate!==false);
+  if(_qFocus){
+    const inp=view.querySelector('[data-q]');
+    if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)}
+    _qFocus=false;
+  }
   history.replaceState(null,'',toURL());
 }
 function presetOf(){
@@ -327,6 +336,17 @@ document.addEventListener('click',e=>{
     if(box)G.toggleSeries(box.getAttribute('data-cid'),el.getAttribute('data-sid'));
     return;
   }
+  /* ---------- Провал в список людей ----------
+     Число движения в трансформере ведёт на вкладку сотрудников с уже
+     наложенными фильтрами: событие плюс тот срез, в строке которого стояло
+     число. Иначе пользователю пришлось бы вручную повторить фильтр, который
+     он только что задал кликом. */
+  if((el=hit('data-drill'))){
+    const [evt,dim,val]=el.getAttribute('data-drill').split('|');
+    if(val)applyRowFilter(dim,val);
+    S.evt=evt;S.q='';S.pAll=false;S.tab='people';
+    return schedule();
+  }
   if((el=hit('data-pivot'))){
     const id=el.getAttribute('data-pivot');
     if(id==='*'){
@@ -352,6 +372,9 @@ document.addEventListener('click',e=>{
     }else toggle(S.topen,id);
     return schedule();
   }
+  if((el=hit('data-evt'))){S.evt=el.getAttribute('data-evt');S.pAll=false;return schedule()}
+  if((el=hit('data-pall'))){S.pAll=true;return schedule()}
+  if((el=hit('data-csv'))){exportCsv();return}
   if((el=hit('data-help'))){openHelp(true);return}
   if((el=hit('data-helpclose'))){openHelp(false);return}
   if((el=hit('data-link'))){copyLink(el);return}
@@ -371,6 +394,16 @@ document.addEventListener('keydown',e=>{
     if(t.click)t.click();
     else t.dispatchEvent(new MouseEvent('click',{bubbles:true}));
   }
+});
+/* Поиск набирается по буквам, поэтому перерисовка идёт на input, а не на
+   change: ждать ухода фокуса, чтобы увидеть результат, никто не станет.
+   Фокус и позиция каретки восстанавливаются после перерисовки. */
+let _qFocus=false;
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(!t||!t.getAttribute||!t.getAttribute('data-q'))return;
+  S.q=t.value;S.pAll=false;_qFocus=true;
+  schedule();
 });
 document.addEventListener('change',e=>{
   const t=e.target;
@@ -404,6 +437,59 @@ addEventListener('resize',()=>{
   clearTimeout(rt);
   rt=setTimeout(()=>G.remeasure(document.getElementById('view'),false),140);
 });
+
+/* Клик по строке трансформера переносится в фильтры отчёта: разрезы
+   трансформера и фильтры полки — одни и те же сущности, поэтому «показать
+   людей этой строки» это просто выставить соответствующий фильтр. */
+function applyRowFilter(dim,val){
+  if(dim==='product'){
+    const p=D.PRODUCTS.filter(x=>x.name===val)[0];
+    if(p)S.prods=[p.id];
+  }else if(dim==='domain'){
+    const d=D.DOMAINS.filter(x=>x.name===val)[0];
+    if(d)S.prods=[d.id];
+  }else if(dim==='seg'){
+    const s=D.SEGMENTS.filter(x=>x.name===val)[0];
+    if(s)S.segs=[s.key];
+  }else if(dim==='prof'||dim==='grade'||dim==='loc'||dim==='emp')S[dim]=val;
+}
+
+/* ---------- Выгрузка ----------
+   Аналитический отчёт без выгрузки заканчивается там, где начинается
+   работа: HRBP всё равно пересобирает список в таблице. CSV собирается
+   из того же состояния, что и экран, поэтому выгрузка и картинка
+   не могут разойтись. BOM обязателен — без него Excel читает кириллицу
+   как кракозябры. */
+function csvCell(v){
+  const s=String(v==null?'':v);
+  return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function download(name,text){
+  const blob=new Blob(['﻿'+text],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+}
+function exportCsv(){
+  const st=q();
+  const list=SC.people.filtered(st,D.peopleList(st));
+  const head=['Сотрудник','Профессия','Грейд','Локация','Занятость','Продукты',
+    'Аллокация, %','Сегмент','Здоровье','Стаж на основном, мес','В компании с','События за период'];
+  const rows=list.map(p=>[
+    p.name,p.prof,p.grade,p.loc,p.emp,
+    p.allocs.map(a=>D.PRODUCTS[a.prod].name+' '+a.pct+'%').join(' | '),
+    p.sum,
+    p.seg?D.SEG_BY_KEY[p.seg].name:'',
+    (D.HEALTH.filter(h=>h.key===p.health)[0]||{}).name||'',
+    p.tenure||'',
+    p.from<0?'до начала окна':D.mLabel(p.from),
+    p.events.map(e=>D.EVENT_BY_KEY[e.kind].short+' '+D.PRODUCTS[e.prod].name+' '+D.mLabel(e.m)).join(' | ')
+  ]);
+  const name='product-executive_'+D.MONTHS[st.i0].y+'-'+(D.MONTHS[st.i0].m+1)+
+    '_'+D.MONTHS[st.i1].y+'-'+(D.MONTHS[st.i1].m+1)+'.csv';
+  download(name,[head].concat(rows).map(r=>r.map(csvCell).join(';')).join('\n'));
+}
 
 function fixMetric(){
   const ok=D.SERIES_METRICS.filter(m=>!m.fteOnly||S.mode==='fte').map(m=>m.key);

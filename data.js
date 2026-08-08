@@ -206,8 +206,28 @@ function healthOf(sum){
      выход с продукта  — человек остался в компании, аллокация обнулилась;
      отток с продукта  — человек ушёл из компании.
    ========================================================================== */
+/* ---------- Имена ----------
+   Отчёт доходит до списка конкретных людей, а список без имён не читается:
+   «сотрудник #418» невозможно обсудить на встрече. Имена ВЫМЫШЛЕННЫЕ
+   и собираются детерминированно из двух наборов — это макет, и об этом
+   написано в шапке отчёта.
+
+   Пол нужен только чтобы имя и фамилия согласовались между собой.
+   Атрибутом человека он не становится и разрезом отчёта не является:
+   в вопросах про ресурсообеспеченность ему нечего делать. */
+const NAME_A=['Александр','Дмитрий','Максим','Сергей','Андрей','Алексей','Артём','Илья',
+  'Кирилл','Михаил','Никита','Матвей','Роман','Егор','Арсений','Иван','Денис','Тимофей',
+  'Владислав','Григорий'];
+const NAME_B=['Анна','Мария','Елена','Дарья','Алина','Ирина','Екатерина','Ольга','Наталья',
+  'Полина','Ксения','Юлия','Татьяна','София','Виктория','Марина','Светлана','Валерия',
+  'Анастасия','Кристина'];
+const SURN=['Иванов','Смирнов','Кузнецов','Попов','Васильев','Петров','Соколов','Михайлов',
+  'Новиков','Фёдоров','Морозов','Волков','Алексеев','Лебедев','Семёнов','Егоров','Павлов',
+  'Козлов','Степанов','Николаев','Орлов','Андреев','Макаров','Никитин','Захаров','Зайцев',
+  'Соловьёв','Борисов','Яковлев','Григорьев'];
+
 const NPEOPLE=760;
-const PEOPLE=[], ALLOC=[];
+const PEOPLE=[], ALLOC=[], USED_NAME=Object.create(null);
 /* home — «организационный дом» человека: продукт, к которому он относится
    структурно. Нужен ровно для одного случая — здоровья аллокаций: человек
    с нулевой аллокацией не попадает ни на один продукт, и без якоря его
@@ -219,7 +239,19 @@ for(let id=0;id<NPEOPLE;id++){
     const t=(from<0?ri(0,N-1):from+ri(3,18));
     if(t<N)to=t;
   }
+  /* Имя должно быть уникальным: два «Александра Козлова» в списке невозможно
+     обсудить — приходится сверять строки по глазам. Поэтому при совпадении
+     перебираем фамилию, а не дописываем к имени служебный номер. */
+  const b=chance(0.44);
+  const first=b?NAME_B[ri(0,NAME_B.length-1)]:NAME_A[ri(0,NAME_A.length-1)];
+  let nm='', tries=0;
+  do{
+    const sn=SURN[ri(0,SURN.length-1)];
+    nm=first+' '+(b?sn+'а':sn);
+  }while(USED_NAME[nm]&&++tries<60);
+  USED_NAME[nm]=1;
   PEOPLE.push({id,
+    name:nm,
     prof:PROFS[wpick(PROF_W)],grade:GRADES[wpick(GRADE_W)],
     loc:LOCS[wpick(LOC_W)],emp:EMPS[wpick(EMP_W)],
     from,to,home:PRODUCTS[ri(0,NPROD-1)].id});
@@ -301,7 +333,16 @@ PEOPLE.forEach(p=>{
        перетасовка каждый месяц дала бы движение, которого в жизни не бывает. */
     if(m>start){
       if(chance(0.008)){bench=ri(1,5);prods=[];cur=[];continue}   /* уход на скамейку */
-      if(chance(0.030)&&cur.length<3){                    /* вход на новый продукт */
+      /* ПЕРЕВОД: в один месяц человек уходит с одного продукта и приходит
+         на другой с той же долей. Пока перевода не было отдельным событием,
+         он распадался на независимые «ушёл» и «пришёл» в разные месяцы,
+         и матрица перетоков показывала нули между всеми продуктами —
+         как будто люди приходят только из найма и уходят только в отток. */
+      if(chance(0.014)&&cur.length){
+        const k=ri(0,cur.length-1), free=[];
+        for(let z=0;z<NPROD;z++)if(prods.indexOf(z)<0)free.push(z);
+        prods[k]=free[ri(0,free.length-1)];
+      }else if(chance(0.030)&&cur.length<3){              /* вход на новый продукт */
         const free=[];
         for(let k=0;k<NPROD;k++)if(prods.indexOf(k)<0)free.push(k);
         const add=free[ri(0,free.length-1)];
@@ -842,6 +883,147 @@ function model(st){
   };
 }
 
+/* ============================================================================
+   10. Детализация до людей
+   ------------------------------------------------------------------------
+   Любая метрика ресурсообеспеченности упирается в один и тот же следующий
+   вопрос: «а кто эти люди?». Без ответа отчёт заканчивается там, где
+   начинается работа — HRBP всё равно пойдёт выгружать список руками.
+
+   События считаются ПО ПАРАМ «человек × продукт», а не по присутствию
+   человека в срезе: в списке нужно видеть, на какой продукт человек пришёл
+   и с какого ушёл. Поэтому число строк списка по событию сходится
+   со строками трансформера по продукту, а не с его итогом.
+   ========================================================================== */
+const EVENTS=[
+  {key:'hire',name:'Найм на продукт',   short:'найм'},
+  {key:'in',  name:'Вход на продукт',   short:'вход'},
+  {key:'out', name:'Выход с продукта',  short:'выход'},
+  {key:'attr',name:'Отток из компании', short:'отток'},
+  {key:'up',  name:'Рост аллокации',    short:'аллокация +'},
+  {key:'dn',  name:'Снижение аллокации',short:'аллокация −'}
+];
+const EVENT_BY_KEY=Object.create(null);EVENTS.forEach(e=>{EVENT_BY_KEY[e.key]=e});
+
+function personEvents(st,pid){
+  const p=PEOPLE[pid], out=[];
+  PAIRS_BY_PID[pid].forEach(ai=>{
+    const a=ALLOC[ai];
+    if(!inScope(st,a.prod))return;
+    for(let m=st.i0;m<=st.i1;m++){
+      const cur=active(st,a,p,m), prev=m>0?active(st,a,p,m-1):0;
+      if(prev<=0&&cur>0)out.push({kind:p.from===m?'hire':'in',m,prod:a.prod,pct:cur});
+      else if(prev>0&&cur<=0)out.push({kind:p.to===m-1?'attr':'out',m,prod:a.prod,pct:prev});
+      else if(prev>0&&cur>0&&cur!==prev)
+        out.push({kind:cur>prev?'up':'dn',m,prod:a.prod,pct:cur,was:prev});
+    }
+  });
+  return out.sort((x,y)=>x.m-y.m||x.prod-y.prod);
+}
+
+/* Список сотрудников среза. Человек попадает сюда, если он был на продуктах
+   среза хоть один месяц окна — или если он вообще не аллоцирован, но
+   организационно относится к продукту среза: «скамейка» это тоже ответ
+   на вопрос «кто у меня есть». */
+function peopleList(st){
+  const i1=st.i1, out=[];
+  PEOPLE.forEach(p=>{
+    if(!personPass(st,p))return;
+    const alive=(p.from<0||p.from<=i1)&&(p.to==null||p.to>=i1);
+    const allocs=[];
+    let anyActive=false, sum=0;
+    PAIRS_BY_PID[p.id].forEach(ai=>{
+      const a=ALLOC[ai];
+      if(!inScope(st,a.prod))return;
+      for(let m=st.i0;m<=i1&&!anyActive;m++)if(active(st,a,p,m))anyActive=true;
+      const v=active(st,a,p,i1);
+      if(v){allocs.push({prod:a.prod,pct:v});sum+=v}
+    });
+    const bench=alive&&sumPct[p.id][i1]===0&&inScope(st,PIDX[p.home]);
+    /* События считаются ДО решения о включении: человек, уволившийся первым
+       месяцем окна, к концу периода уже нигде не активен, но его уход —
+       событие этого периода, и в списке «кто ушёл» он обязан быть. Пока
+       список строился только по активности, такие люди пропадали, и число
+       строк не сходилось с числом в трансформере. */
+    const ev=personEvents(st,p.id);
+    if(!anyActive&&!bench&&!ev.length)return;
+    allocs.sort((x,y)=>y.pct-x.pct);
+    out.push({pid:p.id,name:p.name,prof:p.prof,grade:p.grade,loc:p.loc,emp:p.emp,
+      from:p.from,to:p.to,alive,allocs,sum,
+      seg:allocs.length?scopeSeg(st,p.id,i1):null,
+      health:healthOf(sumPct[p.id][i1]),
+      /* Стаж на продукте — сколько месяцев подряд человек стоит на своей
+         главной аллокации. Отвечает на «новичок он или старожил» без
+         отдельной таблицы: первый же вопрос после «кто эти люди». */
+      tenure:tenureOn(st,p.id,allocs.length?allocs[0].prod:-1,i1),
+      events:ev});
+  });
+  out.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  return out;
+}
+function tenureOn(st,pid,prodIdx,m){
+  if(prodIdx<0)return 0;
+  const a=PAIR[pid+'|'+prodIdx];
+  if(!a)return 0;
+  let n=0;
+  for(let i=m;i>=0&&a.pct[i]>0;i--)n++;
+  return n;
+}
+
+/* ---------- Матрица перетоков: откуда и куда ----------
+   Переход засчитывается, только когда у человека в один месяц ровно один
+   уход и ровно один приход: тогда связь однозначна. Всё остальное честно
+   уходит в «извне» и «наружу» — придумывать соответствие между двумя
+   уходами и тремя приходами значит рисовать данные, которых нет.
+   Про это написано сноской под матрицей. */
+function transfers(st,dimKey){
+  const key=idx=>dimKey==='domain'?PRODUCTS[idx].domName:PRODUCTS[idx].name;
+  const cells=new Map(), fromSum=new Map(), toSum=new Map();
+  const add=(f,t,v)=>{
+    const k=f+''+t;
+    cells.set(k,(cells.get(k)||0)+v);
+    fromSum.set(f,(fromSum.get(f)||0)+v);
+    toSum.set(t,(toSum.get(t)||0)+v);
+  };
+  PEOPLE.forEach(p=>{
+    if(!personPass(st,p))return;
+    const pairs=PAIRS_BY_PID[p.id].map(ai=>ALLOC[ai]).filter(a=>inScope(st,a.prod));
+    if(!pairs.length)return;
+    for(let m=st.i0;m<=st.i1;m++){
+      const gone=[],came=[];
+      pairs.forEach(a=>{
+        const cur=active(st,a,p,m), prev=m>0?active(st,a,p,m-1):0;
+        if(prev>0&&cur<=0)gone.push(a.prod);
+        if(prev<=0&&cur>0)came.push(a.prod);
+      });
+      if(!gone.length&&!came.length)continue;
+      if(gone.length===1&&came.length===1){add(key(gone[0]),key(came[0]),1);continue}
+      /* Внешние категории различаются по тому, ОСТАЛСЯ ли человек в срезе.
+         Пришёл, уже стоя на других продуктах, — это не «со скамейки», а
+         расширение присутствия. Ушёл, оставшись на других, — не «на
+         скамейку», а сокращение. Свалить их в одну кучу значило бы
+         показать движение туда, где его не было. */
+      let before=0,after=0;
+      pairs.forEach(a=>{
+        if(m>0&&active(st,a,p,m-1))before++;
+        if(active(st,a,p,m))after++;
+      });
+      came.forEach(k=>add(p.from===m?'Найм':(before?'Расширение':'Со скамейки'),key(k),1));
+      gone.forEach(k=>add(key(k),p.to===m-1?'Отток':(after?'Сокращение':'На скамейку'),1));
+    }
+  });
+  const names=dimKey==='domain'?DOMAINS.map(d=>d.name):PRODUCTS.map(x=>x.name);
+  const inScopeName=n=>dimKey==='domain'
+    ? DOM_BY_NAME[n].kids.some(k=>inScope(st,PIDX[k]))
+    : inScope(st,PROD_BY_NAME[n]);
+  const EXT_Y=['Найм','Со скамейки','Расширение'];
+  const EXT_X=['Отток','На скамейку','Сокращение'];
+  const ys=names.filter(inScopeName).concat(EXT_Y).filter(n=>fromSum.get(n));
+  const xs=names.filter(inScopeName).concat(EXT_X).filter(n=>toSum.get(n));
+  let grand=0;fromSum.forEach(v=>{grand+=v});
+  return {ys,xs,cells,ysum:fromSum,xsum:toSum,grand,external:{ys:EXT_Y,xs:EXT_X}};
+}
+
 /* ---------- Набор продуктов из состояния фильтра ----------
    Хранится СПИСОК ВЫБРАННЫХ листьев: пустой список означает «все продукты».
    Инверсия намеренная — новый продукт каталога появляется у всех сам, а не
@@ -865,6 +1047,6 @@ window.PXDATA={
   PEOPLE,ALLOC,sumPct,mainProd,openQuota,
   THIN,MINUS,fmtInt,fmtFte,fmtVal,fmtDelta,fmtPct,fmtPp,
   prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification,
-  quotaOf,quotaTotal
+  quotaOf,quotaTotal,EVENTS,EVENT_BY_KEY,peopleList,personEvents,transfers
 };
 })();
