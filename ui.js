@@ -129,6 +129,44 @@ function select(name,list,val,label){
     '</select></label>';
 }
 
+/* ---------- Фильтр со списком ----------
+   Выглядит как обычная выпадашка полки и ведёт себя как она: закрытая —
+   одна строка с тем, что выбрано, открытая — список, в котором выбирают.
+
+   Так устроены ВСЕ фильтры полки. Развёрнутый список галочек прямо в полке
+   был чужеродным элементом: он занимал экран под каждым фильтром, из-за
+   чего полка прокручивалась, а нижние фильтры не показывались вовсе —
+   и такого типа контрола в инструменте больше нигде нет.
+
+   Внутри открытого списка галочки остаются: множественный выбор без них
+   не показать. Отличие в том, что они живут ВНУТРИ выпадашки, а не вместо
+   неё. Поиск появляется, когда список длиннее десятка строк: искать среди
+   четырёх сегментов не в чем.
+
+   o = {name, label, value, open, items, search, query, hint, resetKey} */
+function picker(o){
+  const open=!!o.open;
+  let h='<div class="picker'+(open?' open':'')+'" data-picker="'+esc(o.name)+'">'+
+    '<label class="pk-l" for="pk-'+esc(o.name)+'">'+esc(o.label)+'</label>'+
+    '<button class="pk-btn" id="pk-'+esc(o.name)+'" data-pkopen="'+esc(o.name)+'"'+
+      ' aria-expanded="'+(open?'true':'false')+'">'+
+      '<span class="pk-v'+(o.dim?' dim':'')+'">'+esc(o.value)+'</span>'+
+      '<span class="pk-cv" aria-hidden="true"></span></button>';
+  if(open){
+    h+='<div class="pk-pop" role="dialog" aria-label="'+esc(o.label)+'">';
+    if(o.search)h+='<div class="pk-s"><input type="search" data-pks="'+esc(o.name)+'"'+
+      ' value="'+esc(o.query||'')+'" placeholder="'+esc(o.search)+'"'+
+      ' aria-label="Поиск в списке"></div>';
+    h+='<div class="pk-body">'+(o.items||'')+'</div>'+
+      '<div class="pk-f">'+
+        (o.resetKey?'<button data-reset="'+esc(o.resetKey)+'">Сбросить</button>':'<span></span>')+
+        '<button class="pk-done" data-pkclose="1">Готово</button></div>'+
+    '</div>';
+  }
+  h+='</div>'+(o.hint?'<div class="fhint">'+o.hint+'</div>':'');
+  return h;
+}
+
 /* ============================================================================
    barTable — разбивка ТАБЛИЦЕЙ, а не кольцом и не горизонтальным бар-чартом.
    Доля читается по числу точнее, чем по углу сектора, а таблица заодно даёт
@@ -442,6 +480,6 @@ function empty(title,text){
   return '<div class="empty"><b>'+esc(title)+'</b>'+esc(text)+'</div>';
 }
 
-window.PXUI={esc,tip,delta,info,kpi,miniBar,panel,subTabs,select,barTable,
+window.PXUI={esc,tip,delta,info,kpi,miniBar,panel,subTabs,select,picker,barTable,
   pivot,COLS,colsFor,valOf,cellText,seriesTable,matrixTable,legend,note,empty,plural,heat};
 })();

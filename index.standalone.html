@@ -149,19 +149,47 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .tree-row{display:flex;align-items:flex-start}
 .tree-row .opt-i{flex:1;min-width:0}
 
-/* «Только основной продукт» — такой же флажок, как остальные фильтры полки.
-   Тумблер выглядел деталью из другой системы: в полке уже есть один способ
-   включить фильтр, и второй заставлял разбираться, чем они отличаются. */
-.sw-row{display:flex;align-items:flex-start;gap:var(--s4);width:100%;text-align:left;
-  border:0;background:none;padding:5px var(--s3);border-radius:var(--r2);font:inherit;
-  font-size:var(--fs-body);font-weight:600;color:var(--ink2);cursor:pointer;line-height:1.35}
-.sw-row:hover{background:#f4f6fa}
-.sw{flex:none;width:15px;height:15px;margin-top:1px;border:1.5px solid #c9cdd6;
-  border-radius:var(--r1);background:#fff;position:relative}
-.sw-row.on .sw{background:var(--act);border-color:var(--act)}
-.sw-row.on .sw::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;
-  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
-.sw-row .sw-t{min-width:0;flex:1}
+/* ===== Фильтр со списком =====
+   Полка знает ОДИН тип контрола: строка с текущим значением, которая
+   раскрывается. Развёрнутые галочки прямо в полке были чужеродной деталью
+   и съедали столько высоты, что нижние фильтры уходили за край. Галочки
+   остались, но внутри раскрытого списка. */
+.picker{position:relative}
+.pk-l{display:block;font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:800;margin-bottom:var(--s3)}
+.pk-btn{display:flex;align-items:center;gap:var(--s4);width:100%;text-align:left;
+  border:1px solid var(--line);background:#fff;border-radius:var(--r3);
+  padding:8px var(--s6);font:inherit;font-size:13px;font-weight:600;color:var(--ink);
+  cursor:pointer;line-height:1.35}
+.pk-btn:hover{border-color:#c2c8d4}
+.picker.open .pk-btn{border-color:var(--act);box-shadow:0 0 0 3px var(--blue-bg)}
+.pk-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Выбранное — обычным цветом текста, «все» — приглушённым: так с одного
+   взгляда видно, сужает этот фильтр выборку или нет. */
+.pk-v.dim{color:var(--muted)}
+.pk-cv{flex:none;width:12px;height:12px;background-repeat:no-repeat;background-position:center;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+  transition:transform .15s}
+.picker.open .pk-cv{transform:rotate(180deg)}
+.pk-pop{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 5px);
+  background:#fff;border:1px solid var(--line);border-radius:var(--r3);
+  box-shadow:var(--shadow-lg);overflow:hidden}
+.pk-s{padding:var(--s5) var(--s5) 0}
+.pk-s input{width:100%;border:1px solid var(--line);border-radius:var(--r2);
+  padding:7px var(--s5);font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink)}
+.pk-s input:focus-visible{outline:none;border-color:var(--act);box-shadow:0 0 0 3px var(--blue-bg)}
+/* Список прокручивается внутри себя: восемнадцать продуктов не должны
+   растягивать полку и утаскивать за собой соседние фильтры. */
+.pk-body{max-height:262px;overflow-y:auto;padding:var(--s5)}
+.pk-none{padding:var(--s6) var(--s3);font-size:var(--fs-note);color:var(--muted);
+  font-weight:600;line-height:1.45}
+.pk-f{display:flex;align-items:center;justify-content:space-between;gap:var(--s5);
+  padding:var(--s5);border-top:1px solid var(--line2);background:#fafbfc}
+.pk-f button{border:0;background:transparent;padding:0;font:inherit;font-size:var(--fs-note);
+  color:var(--blue);font-weight:700;cursor:pointer}
+.pk-f button:hover{text-decoration:underline}
+.pk-f .pk-done{background:var(--act);color:#fff;border-radius:var(--r2);padding:6px var(--s7)}
+.pk-f .pk-done:hover{text-decoration:none;filter:brightness(1.06)}
 
 /* ===== Заголовок отчёта ===== */
 .reporthead{background:#fff;border-bottom:1px solid var(--line);padding:var(--s7) var(--s10) var(--s8)}
@@ -296,6 +324,10 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
   font-family:inherit;font-size:11px;font-weight:700;line-height:1;letter-spacing:.2px;
   cursor:help;flex:0 0 auto;user-select:none;transition:border-color .12s,color .12s,background .12s}
 .info:hover{border-color:var(--act);background:var(--blue-bg);color:var(--act)}
+/* В карточке KPI значок стоит в flex-строке с общим зазором, а в заголовке
+   панели он идёт сразу за текстом — там отступ надо задать самому,
+   иначе он липнет к последней букве. */
+.panel-h .h-txt>span .info{margin-left:var(--s4);vertical-align:middle}
 /* Тот же значок внутри SVG: заголовки графиков живут в разметке картинки,
    и объяснение обязано стоять у заголовка, а не отдельным элементом рядом. */
 .svgchart .ibadge{cursor:help}
@@ -1896,7 +1928,10 @@ function header(w,title,legend,ctx){
   const off=ctx.off||NOSET, lock=!!ctx.lock;
   let s='';
   if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-  if(title&&ctx.info)s+=infoBadge(textW(title,TTL_SZ)+6,ctx.info);
+  /* Отступ щедрый: textW — оценка по средней ширине глифа, и на строке
+     из узких букв она занижена. Скупой зазор превращается в слипшуюся
+     пару «заголовок + значок» на первом же таком заголовке. */
+  if(title&&ctx.info)s+=infoBadge(textW(title,TTL_SZ)+11,ctx.info);
   if(legend&&legend.length){
     let x=w;
     for(let i=legend.length-1;i>=0;i--){
@@ -2592,6 +2627,44 @@ function select(name,list,val,label){
     '</select></label>';
 }
 
+/* ---------- Фильтр со списком ----------
+   Выглядит как обычная выпадашка полки и ведёт себя как она: закрытая —
+   одна строка с тем, что выбрано, открытая — список, в котором выбирают.
+
+   Так устроены ВСЕ фильтры полки. Развёрнутый список галочек прямо в полке
+   был чужеродным элементом: он занимал экран под каждым фильтром, из-за
+   чего полка прокручивалась, а нижние фильтры не показывались вовсе —
+   и такого типа контрола в инструменте больше нигде нет.
+
+   Внутри открытого списка галочки остаются: множественный выбор без них
+   не показать. Отличие в том, что они живут ВНУТРИ выпадашки, а не вместо
+   неё. Поиск появляется, когда список длиннее десятка строк: искать среди
+   четырёх сегментов не в чем.
+
+   o = {name, label, value, open, items, search, query, hint, resetKey} */
+function picker(o){
+  const open=!!o.open;
+  let h='<div class="picker'+(open?' open':'')+'" data-picker="'+esc(o.name)+'">'+
+    '<label class="pk-l" for="pk-'+esc(o.name)+'">'+esc(o.label)+'</label>'+
+    '<button class="pk-btn" id="pk-'+esc(o.name)+'" data-pkopen="'+esc(o.name)+'"'+
+      ' aria-expanded="'+(open?'true':'false')+'">'+
+      '<span class="pk-v'+(o.dim?' dim':'')+'">'+esc(o.value)+'</span>'+
+      '<span class="pk-cv" aria-hidden="true"></span></button>';
+  if(open){
+    h+='<div class="pk-pop" role="dialog" aria-label="'+esc(o.label)+'">';
+    if(o.search)h+='<div class="pk-s"><input type="search" data-pks="'+esc(o.name)+'"'+
+      ' value="'+esc(o.query||'')+'" placeholder="'+esc(o.search)+'"'+
+      ' aria-label="Поиск в списке"></div>';
+    h+='<div class="pk-body">'+(o.items||'')+'</div>'+
+      '<div class="pk-f">'+
+        (o.resetKey?'<button data-reset="'+esc(o.resetKey)+'">Сбросить</button>':'<span></span>')+
+        '<button class="pk-done" data-pkclose="1">Готово</button></div>'+
+    '</div>';
+  }
+  h+='</div>'+(o.hint?'<div class="fhint">'+o.hint+'</div>':'');
+  return h;
+}
+
 /* ============================================================================
    barTable — разбивка ТАБЛИЦЕЙ, а не кольцом и не горизонтальным бар-чартом.
    Доля читается по числу точнее, чем по углу сектора, а таблица заодно даёт
@@ -2905,7 +2978,7 @@ function empty(title,text){
   return '<div class="empty"><b>'+esc(title)+'</b>'+esc(text)+'</div>';
 }
 
-window.PXUI={esc,tip,delta,info,kpi,miniBar,panel,subTabs,select,barTable,
+window.PXUI={esc,tip,delta,info,kpi,miniBar,panel,subTabs,select,picker,barTable,
   pivot,COLS,colsFor,valOf,cellText,seriesTable,matrixTable,legend,note,empty,plural,heat};
 })();
 
@@ -3711,6 +3784,12 @@ function treeState(domId){
   if(S.prods.indexOf(domId)>=0||picked===kids.length&&picked)return 'on';
   return picked?'part':'';
 }
+/* Какая выпадашка полки сейчас раскрыта и что набрано в её поиске.
+   В состоянии отчёта этому не место: ссылкой делятся выборкой, а не тем,
+   что у отправителя был открыт список. Поэтому — модульные переменные,
+   которые переживают перерисовку, но не попадают ни в URL, ни в CSV. */
+let _pk=null, _pkq={}, _pkFocus=false;
+
 function shelf(){
   const cnt=prodCounts();
   let h='';
@@ -3728,46 +3807,29 @@ function shelf(){
     U.subTabs(D.GRAN.map(g=>[g.key,g.name]),S.gran,'gran','wide')+
     '<div class="fhint">Запасы берутся на конец периода, потоки суммируются внутри него.</div></div>';
 
-  h+='<div class="fg"><div class="fg-h">Продукты каталога<span class="sp"></span>'+
-    (S.prods.length?'<button data-reset="prods">все</button>':'')+'</div><div class="opt-list">';
-  D.DOMAINS.forEach(dm=>{
-    const stt=treeState(dm.id), open=S.treeOpen.indexOf(dm.id)>=0;
-    const sum=dm.kids.reduce((a,k)=>a+(cnt[D.PROD[k].name]||0),0);
-    h+='<div class="tree-row">'+
-      '<button class="tree-tw" data-twist="'+dm.id+'" aria-label="'+(open?'Свернуть':'Развернуть')+'"'+
-        ' aria-expanded="'+(open?'true':'false')+'">'+(open?'▾':'▸')+'</button>'+
-      '<button class="opt-i'+(stt?' '+stt:'')+'" data-prod="'+dm.id+'" role="checkbox"'+
-        ' aria-checked="'+(stt==='on'?'true':stt==='part'?'mixed':'false')+'">'+
-        '<span class="box"></span><span class="nm">'+U.esc(dm.name)+'</span>'+
-        '<span class="cnt">'+D.fmtInt(sum)+'</span></button></div>';
-    if(!open)return;
-    dm.kids.forEach(k=>{
-      const on=S.prods.indexOf(k)>=0||S.prods.indexOf(dm.id)>=0;
-      h+='<button class="opt-i kid'+(on?' on':'')+'" data-prod="'+k+'" role="checkbox"'+
+  h+='<div class="fg">'+U.picker({name:'prods',label:'Продукты каталога',
+    value:prodsLabel(),dim:!S.prods.length,open:_pk==='prods',
+    search:'Найти продукт или домен',query:_pkq.prods,resetKey:'prods',
+    items:prodItems(cnt,(_pkq.prods||'').trim().toLowerCase()),
+    hint:'Пустой выбор значит «все продукты»: новый продукт каталога '+
+      'появляется в отчёте сам, а не теряется у тех, кто однажды настроил фильтр.'})+'</div>';
+
+  h+='<div class="fg">'+U.picker({name:'segs',label:'Сегмент аллокации',
+    value:segsLabel(),dim:!S.segs.length,open:_pk==='segs',resetKey:'segs',
+    items:'<div class="opt-list">'+D.SEGMENTS.map(s=>{
+      const on=S.segs.indexOf(s.key)>=0;
+      return '<button class="opt-i'+(on?' on':'')+'" data-seg="'+s.key+'" role="checkbox"'+
         ' aria-checked="'+(on?'true':'false')+'"><span class="box"></span>'+
-        '<span class="nm">'+U.esc(D.PROD[k].name)+'</span>'+
-        '<span class="cnt">'+D.fmtInt(cnt[D.PROD[k].name]||0)+'</span></button>';
-    });
-  });
-  h+='</div><div class="fhint">Пустой выбор значит «все продукты»: новый продукт каталога '+
-    'появляется в отчёте сам, а не теряется у тех, кто однажды настроил фильтр.</div></div>';
+        '<span class="nm">'+U.esc(s.name)+
+        '<span class="sub">'+U.esc(s.hint)+'</span></span></button>';
+    }).join('')+'</div>'})+'</div>';
 
-  h+='<div class="fg"><div class="fg-h">Сегмент аллокации<span class="sp"></span>'+
-    (S.segs.length?'<button data-reset="segs">все</button>':'')+'</div><div class="opt-list">';
-  D.SEGMENTS.forEach(s=>{
-    const on=S.segs.indexOf(s.key)>=0;
-    h+='<button class="opt-i'+(on?' on':'')+'" data-seg="'+s.key+'" role="checkbox" aria-checked="'+(on?'true':'false')+'">'+
-      '<span class="box"></span><span class="nm">'+U.esc(s.name)+
-      '<span class="sub">'+U.esc(s.hint)+'</span></span></button>';
-  });
-  h+='</div></div>';
-
-  h+='<div class="fg"><button class="sw-row'+(S.mainOnly?' on':'')+'" data-main="1" role="switch"'+
-    ' aria-checked="'+(S.mainOnly?'true':'false')+'"><span class="sw"></span>'+
-    '<span class="sw-t">Только основной продукт</span></button>'+
-    '<div class="fhint">Оставляет пары, где аллокация больше 50%. Тогда работает правило '+
-    '«один человек — один продукт», и на этих данных можно считать HR-метрики: '+
-    'текучесть и оценки привязаны к человеку, а не к проценту его занятости.</div></div>';
+  h+='<div class="fg"><label>Аллокация</label>'+
+    '<select data-sel="mainOnly">'+
+      opts([['','Все аллокации'],['1','Только основной продукт']],S.mainOnly?'1':'')+'</select>'+
+    '<div class="fhint">«Только основной продукт» оставляет пары с аллокацией больше 50%. '+
+    'Тогда работает правило «один человек — один продукт», на котором и держатся '+
+    'HR-метрики: текучесть привязана к человеку, а не к проценту его занятости.</div></div>';
 
   const any=[['','Все']];
   h+='<div class="fg"><label>Профессия</label>'+
@@ -3783,6 +3845,64 @@ function shelf(){
 function opts(list,val){
   return list.map(o=>'<option value="'+U.esc(o[0])+'"'+(String(o[0])===String(val)?' selected':'')+'>'+
     U.esc(o[1])+'</option>').join('');
+}
+/* Подпись закрытой выпадашки: перечислять весь выбор нельзя — строка одна,
+   а выбрать можно восемнадцать продуктов. Поэтому два имени и счётчик
+   остального, ровно как в чипах шапки. */
+function listLabel(names,allWord){
+  if(!names.length)return allWord;
+  if(names.length<=2)return names.join(', ');
+  return names.slice(0,2).join(', ')+' и ещё '+(names.length-2);
+}
+function prodsLabel(){
+  return listLabel(S.prods.map(id=>D.DOM[id]?D.DOM[id].name:D.PROD[id].name),'Все продукты');
+}
+function segsLabel(){
+  return listLabel(S.segs.map(k=>D.SEG_BY_KEY[k].name),'Все сегменты');
+}
+/* ---------- Дерево продуктов внутри выпадашки ----------
+   Без запроса — домены с раскрытием, как было. С запросом — плоский
+   список найденного: сворачивать ветки, в которых человек ищет, значит
+   прятать от него результат. У продукта показан его домен, иначе два
+   похожих имени из разных доменов не различить. */
+function prodItems(cnt,qs){
+  const row=(id,name,count,state,cls,sub)=>
+    '<button class="opt-i'+(cls?' '+cls:'')+(state?' '+state:'')+'" data-prod="'+id+'"'+
+      ' role="checkbox" aria-checked="'+(state==='on'?'true':state==='part'?'mixed':'false')+'">'+
+      '<span class="box"></span><span class="nm">'+U.esc(name)+
+      (sub?'<span class="sub">'+U.esc(sub)+'</span>':'')+'</span>'+
+      '<span class="cnt">'+D.fmtInt(count)+'</span></button>';
+  if(qs){
+    let h='<div class="opt-list">', found=0;
+    D.DOMAINS.forEach(dm=>{
+      const sum=dm.kids.reduce((a,k)=>a+(cnt[D.PROD[k].name]||0),0);
+      if(dm.name.toLowerCase().indexOf(qs)>=0){h+=row(dm.id,dm.name,sum,treeState(dm.id),'','домен');found++}
+      dm.kids.forEach(k=>{
+        const p=D.PROD[k];
+        if(p.name.toLowerCase().indexOf(qs)<0)return;
+        const on=S.prods.indexOf(k)>=0||S.prods.indexOf(dm.id)>=0;
+        h+=row(k,p.name,cnt[p.name]||0,on?'on':'','',dm.name);found++;
+      });
+    });
+    if(!found)h+='<div class="pk-none">Ничего не нашлось. Проверьте написание '+
+      'или очистите поиск — фильтр при этом останется.</div>';
+    return h+'</div>';
+  }
+  let h='<div class="opt-list">';
+  D.DOMAINS.forEach(dm=>{
+    const stt=treeState(dm.id), open=S.treeOpen.indexOf(dm.id)>=0;
+    const sum=dm.kids.reduce((a,k)=>a+(cnt[D.PROD[k].name]||0),0);
+    h+='<div class="tree-row">'+
+      '<button class="tree-tw" data-twist="'+dm.id+'" aria-label="'+(open?'Свернуть':'Развернуть')+'"'+
+        ' aria-expanded="'+(open?'true':'false')+'">'+(open?'▾':'▸')+'</button>'+
+      row(dm.id,dm.name,sum,stt)+'</div>';
+    if(!open)return;
+    dm.kids.forEach(k=>{
+      const on=S.prods.indexOf(k)>=0||S.prods.indexOf(dm.id)>=0;
+      h+=row(k,D.PROD[k].name,cnt[D.PROD[k].name]||0,on?'on':'','kid');
+    });
+  });
+  return h+'</div>';
 }
 
 /* ---------- Шапка отчёта ----------
@@ -3860,6 +3980,14 @@ function render(animate){
     if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)}
     _qFocus=false;
   }
+  /* Полка перерисовывается целиком, поэтому поле поиска в раскрытой
+     выпадашке — каждый раз новый элемент. Без возврата фокуса набрать
+     в нём больше одной буквы невозможно. */
+  if(_pkFocus){
+    const inp=document.querySelector('.pk-pop [data-pks]');
+    if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)}
+    _pkFocus=false;
+  }
   history.replaceState(null,'',toURL());
 }
 function presetOf(){
@@ -3889,6 +4017,21 @@ document.addEventListener('click',e=>{
   const hit=s=>t.closest('['+s+']');
   let el;
 
+  /* ---------- Выпадашка полки ----------
+     Закрывается кликом мимо себя — раньше самой проверки, иначе клик по
+     соседнему фильтру оставил бы открытым предыдущий список. Обработка
+     клика при этом продолжается: пользователь целился в то, что нажал,
+     а не в «закрыть». */
+  const _pkWas=_pk;
+  if(_pk&&!t.closest('[data-picker]'))_pk=null;
+  if((el=hit('data-pkopen'))){
+    const k=el.getAttribute('data-pkopen');
+    _pk=_pk===k?null:k;
+    if(_pk)_pkFocus=true;
+    return schedule();
+  }
+  if(hit('data-pkclose')){_pk=null;return schedule()}
+
   if((el=hit('data-twist'))){toggle(S.treeOpen,el.getAttribute('data-twist'));return schedule()}
   if((el=hit('data-prod'))){
     const id=el.getAttribute('data-prod');
@@ -3903,7 +4046,6 @@ document.addEventListener('click',e=>{
     return schedule();
   }
   if((el=hit('data-seg'))){toggle(S.segs,el.getAttribute('data-seg'));return schedule()}
-  if((el=hit('data-main'))){S.mainOnly=!S.mainOnly;return schedule()}
   if((el=hit('data-unchip'))){
     const v=el.getAttribute('data-unchip');
     if(v==='prods')S.prods=[];
@@ -3982,14 +4124,23 @@ document.addEventListener('click',e=>{
   if((el=hit('data-link'))){copyLink(el);return}
   if((el=hit('data-shelf'))){setShelf(!document.getElementById('shelf').classList.contains('open'));return}
   if(t.id==='shelfScrim'){setShelf(false);return}
+  /* Клик мимо выпадашки ничего больше не задел — перерисовать всё равно
+     надо, иначе список останется на экране раскрытым. */
+  if(_pkWas&&!_pk)schedule();
 });
 /* Клавиатура: кликабельная строка таблицы обязана работать без мыши. */
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){openHelp(false);setShelf(false);return}
+  if(e.key==='Escape'){
+    /* Escape закрывает то, что ближе всего: сначала раскрытую выпадашку,
+       и только если её нет — справку и полку. Иначе один Escape схлопывал
+       бы сразу всё, включая то, что пользователь закрывать не просил. */
+    if(_pk){_pk=null;return schedule()}
+    openHelp(false);setShelf(false);return;
+  }
   if(e.key!=='Enter'&&e.key!==' ')return;
   const t=e.target;
   if(!t||!t.closest)return;
-  if(t.closest('[data-pivot],[data-srow],[data-seg],[data-prod],[data-main],.lg')){
+  if(t.closest('[data-pivot],[data-srow],[data-seg],[data-prod],.lg')){
     e.preventDefault();
     /* У SVG-элемента может не быть метода .click() — зовём обработчик
        напрямую тем же событием, что и мышь. */
@@ -4003,9 +4154,12 @@ document.addEventListener('keydown',e=>{
 let _qFocus=false;
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(!t||!t.getAttribute||!t.getAttribute('data-q'))return;
-  S.q=t.value;S.pAll=false;_qFocus=true;
-  schedule();
+  if(!t||!t.getAttribute)return;
+  if(t.getAttribute('data-q')){S.q=t.value;S.pAll=false;_qFocus=true;return schedule()}
+  /* Поиск внутри выпадашки полки. Живёт отдельно от поиска по списку людей:
+     это разные поля с разными списками, и общий ключ смешал бы их. */
+  const pk=t.getAttribute('data-pks');
+  if(pk){_pkq[pk]=t.value;_pkFocus=true;return schedule()}
 });
 document.addEventListener('change',e=>{
   const t=e.target;
@@ -4013,6 +4167,9 @@ document.addEventListener('change',e=>{
   const k=t.getAttribute('data-sel');
   if(!k)return;
   if(k==='periodPreset'){if(t.value)applyPeriod(t.value);return schedule()}
+  /* Булев фильтр в полке — такая же выпадашка, как остальные, но в состоянии
+     он остаётся булевым: строка '1' в ссылке и в выгрузке ничего не значит. */
+  if(k==='mainOnly'){S.mainOnly=t.value==='1';return schedule()}
   if(k==='i0'||k==='i1'){
     S[k]=parseInt(t.value,10);
     if(S.i1<S.i0){if(k==='i0')S.i1=S.i0;else S.i0=S.i1}

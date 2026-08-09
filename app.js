@@ -111,6 +111,12 @@ function treeState(domId){
   if(S.prods.indexOf(domId)>=0||picked===kids.length&&picked)return 'on';
   return picked?'part':'';
 }
+/* Какая выпадашка полки сейчас раскрыта и что набрано в её поиске.
+   В состоянии отчёта этому не место: ссылкой делятся выборкой, а не тем,
+   что у отправителя был открыт список. Поэтому — модульные переменные,
+   которые переживают перерисовку, но не попадают ни в URL, ни в CSV. */
+let _pk=null, _pkq={}, _pkFocus=false;
+
 function shelf(){
   const cnt=prodCounts();
   let h='';
@@ -128,46 +134,29 @@ function shelf(){
     U.subTabs(D.GRAN.map(g=>[g.key,g.name]),S.gran,'gran','wide')+
     '<div class="fhint">Запасы берутся на конец периода, потоки суммируются внутри него.</div></div>';
 
-  h+='<div class="fg"><div class="fg-h">Продукты каталога<span class="sp"></span>'+
-    (S.prods.length?'<button data-reset="prods">все</button>':'')+'</div><div class="opt-list">';
-  D.DOMAINS.forEach(dm=>{
-    const stt=treeState(dm.id), open=S.treeOpen.indexOf(dm.id)>=0;
-    const sum=dm.kids.reduce((a,k)=>a+(cnt[D.PROD[k].name]||0),0);
-    h+='<div class="tree-row">'+
-      '<button class="tree-tw" data-twist="'+dm.id+'" aria-label="'+(open?'Свернуть':'Развернуть')+'"'+
-        ' aria-expanded="'+(open?'true':'false')+'">'+(open?'▾':'▸')+'</button>'+
-      '<button class="opt-i'+(stt?' '+stt:'')+'" data-prod="'+dm.id+'" role="checkbox"'+
-        ' aria-checked="'+(stt==='on'?'true':stt==='part'?'mixed':'false')+'">'+
-        '<span class="box"></span><span class="nm">'+U.esc(dm.name)+'</span>'+
-        '<span class="cnt">'+D.fmtInt(sum)+'</span></button></div>';
-    if(!open)return;
-    dm.kids.forEach(k=>{
-      const on=S.prods.indexOf(k)>=0||S.prods.indexOf(dm.id)>=0;
-      h+='<button class="opt-i kid'+(on?' on':'')+'" data-prod="'+k+'" role="checkbox"'+
+  h+='<div class="fg">'+U.picker({name:'prods',label:'Продукты каталога',
+    value:prodsLabel(),dim:!S.prods.length,open:_pk==='prods',
+    search:'Найти продукт или домен',query:_pkq.prods,resetKey:'prods',
+    items:prodItems(cnt,(_pkq.prods||'').trim().toLowerCase()),
+    hint:'Пустой выбор значит «все продукты»: новый продукт каталога '+
+      'появляется в отчёте сам, а не теряется у тех, кто однажды настроил фильтр.'})+'</div>';
+
+  h+='<div class="fg">'+U.picker({name:'segs',label:'Сегмент аллокации',
+    value:segsLabel(),dim:!S.segs.length,open:_pk==='segs',resetKey:'segs',
+    items:'<div class="opt-list">'+D.SEGMENTS.map(s=>{
+      const on=S.segs.indexOf(s.key)>=0;
+      return '<button class="opt-i'+(on?' on':'')+'" data-seg="'+s.key+'" role="checkbox"'+
         ' aria-checked="'+(on?'true':'false')+'"><span class="box"></span>'+
-        '<span class="nm">'+U.esc(D.PROD[k].name)+'</span>'+
-        '<span class="cnt">'+D.fmtInt(cnt[D.PROD[k].name]||0)+'</span></button>';
-    });
-  });
-  h+='</div><div class="fhint">Пустой выбор значит «все продукты»: новый продукт каталога '+
-    'появляется в отчёте сам, а не теряется у тех, кто однажды настроил фильтр.</div></div>';
+        '<span class="nm">'+U.esc(s.name)+
+        '<span class="sub">'+U.esc(s.hint)+'</span></span></button>';
+    }).join('')+'</div>'})+'</div>';
 
-  h+='<div class="fg"><div class="fg-h">Сегмент аллокации<span class="sp"></span>'+
-    (S.segs.length?'<button data-reset="segs">все</button>':'')+'</div><div class="opt-list">';
-  D.SEGMENTS.forEach(s=>{
-    const on=S.segs.indexOf(s.key)>=0;
-    h+='<button class="opt-i'+(on?' on':'')+'" data-seg="'+s.key+'" role="checkbox" aria-checked="'+(on?'true':'false')+'">'+
-      '<span class="box"></span><span class="nm">'+U.esc(s.name)+
-      '<span class="sub">'+U.esc(s.hint)+'</span></span></button>';
-  });
-  h+='</div></div>';
-
-  h+='<div class="fg"><button class="sw-row'+(S.mainOnly?' on':'')+'" data-main="1" role="switch"'+
-    ' aria-checked="'+(S.mainOnly?'true':'false')+'"><span class="sw"></span>'+
-    '<span class="sw-t">Только основной продукт</span></button>'+
-    '<div class="fhint">Оставляет пары, где аллокация больше 50%. Тогда работает правило '+
-    '«один человек — один продукт», и на этих данных можно считать HR-метрики: '+
-    'текучесть и оценки привязаны к человеку, а не к проценту его занятости.</div></div>';
+  h+='<div class="fg"><label>Аллокация</label>'+
+    '<select data-sel="mainOnly">'+
+      opts([['','Все аллокации'],['1','Только основной продукт']],S.mainOnly?'1':'')+'</select>'+
+    '<div class="fhint">«Только основной продукт» оставляет пары с аллокацией больше 50%. '+
+    'Тогда работает правило «один человек — один продукт», на котором и держатся '+
+    'HR-метрики: текучесть привязана к человеку, а не к проценту его занятости.</div></div>';
 
   const any=[['','Все']];
   h+='<div class="fg"><label>Профессия</label>'+
@@ -183,6 +172,64 @@ function shelf(){
 function opts(list,val){
   return list.map(o=>'<option value="'+U.esc(o[0])+'"'+(String(o[0])===String(val)?' selected':'')+'>'+
     U.esc(o[1])+'</option>').join('');
+}
+/* Подпись закрытой выпадашки: перечислять весь выбор нельзя — строка одна,
+   а выбрать можно восемнадцать продуктов. Поэтому два имени и счётчик
+   остального, ровно как в чипах шапки. */
+function listLabel(names,allWord){
+  if(!names.length)return allWord;
+  if(names.length<=2)return names.join(', ');
+  return names.slice(0,2).join(', ')+' и ещё '+(names.length-2);
+}
+function prodsLabel(){
+  return listLabel(S.prods.map(id=>D.DOM[id]?D.DOM[id].name:D.PROD[id].name),'Все продукты');
+}
+function segsLabel(){
+  return listLabel(S.segs.map(k=>D.SEG_BY_KEY[k].name),'Все сегменты');
+}
+/* ---------- Дерево продуктов внутри выпадашки ----------
+   Без запроса — домены с раскрытием, как было. С запросом — плоский
+   список найденного: сворачивать ветки, в которых человек ищет, значит
+   прятать от него результат. У продукта показан его домен, иначе два
+   похожих имени из разных доменов не различить. */
+function prodItems(cnt,qs){
+  const row=(id,name,count,state,cls,sub)=>
+    '<button class="opt-i'+(cls?' '+cls:'')+(state?' '+state:'')+'" data-prod="'+id+'"'+
+      ' role="checkbox" aria-checked="'+(state==='on'?'true':state==='part'?'mixed':'false')+'">'+
+      '<span class="box"></span><span class="nm">'+U.esc(name)+
+      (sub?'<span class="sub">'+U.esc(sub)+'</span>':'')+'</span>'+
+      '<span class="cnt">'+D.fmtInt(count)+'</span></button>';
+  if(qs){
+    let h='<div class="opt-list">', found=0;
+    D.DOMAINS.forEach(dm=>{
+      const sum=dm.kids.reduce((a,k)=>a+(cnt[D.PROD[k].name]||0),0);
+      if(dm.name.toLowerCase().indexOf(qs)>=0){h+=row(dm.id,dm.name,sum,treeState(dm.id),'','домен');found++}
+      dm.kids.forEach(k=>{
+        const p=D.PROD[k];
+        if(p.name.toLowerCase().indexOf(qs)<0)return;
+        const on=S.prods.indexOf(k)>=0||S.prods.indexOf(dm.id)>=0;
+        h+=row(k,p.name,cnt[p.name]||0,on?'on':'','',dm.name);found++;
+      });
+    });
+    if(!found)h+='<div class="pk-none">Ничего не нашлось. Проверьте написание '+
+      'или очистите поиск — фильтр при этом останется.</div>';
+    return h+'</div>';
+  }
+  let h='<div class="opt-list">';
+  D.DOMAINS.forEach(dm=>{
+    const stt=treeState(dm.id), open=S.treeOpen.indexOf(dm.id)>=0;
+    const sum=dm.kids.reduce((a,k)=>a+(cnt[D.PROD[k].name]||0),0);
+    h+='<div class="tree-row">'+
+      '<button class="tree-tw" data-twist="'+dm.id+'" aria-label="'+(open?'Свернуть':'Развернуть')+'"'+
+        ' aria-expanded="'+(open?'true':'false')+'">'+(open?'▾':'▸')+'</button>'+
+      row(dm.id,dm.name,sum,stt)+'</div>';
+    if(!open)return;
+    dm.kids.forEach(k=>{
+      const on=S.prods.indexOf(k)>=0||S.prods.indexOf(dm.id)>=0;
+      h+=row(k,D.PROD[k].name,cnt[D.PROD[k].name]||0,on?'on':'','kid');
+    });
+  });
+  return h+'</div>';
 }
 
 /* ---------- Шапка отчёта ----------
@@ -260,6 +307,14 @@ function render(animate){
     if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)}
     _qFocus=false;
   }
+  /* Полка перерисовывается целиком, поэтому поле поиска в раскрытой
+     выпадашке — каждый раз новый элемент. Без возврата фокуса набрать
+     в нём больше одной буквы невозможно. */
+  if(_pkFocus){
+    const inp=document.querySelector('.pk-pop [data-pks]');
+    if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)}
+    _pkFocus=false;
+  }
   history.replaceState(null,'',toURL());
 }
 function presetOf(){
@@ -289,6 +344,21 @@ document.addEventListener('click',e=>{
   const hit=s=>t.closest('['+s+']');
   let el;
 
+  /* ---------- Выпадашка полки ----------
+     Закрывается кликом мимо себя — раньше самой проверки, иначе клик по
+     соседнему фильтру оставил бы открытым предыдущий список. Обработка
+     клика при этом продолжается: пользователь целился в то, что нажал,
+     а не в «закрыть». */
+  const _pkWas=_pk;
+  if(_pk&&!t.closest('[data-picker]'))_pk=null;
+  if((el=hit('data-pkopen'))){
+    const k=el.getAttribute('data-pkopen');
+    _pk=_pk===k?null:k;
+    if(_pk)_pkFocus=true;
+    return schedule();
+  }
+  if(hit('data-pkclose')){_pk=null;return schedule()}
+
   if((el=hit('data-twist'))){toggle(S.treeOpen,el.getAttribute('data-twist'));return schedule()}
   if((el=hit('data-prod'))){
     const id=el.getAttribute('data-prod');
@@ -303,7 +373,6 @@ document.addEventListener('click',e=>{
     return schedule();
   }
   if((el=hit('data-seg'))){toggle(S.segs,el.getAttribute('data-seg'));return schedule()}
-  if((el=hit('data-main'))){S.mainOnly=!S.mainOnly;return schedule()}
   if((el=hit('data-unchip'))){
     const v=el.getAttribute('data-unchip');
     if(v==='prods')S.prods=[];
@@ -382,14 +451,23 @@ document.addEventListener('click',e=>{
   if((el=hit('data-link'))){copyLink(el);return}
   if((el=hit('data-shelf'))){setShelf(!document.getElementById('shelf').classList.contains('open'));return}
   if(t.id==='shelfScrim'){setShelf(false);return}
+  /* Клик мимо выпадашки ничего больше не задел — перерисовать всё равно
+     надо, иначе список останется на экране раскрытым. */
+  if(_pkWas&&!_pk)schedule();
 });
 /* Клавиатура: кликабельная строка таблицы обязана работать без мыши. */
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){openHelp(false);setShelf(false);return}
+  if(e.key==='Escape'){
+    /* Escape закрывает то, что ближе всего: сначала раскрытую выпадашку,
+       и только если её нет — справку и полку. Иначе один Escape схлопывал
+       бы сразу всё, включая то, что пользователь закрывать не просил. */
+    if(_pk){_pk=null;return schedule()}
+    openHelp(false);setShelf(false);return;
+  }
   if(e.key!=='Enter'&&e.key!==' ')return;
   const t=e.target;
   if(!t||!t.closest)return;
-  if(t.closest('[data-pivot],[data-srow],[data-seg],[data-prod],[data-main],.lg')){
+  if(t.closest('[data-pivot],[data-srow],[data-seg],[data-prod],.lg')){
     e.preventDefault();
     /* У SVG-элемента может не быть метода .click() — зовём обработчик
        напрямую тем же событием, что и мышь. */
@@ -403,9 +481,12 @@ document.addEventListener('keydown',e=>{
 let _qFocus=false;
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(!t||!t.getAttribute||!t.getAttribute('data-q'))return;
-  S.q=t.value;S.pAll=false;_qFocus=true;
-  schedule();
+  if(!t||!t.getAttribute)return;
+  if(t.getAttribute('data-q')){S.q=t.value;S.pAll=false;_qFocus=true;return schedule()}
+  /* Поиск внутри выпадашки полки. Живёт отдельно от поиска по списку людей:
+     это разные поля с разными списками, и общий ключ смешал бы их. */
+  const pk=t.getAttribute('data-pks');
+  if(pk){_pkq[pk]=t.value;_pkFocus=true;return schedule()}
 });
 document.addEventListener('change',e=>{
   const t=e.target;
@@ -413,6 +494,9 @@ document.addEventListener('change',e=>{
   const k=t.getAttribute('data-sel');
   if(!k)return;
   if(k==='periodPreset'){if(t.value)applyPeriod(t.value);return schedule()}
+  /* Булев фильтр в полке — такая же выпадашка, как остальные, но в состоянии
+     он остаётся булевым: строка '1' в ссылке и в выгрузке ничего не значит. */
+  if(k==='mainOnly'){S.mainOnly=t.value==='1';return schedule()}
   if(k==='i0'||k==='i1'){
     S[k]=parseInt(t.value,10);
     if(S.i1<S.i0){if(k==='i0')S.i1=S.i0;else S.i0=S.i1}

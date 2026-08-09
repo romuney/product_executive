@@ -210,7 +210,10 @@ function header(w,title,legend,ctx){
   const off=ctx.off||NOSET, lock=!!ctx.lock;
   let s='';
   if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-  if(title&&ctx.info)s+=infoBadge(textW(title,TTL_SZ)+6,ctx.info);
+  /* Отступ щедрый: textW — оценка по средней ширине глифа, и на строке
+     из узких букв она занижена. Скупой зазор превращается в слипшуюся
+     пару «заголовок + значок» на первом же таком заголовке. */
+  if(title&&ctx.info)s+=infoBadge(textW(title,TTL_SZ)+11,ctx.info);
   if(legend&&legend.length){
     let x=w;
     for(let i=legend.length-1;i>=0;i--){

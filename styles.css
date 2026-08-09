@@ -142,19 +142,47 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .tree-row{display:flex;align-items:flex-start}
 .tree-row .opt-i{flex:1;min-width:0}
 
-/* «Только основной продукт» — такой же флажок, как остальные фильтры полки.
-   Тумблер выглядел деталью из другой системы: в полке уже есть один способ
-   включить фильтр, и второй заставлял разбираться, чем они отличаются. */
-.sw-row{display:flex;align-items:flex-start;gap:var(--s4);width:100%;text-align:left;
-  border:0;background:none;padding:5px var(--s3);border-radius:var(--r2);font:inherit;
-  font-size:var(--fs-body);font-weight:600;color:var(--ink2);cursor:pointer;line-height:1.35}
-.sw-row:hover{background:#f4f6fa}
-.sw{flex:none;width:15px;height:15px;margin-top:1px;border:1.5px solid #c9cdd6;
-  border-radius:var(--r1);background:#fff;position:relative}
-.sw-row.on .sw{background:var(--act);border-color:var(--act)}
-.sw-row.on .sw::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;
-  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
-.sw-row .sw-t{min-width:0;flex:1}
+/* ===== Фильтр со списком =====
+   Полка знает ОДИН тип контрола: строка с текущим значением, которая
+   раскрывается. Развёрнутые галочки прямо в полке были чужеродной деталью
+   и съедали столько высоты, что нижние фильтры уходили за край. Галочки
+   остались, но внутри раскрытого списка. */
+.picker{position:relative}
+.pk-l{display:block;font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:800;margin-bottom:var(--s3)}
+.pk-btn{display:flex;align-items:center;gap:var(--s4);width:100%;text-align:left;
+  border:1px solid var(--line);background:#fff;border-radius:var(--r3);
+  padding:8px var(--s6);font:inherit;font-size:13px;font-weight:600;color:var(--ink);
+  cursor:pointer;line-height:1.35}
+.pk-btn:hover{border-color:#c2c8d4}
+.picker.open .pk-btn{border-color:var(--act);box-shadow:0 0 0 3px var(--blue-bg)}
+.pk-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Выбранное — обычным цветом текста, «все» — приглушённым: так с одного
+   взгляда видно, сужает этот фильтр выборку или нет. */
+.pk-v.dim{color:var(--muted)}
+.pk-cv{flex:none;width:12px;height:12px;background-repeat:no-repeat;background-position:center;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+  transition:transform .15s}
+.picker.open .pk-cv{transform:rotate(180deg)}
+.pk-pop{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 5px);
+  background:#fff;border:1px solid var(--line);border-radius:var(--r3);
+  box-shadow:var(--shadow-lg);overflow:hidden}
+.pk-s{padding:var(--s5) var(--s5) 0}
+.pk-s input{width:100%;border:1px solid var(--line);border-radius:var(--r2);
+  padding:7px var(--s5);font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink)}
+.pk-s input:focus-visible{outline:none;border-color:var(--act);box-shadow:0 0 0 3px var(--blue-bg)}
+/* Список прокручивается внутри себя: восемнадцать продуктов не должны
+   растягивать полку и утаскивать за собой соседние фильтры. */
+.pk-body{max-height:262px;overflow-y:auto;padding:var(--s5)}
+.pk-none{padding:var(--s6) var(--s3);font-size:var(--fs-note);color:var(--muted);
+  font-weight:600;line-height:1.45}
+.pk-f{display:flex;align-items:center;justify-content:space-between;gap:var(--s5);
+  padding:var(--s5);border-top:1px solid var(--line2);background:#fafbfc}
+.pk-f button{border:0;background:transparent;padding:0;font:inherit;font-size:var(--fs-note);
+  color:var(--blue);font-weight:700;cursor:pointer}
+.pk-f button:hover{text-decoration:underline}
+.pk-f .pk-done{background:var(--act);color:#fff;border-radius:var(--r2);padding:6px var(--s7)}
+.pk-f .pk-done:hover{text-decoration:none;filter:brightness(1.06)}
 
 /* ===== Заголовок отчёта ===== */
 .reporthead{background:#fff;border-bottom:1px solid var(--line);padding:var(--s7) var(--s10) var(--s8)}
@@ -289,6 +317,10 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
   font-family:inherit;font-size:11px;font-weight:700;line-height:1;letter-spacing:.2px;
   cursor:help;flex:0 0 auto;user-select:none;transition:border-color .12s,color .12s,background .12s}
 .info:hover{border-color:var(--act);background:var(--blue-bg);color:var(--act)}
+/* В карточке KPI значок стоит в flex-строке с общим зазором, а в заголовке
+   панели он идёт сразу за текстом — там отступ надо задать самому,
+   иначе он липнет к последней букве. */
+.panel-h .h-txt>span .info{margin-left:var(--s4);vertical-align:middle}
 /* Тот же значок внутри SVG: заголовки графиков живут в разметке картинки,
    и объяснение обязано стоять у заголовка, а не отдельным элементом рядом. */
 .svgchart .ibadge{cursor:help}
