@@ -270,6 +270,9 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .grid-60-40>.col>.p-wf>.panel-b{flex:1;min-height:0;display:flex;flex-direction:column}
 .p-dyn .chart-stack{flex:1;min-height:0;display:flex;flex-direction:column}
 .p-dyn .chart-stack>.svgchart{flex:0 0 auto}
+/* Растягивается только нижний график стопки: верхний читается по подписям
+   и лишняя высота ему ничего не добавляет. */
+.p-dyn .chart-stack>.svgchart.fill{flex:1;min-height:0}
 .stack{display:flex;flex-direction:column;gap:var(--s8)}
 
 /* ===== Дельты и метки ===== */
@@ -293,6 +296,13 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
   font-family:inherit;font-size:11px;font-weight:700;line-height:1;letter-spacing:.2px;
   cursor:help;flex:0 0 auto;user-select:none;transition:border-color .12s,color .12s,background .12s}
 .info:hover{border-color:var(--act);background:var(--blue-bg);color:var(--act)}
+/* Тот же значок внутри SVG: заголовки графиков живут в разметке картинки,
+   и объяснение обязано стоять у заголовка, а не отдельным элементом рядом. */
+.svgchart .ibadge{cursor:help}
+.svgchart .ibadge circle{fill:#fff;stroke:var(--line);stroke-width:1}
+.svgchart .ibadge text{fill:var(--muted)}
+.svgchart .ibadge:hover circle,.svgchart .ibadge:focus-visible circle{fill:var(--blue-bg);stroke:var(--act)}
+.svgchart .ibadge:hover text,.svgchart .ibadge:focus-visible text{fill:var(--act)}
 
 /* ===== Кольцевой индикатор доли ===== */
 .ring{display:inline-flex;align-items:center;gap:var(--s5)}
@@ -1869,11 +1879,24 @@ function fd(o,v){return CD.fmtDelta(o&&o.mode==='fte'?'fte':'hc',v)}
    как «малое значение», перечёркнутое — однозначно как «скрыто». */
 const NOSET={has:function(){return false},size:0};
 const C_OFF='#c7c8cc';
+/* ---------- Значок «как читать» у заголовка ----------
+   Раньше объяснение графика лежало сноской ПОД ним: к моменту, когда читатель
+   упирался в вопрос «а что тут серое», подпись была уже за пределами взгляда,
+   а панель тем временем несла три строки текста, который никто не читает.
+   Теперь объяснение живёт там же, где вопрос возникает, — у заголовка,
+   и раскрывается по наведению. Механизм подсказки один на весь отчёт. */
+function infoBadge(x,tipObj){
+  return '<g class="ibadge"'+tip(tipObj)+' tabindex="0" role="button"'+
+    ' aria-label="Как читать график">'+
+    '<circle cx="'+num(x+7)+'" cy="8" r="7"/>'+
+    txt(x+7,11.7,'i',{size:10.5,weight:700,anchor:'middle'})+'</g>';
+}
 function header(w,title,legend,ctx){
   ctx=ctx||{};
   const off=ctx.off||NOSET, lock=!!ctx.lock;
   let s='';
   if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+  if(title&&ctx.info)s+=infoBadge(textW(title,TTL_SZ)+6,ctx.info);
   if(legend&&legend.length){
     let x=w;
     for(let i=legend.length-1;i>=0;i--){
@@ -1936,7 +1959,7 @@ function drawLine(a,w,h){
   const max=niceMax(all);
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
 
-  let s=header(w,o.title,o.legend,{lock:true});
+  let s=header(w,o.title,o.legend,{lock:true,info:o.info});
   s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
 
@@ -1993,7 +2016,7 @@ function drawSupply(a,w,h){
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
   const bw=Math.min(64,bandW*0.62);
 
-  let s=header(w,o.title,o.legend,{off:o.off});
+  let s=header(w,o.title,o.legend,{off:o.off,info:o.info});
   s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
   filled.forEach((v,i)=>{
@@ -2057,7 +2080,7 @@ function drawStackDiverge(a,w,h){
   const max=niceMax(upT.concat(dnT));
   const bw=Math.min(52,bandW*0.58);
 
-  let s=header(w,o.title,o.legend,{off:o.off});
+  let s=header(w,o.title,o.legend,{off:o.off,info:o.info});
   s+=axisX(ticks,x0,bandW,top,bot,bot+15);
   s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
   ticks.forEach((t,i)=>{
@@ -2067,10 +2090,12 @@ function drawStackDiverge(a,w,h){
        и перестаёт объяснять точку — она начинает заменять таблицу. */
     const tipUp={title:tickTitle(t),
       rows:up.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
-      note:'всего пришло: '+fv(o,upT[i])};
+      note:[(a.upWord||'всего пришло')+': '+fv(o,upT[i]),
+            'сальдо периода: '+fd(o,upT[i]-dnT[i])]};
     const tipDn={title:tickTitle(t),
       rows:dn.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
-      note:'всего ушло: '+fv(o,dnT[i])};
+      note:[(a.dnWord||'всего ушло')+': '+fv(o,dnT[i]),
+            'сальдо периода: '+fd(o,upT[i]-dnT[i])]};
     /* Подписано ТОЛЬКО плечо целиком. Цифра в каждом сегменте превращала
        график в таблицу: двенадцать периодов по четыре числа читать всё равно
        никто не станет, а итог плеча — то, ради чего сюда смотрят. Состав
@@ -2167,7 +2192,7 @@ function drawBreakdown(a,w,h){
   const X=v=>x0+(v/max)*plotW;
   const xVal=w-PAD_X;
 
-  let s=header(w,o.title,o.legend,{lock:true});
+  let s=header(w,o.title,o.legend,{lock:true,info:o.info});
   const row=(i,name,val,from,to,color,dim,share,attr)=>{
     const cy=top+i*rowH, y=cy+(rowH-bh)/2;
     const xa=X(Math.min(from,to)), xb=X(Math.max(from,to));
@@ -2212,6 +2237,15 @@ function drawBreakdown(a,w,h){
    4. Панели друг под другом: несколько метрик за один период.
       У каждой своя шкала от нуля и своя полная ось X под ней — одна общая
       ось внизу заставляла бегать глазами через весь блок.
+
+      Панель с сальдо уходит в минус, и ноль у неё поднимается внутрь поля:
+      месяц, где аллокацию урезали сильнее, чем добрали, обязан рисоваться
+      столбцом ВНИЗ. Пока ноль стоял на дне, отрицательный столбец не
+      рисовался вовсе, а его подпись уезжала на подписи месяцев и перекрывала
+      их — читалось так, будто в этом месяце не было ничего.
+
+      Ось X при этом остаётся на дне панели: подписи периодов у всех панелей
+      блока обязаны стоять на одной линии, иначе их не сопоставить.
    ========================================================================== */
 function drawPanels(a,w,h){
   const ps=a.panels, ticks=a.ticks, o=a.opt||{};
@@ -2224,20 +2258,37 @@ function drawPanels(a,w,h){
   ps.forEach((p,pi)=>{
     const base=pi*panelH;
     const top=base+HEAD+LBL_ROOM, bot=base+panelH-AXIS_H-GAP;
-    const max=niceMax(p.series);
-    const Y=v=>bot-(v/max)*(bot-top);
+    /* Поле делится между плечами по их реальной величине, а не пополам:
+       пустое нижнее плечо на панели без минусов — та же серая пустота.
+       Под нижним плечом резервируется строка на подпись, иначе минусовое
+       число снова легло бы на подписи месяцев. Круглый максимум здесь
+       не нужен: оси значений нет, каждый столбец подписан. */
+    const posM=Math.max(0,Math.max.apply(null,p.series));
+    const negM=Math.max(0,-Math.min.apply(null,p.series));
+    const neg=negM>0;
+    const span=posM+negM||1;
+    const band=(bot-top)-(neg?LBL_ROOM:0);
+    const zero=top+(posM/span)*band;
+    const Y=v=>zero-(v/span)*band;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-    s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
+    s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
     ticks.forEach((t,i)=>{if(t.isYearStart&&i>0)s+=line(x0+bandW*i,top,x0+bandW*i,bot,C_DIV,1,'4 3')});
     const pd=pi*140, bw=Math.min(56,bandW*0.64);
     p.series.forEach((v,i)=>{
-      const cx=x0+bandW*(i+0.5), y=Y(v);
+      const cx=x0+bandW*(i+0.5), y=Y(v), dn=v<0;
       s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
-        rows:[{label:p.name,value:fv(o,v),color:p.color||C_LINE}],note:p.note})+'>';
+        rows:[{label:p.name,value:fd(o,v),color:p.color||C_LINE}],note:p.note})+'>';
       s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
-      s+=barUp(cx-bw/2,y,bw,bot-y,p.color||C_LINE,' class="bar up" style="animation-delay:'+(pd+i*24)+'ms"');
+      /* Цвет несёт знак: сальдо в плюс и сальдо в минус — разные события,
+         и красить их одинаково значит прятать разницу. */
+      const col=dn?(p.colorDn||C_DN):(p.color||C_LINE);
+      s+=(dn?barDown(cx-bw/2,zero,bw,y-zero,col,' class="bar dn" style="animation-delay:'+(pd+i*24)+'ms"')
+            :barUp(cx-bw/2,y,bw,zero-y,col,' class="bar up" style="animation-delay:'+(pd+i*24)+'ms"'));
       s+='</g>';
-      s+=txt(cx,y-VAL_DY,fv(o,v),valOpt({delay:pd+300+i*24}));
+      /* Подпись уходит в ту же сторону, что и столбец, и всегда остаётся
+         внутри панели: у самого дна она встаёт над осью X, а не на ней. */
+      const ly=dn?Math.min(y+VAL_DY+4,bot-2):y-VAL_DY;
+      s+=txt(cx,ly,neg?fd(o,v):fv(o,v),valOpt({delay:pd+300+i*24}));
     });
     s+=axisX(ticks,x0,bandW,bot,bot,bot+15);
   });
@@ -2263,7 +2314,7 @@ function drawWaterfall(a,w,h){
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
   const bw=Math.min(72,bandW*0.6);
 
-  let s=header(w,o.title,o.legend,{lock:true});
+  let s=header(w,o.title,o.legend,{lock:true,info:o.info});
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
   steps.forEach((st,i)=>{
     const cx=x0+bandW*(i+0.5), g=lv[i];
@@ -2707,12 +2758,15 @@ function pivotRow(r,cols,mode,maxes,o){
     const st=(!o.total&&c.flow)?heat(c.k==='alloc'?(v>=0?'up':'dn'):c.flow,v,maxes[c.k]):'';
     /* Число движения — точка входа в список людей за ним. Любой вопрос
        «сколько пришло» продолжается вопросом «а кто именно», и держать
-       ответ в другом отчёте значит не ответить вовсе. */
+       ответ в другом отчёте значит не ответить вовсе.
+
+       Подсказка обязана сказать, КУДА клик ведёт, до клика: «список
+       откроется» без «здесь же» читалось как обещание куда-то увести. */
     const drill=c.evt&&v
       ? ' data-drill="'+c.evt+'|'+esc(o.dim||'')+'|'+esc(o.total?'':r.name)+'"'+
         ' tabindex="0" role="button"'+
         tip({title:c.name+(c.sub?' '+c.sub:''),text:COL_HINT[c.k],
-             note:'клик открывает список этих сотрудников'})
+             note:'клик покажет этих сотрудников поимённо — здесь же, в этой панели'})
       : '';
     h+='<td'+(c.lead?' class="lead"':'')+(drill?' class="drill"':'')+st+drill+'>'+
       cellText(v,c,mode)+'</td>';
@@ -2871,6 +2925,9 @@ window.PXUI={esc,tip,delta,info,kpi,miniBar,panel,subTabs,select,barTable,
 (function(){
 'use strict';
 const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI;
+/* Список людей живёт в своём файле и грузится ПОСЛЕ этого, поэтому берётся
+   в момент вызова, а не в момент определения модуля. */
+function PL(){return window.PXSCREEN.people}
 
 /* Подпись периода живёт в одном месте: «за период» без названия периода
    читается как отклонение от чего угодно. */
@@ -2974,10 +3031,13 @@ function composition(m,st){
   const parts=m.segments.map(s=>({key:s.key,name:s.name,value:fte?s.fte:s.people,
     color:COL[s.key],hint:s.hint,on:st.segs.indexOf(s.key)>=0}));
   const total=fte?parts.reduce((a,p)=>a+p.value,0):m.segTotal;
-  const body=G.chart('breakdown',{total:{name:'Всего',value:total},parts},{mode:st.mode})+
-    U.note('Сегмент считается по максимальной аллокации человека внутри среза, '+
-      'поэтому каждый попадает ровно в одну часть. Клик по части фильтрует отчёт.');
-  return U.panel({title:'Состав команды',
+  const body=G.chart('breakdown',{total:{name:'Всего',value:total},parts},{mode:st.mode});
+  return U.panel({title:'Состав команды'+U.info({
+      title:'Как читать: состав',
+      text:'Первая полоса — целое, дальше оно разбирается на части до нуля. Каждая часть начинается там, где кончилась предыдущая, поэтому видно и её величину, и остаток.',
+      rows:parts.map(p=>({label:D.SEG_BY_KEY[p.key].hint,value:p.name,color:p.color})),
+      note:['Сегмент считается по максимальной аллокации человека внутри среза, поэтому каждый попадает ровно в одну часть и части складываются в целое точно.',
+            'Клик по части фильтрует весь отчёт.']}),
     sub:st.segs.length
       ? 'фильтр: '+st.segs.map(k=>D.SEG_BY_KEY[k].name.toLowerCase()).join(', ')
       : 'по типу аллокации на конец периода',
@@ -3028,28 +3088,74 @@ function waterfall(m,st){
 
    Отдельной под-вкладки «Уровень» больше нет: уровень теперь всегда стоит
    верхней панелью, и переключать нечего. */
+/* Что означает каждый цвет стопки. Живёт рядом с графиком, а не сноской
+   под панелью: вопрос «а что тут сиреневое» возникает у самой марки. */
+const LEG_HINT={
+  hire:'Новый и в компании, и на продукте',
+  in:  'Уже работал в компании, но не на этом продукте',
+  attr:'Ушёл из компании',
+  out: 'Ушёл с продукта, но остался в компании',
+  gain:'Процент вырос у того, кто с продукта не уходил',
+  cut: 'Процент снизился у того, кто с продукта не уходил'
+};
 function dynamics(m,st){
   const ticks=m.bks, mode=st.mode, f=m.flow;
   const view=st.moveView==='kinds'?'kinds':'io';
   /* Высоты подобраны так, чтобы обе панели блока помещались в один экран
      ноутбука вместе с полосой KPI: растянутый на всю страницу график не
      сообщает больше, он просто заставляет крутить. */
+  const fte=mode==='fte';
   const top=G.chart('supply',{filled:m.supply.filled,open:m.supply.open,ticks},
     {mode,h:196,title:'Ресурсообеспеченность: занято и открытые квоты',
+     info:{title:'Как читать: ресурсообеспеченность',
+       text:'Один столбец на период. Он показывает не только сколько людей есть, но и сколько ещё нужно: план это занятая часть плюс незакрытые квоты.',
+       rows:[{label:'Занято — люди на продуктах среза',value:'заливка',color:G.C_TOTAL},
+             {label:'Открытые квоты — позиция заведена, но не закрыта',value:'обводка',color:G.C_TOTAL},
+             {label:'Подпись над столбцом — план: занято плюс квоты',value:'число'}],
+       note:['Клик по легенде убирает серию с графика и из шкалы.',
+             'Квота открывается на ставку, поэтому и в режиме аллокаций она в штатных единицах.']},
      legend:[{name:'занято',color:G.C_TOTAL,sid:'filled'},
              {name:'открытые квоты',color:G.C_TOTAL,hollow:true,sid:'open'}]});
   let bottom;
   if(view==='io'){
-    bottom=G.chart('sdiverge',{ticks,
-      up:[{sid:'hire',name:'Найм на продукт',color:G.C_HIRE,series:f.hire},
-          {sid:'in',  name:'Вход на продукт',color:G.C_IN,  series:f.inp}],
-      down:[{sid:'attr',name:'Отток из компании',color:G.C_ATTR,series:f.attr},
-            {sid:'out', name:'Выход с продукта', color:G.C_OUT, series:f.out}]},
-      {mode,h:262,title:'Движение: пришло вверх, ушло вниз',
-       legend:[{name:'найм',color:G.C_HIRE,sid:'hire'},
-               {name:'вход',color:G.C_IN,sid:'in'},
-               {name:'отток',color:G.C_ATTR,sid:'attr'},
-               {name:'выход',color:G.C_OUT,sid:'out'}]});
+    /* Рост и снижение аллокации стоят в тех же плечах, что и приход с уходом,
+       и дальше всех от оси. Без них плечи не сходятся с уровнем над ними:
+       в режиме аллокаций месяц может не дать ни одного найма и ни одного
+       выхода, а занятость всё равно упадёт — людям просто урезали проценты.
+       Пока этих сегментов не было, разницу «пришло минус ушло» невозможно
+       было свести с изменением верхнего графика, и график молча врал. */
+    const up=[{sid:'hire',name:'Найм на продукт',color:G.C_HIRE,series:f.hire},
+              {sid:'in',  name:'Вход на продукт',color:G.C_IN,  series:f.inp}];
+    const down=[{sid:'attr',name:'Отток из компании',color:G.C_ATTR,series:f.attr},
+                {sid:'out', name:'Выход с продукта', color:G.C_OUT, series:f.out}];
+    const legend=[{name:'найм',color:G.C_HIRE,sid:'hire'},
+                  {name:'вход',color:G.C_IN,sid:'in'},
+                  {name:'отток',color:G.C_ATTR,sid:'attr'},
+                  {name:'выход',color:G.C_OUT,sid:'out'}];
+    if(fte){
+      up.push({sid:'gain',name:'Рост аллокации',color:G.C_UP,series:f.up});
+      down.push({sid:'cut',name:'Снижение аллокации',color:G.C_DN,series:f.dn});
+      legend.push({name:'рост',color:G.C_UP,sid:'gain'});
+      legend.push({name:'снижение',color:G.C_DN,sid:'cut'});
+    }
+    /* fill:true — стопка забирает остаток высоты панели. Уровень сверху стоит
+       своей высотой: он читается по подписям, и растягивать его незачем.
+       Без этого панель тянулась до высоты соседней колонки, а график оставался
+       прежним — и под ним копилась та самая серая пустота. */
+    bottom=G.chart('sdiverge',{ticks,up,down,
+      upWord:fte?'всего прибавилось':'всего пришло',
+      dnWord:fte?'всего убавилось':'всего ушло'},
+      {mode,h:262,fill:true,
+       title:fte?'Движение: прибавило вверх, убавило вниз'
+                :'Движение: пришло вверх, ушло вниз',
+       info:{title:'Как читать: движение',
+         text:'Один поток в двух направлениях. Вверх то, что прибавило ресурс на продуктах, вниз то, что убавило. Плечо — один бар, разрезанный на части; ближе к оси стоит основное движение.',
+         rows:legend.map(l=>({label:LEG_HINT[l.sid],value:l.name,color:l.color})),
+         note:['Подписано плечо целиком — состав читается цветом и наведением.',
+           'Разница плеч равна изменению верхнего графика за тот же период: '+
+           (fte?'рост и снижение аллокации входят в плечи наравне с приходом и уходом.'
+               :'в режиме людей аллокация не меняется — человек не может прийти на 30% себя.')]},
+       legend});
   }else{
     const panels=[
       {name:'Найм на продукт',series:f.hire,color:G.C_HIRE},
@@ -3057,54 +3163,71 @@ function dynamics(m,st){
       {name:'Отток из компании',series:f.attr,color:G.C_ATTR},
       {name:'Выход с продукта',series:f.out,color:G.C_OUT}
     ];
-    if(mode==='fte'){
+    if(fte){
       panels.push({name:'Изменение аллокации, сальдо',
-        series:f.up.map((v,i)=>v-f.dn[i]),color:G.C_UP,
+        series:f.up.map((v,i)=>v-f.dn[i]),color:G.C_UP,colorDn:G.C_DN,
         note:'рост минус снижение процентов у тех, кто остался на продукте'});
     }
     bottom=G.chart('panels',{panels,ticks},{mode,h:panels.length*98});
   }
   const tabs=U.subTabs([
-    ['io','Пришло и ушло',{title:'Пришло и ушло',text:'Один поток в двух направлениях: вверх приход, вниз уход. Каждое плечо — стопка из двух видов движения, ближе к оси стоит основное.'}],
+    ['io','Пришло и ушло',{title:'Пришло и ушло',text:'Один поток в двух направлениях: вверх приход, вниз уход. Каждое плечо — стопка, ближе к оси стоит основное движение.'}],
     ['kinds','По видам движения',{title:'По видам движения',text:'Каждый вид движения отдельной панелью с общей осью времени и своей шкалой от нуля.'}]
   ],view,'move');
-  const body='<div class="chart-stack">'+top+bottom+'</div>'+
-    U.note('Верхний график — уровень: серое занято, белое с обводкой — открытые квоты. '+
-      'Клик по легенде убирает серию с графика. Нижний график — движение, которое этот '+
-      'уровень меняет: ближе к оси найм и отток, дальше вход и выход.');
   return U.panel({title:'Динамика ресурсов и движения',
     sub:'гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
-    tabs,body,cls:'p-dyn'});
+    tabs,body:'<div class="chart-stack">'+top+bottom+'</div>',cls:'p-dyn'});
 }
 
-/* ---------- Трансформер: один уровень детализации ----------
-   На главном экране трансформер решает одну задачу — показать те же
-   агрегированные метрики в разрезе. Три уровня и матрица живут на второй
-   вкладке: там это отдельная работа, а не взгляд по дороге. */
-function pivot(m,st){
+/* ---------- Движение персонала: сводная и деталка ----------
+   Одна панель, два режима. Сводная — те же агрегированные метрики в разрезе;
+   деталка — поимённый список тех, кто за числами стоит.
+
+   Это ОДИН блок, а не два, потому что вопрос один: клик по числу движения
+   и есть переход «сколько» → «кто». Пока деталка была отдельной вкладкой,
+   этот клик выбрасывал читателя в другой конец отчёта: он не успевал понять,
+   что произошло, и терял таблицу, из которой пришёл. Возврат теперь тот же
+   переключатель, которым ушёл, и сводная остаётся ровно в том состоянии,
+   в каком её оставили — раскрытые строки и разрез не сбрасываются.
+
+   Три уровня и матрица живут на второй вкладке: там это отдельная работа,
+   а не взгляд по дороге. */
+function pivotSum(m,st){
   const rows=st.dimB?D.rows2(st,st.dimA,st.dimB):D.rows(st,st.dimA);
   const dimName=D.DIM_BY_KEY[st.dimA].name;
   /* Итоговая квота всегда известна: она суммируется по продуктам среза
      независимо от того, каким разрезом разложены строки. */
   const total=Object.assign({},m.tot,{quota:m.quota});
   const dims=D.DIMS.map(d=>[d.key,d.name]);
-  const tabs='<div class="h-ctl">'+
-    U.select('dimA',dims,st.dimA,'Строки')+
-    U.select('dimB',[['','без второго уровня']].concat(dims.filter(d=>d[0]!==st.dimA)),st.dimB,'Второй уровень')+
-    '</div>';
   const quotaSplit=!!D.DIM_BY_KEY[st.dimB||st.dimA].quota;
-  const body='<div class="tbl-wrap">'+U.pivot({rows,total,mode:st.mode,dimName,
+  return '<div class="h-ctl">'+
+      U.select('dimA',dims,st.dimA,'Строки')+
+      U.select('dimB',[['','без второго уровня']].concat(dims.filter(d=>d[0]!==st.dimA)),st.dimB,'Второй уровень')+
+    '</div>'+
+    '<div class="tbl-wrap">'+U.pivot({rows,total,mode:st.mode,dimName,
       dim:st.dimA,dimB:st.dimB,
       open:st.open,totalNote:'уникальные значения по всему срезу'})+'</div>'+
-    U.note('Каретка у строки ИТОГО раскрывает и сворачивает всё дерево разом. '+
-      'Сумма по строкам больше итога, когда разрез привязан к продукту: человек, '+
-      'аллоцированный на несколько продуктов, попадает в несколько строк, а в итоге считается '+
-      'один раз. Переходы между продуктами внутри среза видны в строках и схлопываются в итоге — '+
-      'портфель они не меняют.'+
-      (quotaSplit?'':' Квота заводится на продукте, поэтому в этом разрезе колонки квот стоят '+
+    U.note('Числа движения кликаются: клик показывает этих людей поимённо — '+
+      'здесь же, в этой панели. '+
+      (quotaSplit?'':'Квота заводится на продукте, поэтому в этом разрезе колонки квот стоят '+
         'с прочерком: раскладывать их по профессиям и грейдам не на чем.'));
-  return U.panel({title:'Трансформер: движение в разрезе',
-    sub:'за период '+periodName(st),tabs,body});
+}
+const PIVOT_INFO={title:'Как читать: сводная движения',
+  text:'Те же метрики, что на графиках выше, но в разрезе. Строки раскрываются до второго уровня, каретка у ИТОГО раскрывает и сворачивает всё дерево разом.',
+  note:['Сумма по строкам больше итога, когда разрез привязан к продукту: человек на трёх продуктах попадает в три строки, а в итог считается один раз. В режиме аллокаций проценты складываются и сумма сходится точно.',
+        'Переходы между продуктами внутри среза видны в строках и схлопываются в итоге — портфель они не меняют.',
+        'Числа движения кликаются: клик открывает деталку по этим людям в этой же панели.']};
+function pivot(m,st){
+  const detail=st.pview==='people';
+  const tabs=U.subTabs([
+    ['sum','Сводная',{title:'Сводная',text:'Агрегированные метрики в разрезе: сколько людей и сколько движения в каждой строке.'}],
+    ['people','Сотрудники',{title:'Сотрудники',text:'Те же люди поимённо, с событиями за период. Все фильтры отчёта продолжают действовать.'}]
+  ],detail?'people':'sum','pview');
+  return U.panel({
+    title:'Движение персонала'+U.info(detail?PL().INFO:PIVOT_INFO),
+    sub:(detail?'поимённо · ':'в разрезе · ')+'за период '+periodName(st),
+    tabs,cls:'p-move',
+    body:detail?PL().body(st):pivotSum(m,st)});
 }
 
 function render(st){
@@ -3126,13 +3249,19 @@ function render(st){
   return kpis(m,st)+'<div class="stack">'+
     '<div class="grid-60-40">'+dynamics(m,st)+
       '<div class="col">'+composition(m,st)+
-      U.panel({title:'Как изменилось за период',sub:'водопад движения',
+      U.panel({title:'Как изменилось за период'+U.info({
+          title:'Как читать: водопад',
+          text:'Слева численность на начало периода, справа на конец. Между ними шаги, которые превратили первое во второе: каждый начинается там, где кончился предыдущий.',
+          rows:[{label:LEG_HINT.hire,value:'Найм',color:G.C_HIRE},
+                {label:LEG_HINT.in,value:'Вход',color:G.C_IN},
+                st.mode==='fte'?{label:LEG_HINT.gain,value:'Рост',color:G.C_UP}:null,
+                st.mode==='fte'?{label:LEG_HINT.cut,value:'Снижение',color:G.C_DN}:null,
+                {label:LEG_HINT.out,value:'Выход',color:G.C_OUT},
+                {label:LEG_HINT.attr,value:'Отток',color:G.C_ATTR}].filter(Boolean),
+          note:'Серые столбцы — состояния, цветные — движения. Шаги идут в порядке жизненного цикла: пришёл в компанию, пришёл на продукт, изменил долю, ушёл с продукта, ушёл из компании.'}),
+        sub:'водопад движения',
         cls:'p-wf',bodyCls:'fill-b',
-        body:waterfall(m,st)+U.note(
-          '<b>Найм</b> — новый и в компании, и на продукте. <b>Вход</b> — уже '+
-          'работал в компании, но на этом продукте не стоял. <b>Выход</b> — ушёл с продукта, '+
-          'но остался в компании. <b>Отток</b> — ушёл из компании.'+
-          (st.mode==='fte'?' <b>Рост и снижение аллокации</b> — процент изменился у того, кто с продукта не уходил.':''))})+
+        body:waterfall(m,st)})+
       '</div>'+
     '</div>'+pivot(m,st)+'</div>';
 }
@@ -3291,7 +3420,7 @@ window.PXSCREEN.transformer={render};
 </script>
 <script>
 /* ============================================================================
-   screens/people.js — вкладка «Сотрудники». Неймспейс: PXSCREEN.people
+   screens/people.js — список сотрудников. Неймспейс: PXSCREEN.people
 
    Это конец любой цепочки вопросов в отчёте. «Сколько людей на продукте» →
    «сколько из них пришло за квартал» → «а КТО эти люди и когда пришли».
@@ -3300,8 +3429,18 @@ window.PXSCREEN.transformer={render};
 
    Список наследует ВСЕ фильтры отчёта и добавляет к ним два своих: событие
    за период и поиск по имени. Отдельного набора фильтров у него нет
-   намеренно: полка слева одна на весь отчёт, и переключение вкладки не
+   намеренно: полка слева одна на весь отчёт, и переключение режима не
    должно менять выборку.
+
+   Отдельной вкладки у списка нет: он второй режим панели «Движение
+   персонала» на главном экране. Пока это была вкладка, клик по числу
+   уносил читателя в другой конец отчёта — он не успевал понять, что
+   вообще произошло, и терял из виду таблицу, из которой пришёл.
+   Теперь деталка раскрывается на месте сводной, и возврат — тот же
+   переключатель, которым ушёл.
+
+   body() отдаёт содержимое без панели: панель вокруг рисует тот, кто
+   список показывает.
    ========================================================================== */
 (function(){
 'use strict';
@@ -3405,7 +3544,16 @@ function table(st,list){
   return h+'</tbody></table></div>';
 }
 
-function render(st){
+/* Подсказка «как читать» вместо простыни под таблицей: событие в списке
+   считается по паре «человек × продукт», и это единственное, что здесь
+   действительно надо объяснить. */
+const INFO={title:'Как читать: список сотрудников',
+  text:'Поимённо те, кто стоит за числами сводной. Список наследует все фильтры отчёта — полку слева, период, режим — и добавляет к ним событие за период и поиск.',
+  note:['События считаются по паре «человек × продукт»: один человек может и прийти на один продукт, и уйти с другого в один месяц. Поэтому число событий сходится со строками сводной по продукту, а не с её итогом.',
+        'Столбец Σ — сумма аллокаций человека по всем продуктам среза. Восклицательный знак значит, что сумма не равна ста процентам.',
+        'Имена вымышленные — отчёт собран на синтетических данных.']};
+
+function body(st){
   const all=D.peopleList(st);
   const list=filtered(st,all);
   const shown=st.pAll?list:list.slice(0,PAGE);
@@ -3425,7 +3573,7 @@ function render(st){
       ' placeholder="имя, профессия или продукт"></label>'+
     '<button class="btn" data-csv="people">Выгрузить CSV</button></div>';
 
-  const body=chips+tools+
+  return chips+tools+
     (list.length?table(st,shown):U.empty('Никто не подошёл под фильтр',
       'Снимите событие или очистите поиск — фильтры отчёта слева при этом останутся.'))+
     (list.length>shown.length
@@ -3434,19 +3582,18 @@ function render(st){
       : '')+
     U.note('Показано <b>'+D.fmtInt(shown.length)+'</b> из '+D.fmtInt(list.length)+
       ' по текущему фильтру. Всего в срезе <b>'+D.fmtInt(onProd)+'</b> на продуктах'+
-      (bench?' и <b>'+D.fmtInt(bench)+'</b> без аллокации':'')+
-      '. События считаются по паре «человек × продукт»: один человек может '+
-      'и прийти на один продукт, и уйти с другого в один и тот же месяц, '+
-      'поэтому сумма событий сходится со строками трансформера по продукту, а не с его итогом. '+
-      'Имена вымышленные — отчёт собран на синтетических данных.');
+      (bench?' и <b>'+D.fmtInt(bench)+'</b> без аллокации':'')+'.');
+}
 
-  return U.panel({title:'Сотрудники',
-    sub:'все фильтры отчёта действуют · клик по числу в трансформере приводит сюда',
-    body,cls:'p-people'});
+/* Панель вокруг списка — только для тестов и на случай, если список
+   когда-нибудь понадобится сам по себе. Экран его так не показывает. */
+function render(st){
+  return U.panel({title:'Сотрудники'+U.info(INFO),
+    sub:'все фильтры отчёта действуют',body:body(st),cls:'p-people'});
 }
 
 window.PXSCREEN=window.PXSCREEN||{};
-window.PXSCREEN.people={render,filtered,match,FILTERS};
+window.PXSCREEN.people={render,body,filtered,match,FILTERS,INFO};
 })();
 
 </script>
@@ -3479,7 +3626,7 @@ const DEF={
   dimA:'domain', dimB:'product', open:[], moveView:'io',
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
   my:'prof', mxd:'grade',
-  evt:'', q:'', pAll:false,
+  pview:'sum', evt:'', q:'', pAll:false,
   treeOpen:[]
 };
 const S=Object.assign({},DEF);
@@ -3686,7 +3833,6 @@ function modeRow(){
     '</div>'+
     '<div class="tabs" role="tablist">'+
       tab('overview','Ресурсы и движение')+tab('transformer','Трансформер')+
-      tab('people','Сотрудники')+
     '</div>';
 }
 function tab(k,name){
@@ -3703,9 +3849,7 @@ function render(animate){
   document.getElementById('reporthead').innerHTML=reporthead();
   const view=document.getElementById('view');
   view.innerHTML=modeRow()+
-    (S.tab==='transformer'?SC.transformer.render(st)
-     :S.tab==='people'?SC.people.render(st)
-     :SC.overview.render(st));
+    (S.tab==='transformer'?SC.transformer.render(st):SC.overview.render(st));
   /* Пресет периода подсвечивается по факту, а не по памяти: пользователь мог
      подвинуть границы руками, и тогда пресет уже не тот. */
   const sel=document.querySelector('[data-sel="periodPreset"]');
@@ -3790,16 +3934,21 @@ document.addEventListener('click',e=>{
     return;
   }
   /* ---------- Провал в список людей ----------
-     Число движения в трансформере ведёт на вкладку сотрудников с уже
+     Число движения раскрывается в деталку НА МЕСТЕ сводной, с уже
      наложенными фильтрами: событие плюс тот срез, в строке которого стояло
      число. Иначе пользователю пришлось бы вручную повторить фильтр, который
-     он только что задал кликом. */
+     он только что задал кликом.
+
+     Панель не меняется, экран не прокручивается: раньше клик уносил на
+     отдельную вкладку в другом конце отчёта, и читатель не успевал понять,
+     что вообще произошло. */
   if((el=hit('data-drill'))){
     const [evt,dim,val]=el.getAttribute('data-drill').split('|');
     if(val)applyRowFilter(dim,val);
-    S.evt=evt;S.q='';S.pAll=false;S.tab='people';
+    S.evt=evt;S.q='';S.pAll=false;S.pview='people';
     return schedule();
   }
+  if((el=hit('data-pview'))){S.pview=el.getAttribute('data-pview');return schedule()}
   if((el=hit('data-pivot'))){
     const id=el.getAttribute('data-pivot');
     if(id==='*'){

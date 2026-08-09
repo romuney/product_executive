@@ -26,7 +26,7 @@ const DEF={
   dimA:'domain', dimB:'product', open:[], moveView:'io',
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
   my:'prof', mxd:'grade',
-  evt:'', q:'', pAll:false,
+  pview:'sum', evt:'', q:'', pAll:false,
   treeOpen:[]
 };
 const S=Object.assign({},DEF);
@@ -233,7 +233,6 @@ function modeRow(){
     '</div>'+
     '<div class="tabs" role="tablist">'+
       tab('overview','Ресурсы и движение')+tab('transformer','Трансформер')+
-      tab('people','Сотрудники')+
     '</div>';
 }
 function tab(k,name){
@@ -250,9 +249,7 @@ function render(animate){
   document.getElementById('reporthead').innerHTML=reporthead();
   const view=document.getElementById('view');
   view.innerHTML=modeRow()+
-    (S.tab==='transformer'?SC.transformer.render(st)
-     :S.tab==='people'?SC.people.render(st)
-     :SC.overview.render(st));
+    (S.tab==='transformer'?SC.transformer.render(st):SC.overview.render(st));
   /* Пресет периода подсвечивается по факту, а не по памяти: пользователь мог
      подвинуть границы руками, и тогда пресет уже не тот. */
   const sel=document.querySelector('[data-sel="periodPreset"]');
@@ -337,16 +334,21 @@ document.addEventListener('click',e=>{
     return;
   }
   /* ---------- Провал в список людей ----------
-     Число движения в трансформере ведёт на вкладку сотрудников с уже
+     Число движения раскрывается в деталку НА МЕСТЕ сводной, с уже
      наложенными фильтрами: событие плюс тот срез, в строке которого стояло
      число. Иначе пользователю пришлось бы вручную повторить фильтр, который
-     он только что задал кликом. */
+     он только что задал кликом.
+
+     Панель не меняется, экран не прокручивается: раньше клик уносил на
+     отдельную вкладку в другом конце отчёта, и читатель не успевал понять,
+     что вообще произошло. */
   if((el=hit('data-drill'))){
     const [evt,dim,val]=el.getAttribute('data-drill').split('|');
     if(val)applyRowFilter(dim,val);
-    S.evt=evt;S.q='';S.pAll=false;S.tab='people';
+    S.evt=evt;S.q='';S.pAll=false;S.pview='people';
     return schedule();
   }
+  if((el=hit('data-pview'))){S.pview=el.getAttribute('data-pview');return schedule()}
   if((el=hit('data-pivot'))){
     const id=el.getAttribute('data-pivot');
     if(id==='*'){

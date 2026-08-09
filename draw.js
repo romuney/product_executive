@@ -193,11 +193,24 @@ function fd(o,v){return CD.fmtDelta(o&&o.mode==='fte'?'fte':'hc',v)}
    как «малое значение», перечёркнутое — однозначно как «скрыто». */
 const NOSET={has:function(){return false},size:0};
 const C_OFF='#c7c8cc';
+/* ---------- Значок «как читать» у заголовка ----------
+   Раньше объяснение графика лежало сноской ПОД ним: к моменту, когда читатель
+   упирался в вопрос «а что тут серое», подпись была уже за пределами взгляда,
+   а панель тем временем несла три строки текста, который никто не читает.
+   Теперь объяснение живёт там же, где вопрос возникает, — у заголовка,
+   и раскрывается по наведению. Механизм подсказки один на весь отчёт. */
+function infoBadge(x,tipObj){
+  return '<g class="ibadge"'+tip(tipObj)+' tabindex="0" role="button"'+
+    ' aria-label="Как читать график">'+
+    '<circle cx="'+num(x+7)+'" cy="8" r="7"/>'+
+    txt(x+7,11.7,'i',{size:10.5,weight:700,anchor:'middle'})+'</g>';
+}
 function header(w,title,legend,ctx){
   ctx=ctx||{};
   const off=ctx.off||NOSET, lock=!!ctx.lock;
   let s='';
   if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+  if(title&&ctx.info)s+=infoBadge(textW(title,TTL_SZ)+6,ctx.info);
   if(legend&&legend.length){
     let x=w;
     for(let i=legend.length-1;i>=0;i--){
@@ -260,7 +273,7 @@ function drawLine(a,w,h){
   const max=niceMax(all);
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
 
-  let s=header(w,o.title,o.legend,{lock:true});
+  let s=header(w,o.title,o.legend,{lock:true,info:o.info});
   s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
 
@@ -317,7 +330,7 @@ function drawSupply(a,w,h){
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
   const bw=Math.min(64,bandW*0.62);
 
-  let s=header(w,o.title,o.legend,{off:o.off});
+  let s=header(w,o.title,o.legend,{off:o.off,info:o.info});
   s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
   filled.forEach((v,i)=>{
@@ -381,7 +394,7 @@ function drawStackDiverge(a,w,h){
   const max=niceMax(upT.concat(dnT));
   const bw=Math.min(52,bandW*0.58);
 
-  let s=header(w,o.title,o.legend,{off:o.off});
+  let s=header(w,o.title,o.legend,{off:o.off,info:o.info});
   s+=axisX(ticks,x0,bandW,top,bot,bot+15);
   s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
   ticks.forEach((t,i)=>{
@@ -391,10 +404,12 @@ function drawStackDiverge(a,w,h){
        и перестаёт объяснять точку — она начинает заменять таблицу. */
     const tipUp={title:tickTitle(t),
       rows:up.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
-      note:'всего пришло: '+fv(o,upT[i])};
+      note:[(a.upWord||'всего пришло')+': '+fv(o,upT[i]),
+            'сальдо периода: '+fd(o,upT[i]-dnT[i])]};
     const tipDn={title:tickTitle(t),
       rows:dn.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
-      note:'всего ушло: '+fv(o,dnT[i])};
+      note:[(a.dnWord||'всего ушло')+': '+fv(o,dnT[i]),
+            'сальдо периода: '+fd(o,upT[i]-dnT[i])]};
     /* Подписано ТОЛЬКО плечо целиком. Цифра в каждом сегменте превращала
        график в таблицу: двенадцать периодов по четыре числа читать всё равно
        никто не станет, а итог плеча — то, ради чего сюда смотрят. Состав
@@ -491,7 +506,7 @@ function drawBreakdown(a,w,h){
   const X=v=>x0+(v/max)*plotW;
   const xVal=w-PAD_X;
 
-  let s=header(w,o.title,o.legend,{lock:true});
+  let s=header(w,o.title,o.legend,{lock:true,info:o.info});
   const row=(i,name,val,from,to,color,dim,share,attr)=>{
     const cy=top+i*rowH, y=cy+(rowH-bh)/2;
     const xa=X(Math.min(from,to)), xb=X(Math.max(from,to));
@@ -536,6 +551,15 @@ function drawBreakdown(a,w,h){
    4. Панели друг под другом: несколько метрик за один период.
       У каждой своя шкала от нуля и своя полная ось X под ней — одна общая
       ось внизу заставляла бегать глазами через весь блок.
+
+      Панель с сальдо уходит в минус, и ноль у неё поднимается внутрь поля:
+      месяц, где аллокацию урезали сильнее, чем добрали, обязан рисоваться
+      столбцом ВНИЗ. Пока ноль стоял на дне, отрицательный столбец не
+      рисовался вовсе, а его подпись уезжала на подписи месяцев и перекрывала
+      их — читалось так, будто в этом месяце не было ничего.
+
+      Ось X при этом остаётся на дне панели: подписи периодов у всех панелей
+      блока обязаны стоять на одной линии, иначе их не сопоставить.
    ========================================================================== */
 function drawPanels(a,w,h){
   const ps=a.panels, ticks=a.ticks, o=a.opt||{};
@@ -548,20 +572,37 @@ function drawPanels(a,w,h){
   ps.forEach((p,pi)=>{
     const base=pi*panelH;
     const top=base+HEAD+LBL_ROOM, bot=base+panelH-AXIS_H-GAP;
-    const max=niceMax(p.series);
-    const Y=v=>bot-(v/max)*(bot-top);
+    /* Поле делится между плечами по их реальной величине, а не пополам:
+       пустое нижнее плечо на панели без минусов — та же серая пустота.
+       Под нижним плечом резервируется строка на подпись, иначе минусовое
+       число снова легло бы на подписи месяцев. Круглый максимум здесь
+       не нужен: оси значений нет, каждый столбец подписан. */
+    const posM=Math.max(0,Math.max.apply(null,p.series));
+    const negM=Math.max(0,-Math.min.apply(null,p.series));
+    const neg=negM>0;
+    const span=posM+negM||1;
+    const band=(bot-top)-(neg?LBL_ROOM:0);
+    const zero=top+(posM/span)*band;
+    const Y=v=>zero-(v/span)*band;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-    s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
+    s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
     ticks.forEach((t,i)=>{if(t.isYearStart&&i>0)s+=line(x0+bandW*i,top,x0+bandW*i,bot,C_DIV,1,'4 3')});
     const pd=pi*140, bw=Math.min(56,bandW*0.64);
     p.series.forEach((v,i)=>{
-      const cx=x0+bandW*(i+0.5), y=Y(v);
+      const cx=x0+bandW*(i+0.5), y=Y(v), dn=v<0;
       s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
-        rows:[{label:p.name,value:fv(o,v),color:p.color||C_LINE}],note:p.note})+'>';
+        rows:[{label:p.name,value:fd(o,v),color:p.color||C_LINE}],note:p.note})+'>';
       s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
-      s+=barUp(cx-bw/2,y,bw,bot-y,p.color||C_LINE,' class="bar up" style="animation-delay:'+(pd+i*24)+'ms"');
+      /* Цвет несёт знак: сальдо в плюс и сальдо в минус — разные события,
+         и красить их одинаково значит прятать разницу. */
+      const col=dn?(p.colorDn||C_DN):(p.color||C_LINE);
+      s+=(dn?barDown(cx-bw/2,zero,bw,y-zero,col,' class="bar dn" style="animation-delay:'+(pd+i*24)+'ms"')
+            :barUp(cx-bw/2,y,bw,zero-y,col,' class="bar up" style="animation-delay:'+(pd+i*24)+'ms"'));
       s+='</g>';
-      s+=txt(cx,y-VAL_DY,fv(o,v),valOpt({delay:pd+300+i*24}));
+      /* Подпись уходит в ту же сторону, что и столбец, и всегда остаётся
+         внутри панели: у самого дна она встаёт над осью X, а не на ней. */
+      const ly=dn?Math.min(y+VAL_DY+4,bot-2):y-VAL_DY;
+      s+=txt(cx,ly,neg?fd(o,v):fv(o,v),valOpt({delay:pd+300+i*24}));
     });
     s+=axisX(ticks,x0,bandW,bot,bot,bot+15);
   });
@@ -587,7 +628,7 @@ function drawWaterfall(a,w,h){
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
   const bw=Math.min(72,bandW*0.6);
 
-  let s=header(w,o.title,o.legend,{lock:true});
+  let s=header(w,o.title,o.legend,{lock:true,info:o.info});
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
   steps.forEach((st,i)=>{
     const cx=x0+bandW*(i+0.5), g=lv[i];

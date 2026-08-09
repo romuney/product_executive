@@ -275,16 +275,26 @@ CASES.forEach(c=>{
     const sub=SC.people.filtered(Object.assign({},s,{evt:f[0],q:''}),list);
     ok('фильтр «'+(f[1])+'» — подмножество · '+c.name,sub.length<=list.length);
   });
+  /* Деталка живёт ВНУТРИ панели движения, а не отдельной вкладкой: клик
+     по числу не должен уводить читателя из блока, в котором он работает. */
   let people='';
-  try{people=SC.people.render(Object.assign({},s,{evt:'',q:'',pAll:false}))}
-  catch(e){ok('вкладка сотрудников рендерится · '+c.name,false,e.message)}
+  try{people=SC.overview.render(Object.assign({},s,{pview:'people',evt:'',q:'',pAll:false}))}
+  catch(e){ok('деталка по людям рендерится · '+c.name,false,e.message)}
   ok('список сотрудников непустой · '+c.name,people.length>2000);
   ok('в списке есть выгрузка · '+c.name,people.indexOf('data-csv')>0);
   ok('в списке есть поиск · '+c.name,people.indexOf('data-q')>0);
   ok('в списке есть фильтры-события · '+c.name,people.indexOf('data-evt="hire"')>0);
+  ok('из деталки есть возврат в сводную · '+c.name,people.indexOf('data-pview="sum"')>0);
   const ov=SC.overview.render(s);
-  ok('числа движения ведут в список · '+c.name,ov.indexOf('data-drill="hire|')>0);
+  ok('числа движения ведут в деталку · '+c.name,ov.indexOf('data-drill="hire|')>0);
+  ok('переключатель режимов панели на месте · '+c.name,
+    ov.indexOf('data-pview="people"')>0);
+  ok('сводная не рисует список людей · '+c.name,ov.indexOf('data-csv')<0);
 });
+/* Отдельной вкладки у списка больше нет: единственный путь к нему —
+   переключатель внутри панели движения. */
+ok('вкладки сотрудников в шапке нет',SRC.app.indexOf("tab('people'")<0);
+ok('экран сотрудников не рендерится вкладкой',SRC.app.indexOf("SC.people.render")<0);
 
 /* ============================================================================
    7. Порядок загрузки
