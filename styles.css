@@ -208,6 +208,11 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
   color:var(--muted);font-weight:800}
 .moderow .sp{flex:1}
 .hint-txt{font-size:var(--fs-note);color:var(--muted);font-weight:600;max-width:520px;text-align:right}
+/* Вкладка без режима: вместо выключенного переключателя — фиксированная
+   единица счёта. Выключенный переключатель обещает, что его можно включить,
+   а здесь включать нечего: у метрик вкладки другой знаменатель. */
+.moderow.static .mode-fix{font-size:var(--fs-body);font-weight:800;color:var(--ink);
+  background:#f0f1f3;border-radius:var(--r-pill);padding:6px var(--s6)}
 .tabs{display:flex;gap:var(--s10);border-bottom:1px solid var(--line);margin:0 0 var(--s9)}
 .tab{border:0;background:none;padding:0 0 var(--s5);font:inherit;font-size:var(--fs-lead);
   font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -236,6 +241,40 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .kpi .k-row:empty{margin:0}
 .kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
 .kpi.lead-card{outline:2px solid var(--act);outline-offset:-2px}
+/* Двойная карточка: слева те же четыре строки, справа врезка. Из subgrid она
+   выходит намеренно — её содержимое раскладывается по горизонтали. Соседние
+   карточки продолжают выравниваться между собой.
+
+   Врезка внутри карточки однажды уже не сработала: в одинарной карточке
+   на график оставалось меньше двухсот пикселей, и разбивка мельчила имена
+   до нечитаемого. Здесь карточка занимает две колонки из четырёх — половину
+   полосы, — и врезке достаётся втрое больше места. Правило: врезка живёт
+   ТОЛЬКО в двойной карточке.
+
+   Левая колонка ужимается, а не толкает врезку: пока она стояла
+   flex:0 0 auto, длинная подпись под числом съедала всю ширину карточки,
+   и графику доставался ноль. */
+.kpi.wide{grid-column:span 2;grid-row:span 4;display:flex;align-items:stretch;
+  gap:var(--s7);min-width:0}
+.kpi.wide .h-left{display:flex;flex-direction:column;min-width:118px;flex:0 1 auto;
+  max-width:52%}
+.kpi.wide .h-left .k-row:first-of-type{margin-top:auto}
+.kpi.wide .h-left .k-sub{white-space:normal;line-height:1.35}
+.kpi.wide .h-aside{flex:1;min-width:0;display:flex;flex-direction:column;
+  justify-content:center;border-left:1px solid var(--line2);padding-left:var(--s7)}
+.kpi.wide .h-aside .svgchart{flex:1;min-height:0}
+.kpi.wide .h-cap{font-size:var(--fs-cap);color:var(--muted);font-weight:600;
+  margin-bottom:var(--s2);line-height:1.35}
+.kpi.wide .h-cap b{color:var(--ink2)}
+/* Состояния ставки: риска и числа под ней. Числа стоят на экране, а не только
+   в подсказке, — карточка обязана отвечать не только «в порядке ли данные»,
+   но и «чего именно не хватает». */
+.state-bar{display:flex;flex-direction:column;gap:var(--s4)}
+.sb-keys{display:flex;flex-wrap:wrap;gap:var(--s3) var(--s6)}
+.sb-k{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-cap);
+  color:var(--muted);font-weight:600;cursor:help;white-space:nowrap}
+.sb-k i{width:8px;height:8px;border-radius:2px;flex:0 0 auto}
+.sb-k b{color:var(--ink2);font-weight:800;font-variant-numeric:tabular-nums}
 /* Одна высота строк во всей полосе: карточка — subgrid на четыре строки
    родителя. Перенос заголовка в одной карточке добавляет строку ВСЕМ, зато
    значения и подписи остаются на одном уровне. @supports обязателен: без
@@ -400,10 +439,34 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .stable th,.mtx th{text-align:right}
 .stable th.txt,.mtx th.txt{text-align:left}
 
+/* ---------- Метрики по периодам ----------
+   Строки — метрики, столбцы — периоды. Группа строк отбита строкой-шапкой:
+   без неё «выход с продукта» и «прирост численности» стоят в одном списке
+   и читаются как однородные величины, хотя одна из них — поток, а другая
+   состояние. Итоговые строки группы набраны жирнее: они и есть то, ради
+   чего группу читают. */
+.mtable .grp-row td{background:#f4f5f7;font-size:var(--fs-cap);text-transform:uppercase;
+  letter-spacing:.3px;color:var(--ink2);font-weight:800;padding-top:var(--s4);
+  padding-bottom:var(--s4)}
+.mtable .grp-row td .unit-sub{display:inline;margin-left:var(--s4);text-transform:none;
+  letter-spacing:0}
+.mtable tr.sum td{font-weight:800;color:var(--ink);background:#fcfcfd}
+.mtable td.txt{white-space:normal}
+.mtable th.txt{min-width:220px}
+.dtable td.muted-c{color:var(--muted2)}
+.dtable td.txt .unit-sub{white-space:normal}
+.dtable th.txt{min-width:200px}
+
 /* ---------- Разбивка полосой в ячейке ----------
-   Кольца и горизонтальные бар-чарты для разбивок запрещены: доля читается
-   по числу точнее, чем по углу сектора. Полоса растёт от левого края —
-   у всех строк общий старт, поэтому длины сравниваются глазом. */
+   Горизонтальный бар-чарт ВМЕСТО таблицы для разбивок запрещён: доля
+   читается по числу точнее, чем по углу или по длине. Полоса растёт
+   от левого края — у всех строк общий старт, поэтому длины сравниваются
+   глазом, а числа стоят рядом в своей колонке.
+
+   Кольцо — исключение ровно на два случая: верификация и укомплектованность.
+   Там сама метрика ЕСТЬ доля, целое известно заранее (продукты среза, план
+   по ставкам), частей всего две, и числа по-прежнему подписаны рядом.
+   Разбивку на четыре и больше категорий кольцом не показываем. */
 .btable td.barcell,.btable th.bar-th{text-align:left;padding-left:var(--pad-cell)}
 /* Пояснение под именем строки переносится по словам. Общий запрет переносов
    в таблицах касается ЧИСЛОВЫХ колонок — их ужимать нельзя. Здесь же
@@ -452,6 +515,10 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
   animation:tp-draw .76s cubic-bezier(.4,0,.2,1) both}
 .svgchart.anim .lnb{animation:tp-fade .5s ease-out both;animation-delay:.1s}
 .svgchart.anim .fade,.svgchart.anim .dot{animation:tp-fade .3s ease-out both}
+/* Дуга кольца проявляется, а не выкручивается из нуля: вращающийся сектор
+   читается как загрузка, а не как доля. */
+.svgchart.anim .arc{animation:tp-fade .42s ease-out both}
+.arc{cursor:help}
 
 /* ===== Список сотрудников ===== */
 .plist-tools{align-items:flex-end}
@@ -599,6 +666,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 }
 @media(max-width:900px){
   .kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)}
+  /* Двойная карточка на планшете занимает всю ширину и раскладывается
+     сверху вниз: врезка рядом с числом в 160px не читается. */
+  .kpi.wide{flex-direction:column;gap:var(--s5)}
+  .kpi.wide .h-left{max-width:none}
+  .kpi.wide .h-aside{border-left:0;border-top:1px solid var(--line2);
+    padding-left:0;padding-top:var(--s5);min-height:118px}
   /* На узком экране таблица прокручивается, а не переносится: ужать числовые
      колонки нельзя — между значениями останется меньше воздуха, чем внутри них. */
   .tbl-wrap{overflow-x:auto}
@@ -608,6 +681,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 }
 @media(max-width:640px){
   .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}
+  .kpi.wide{grid-column:span 1}
   .sub-tabs{display:flex;overflow-x:auto;max-width:100%}
   .panel-h{padding:var(--s6)}.panel-b{padding:var(--s5)}
   .content{padding:var(--s6)}

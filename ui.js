@@ -61,8 +61,12 @@ function delta(mode,v,o){
   o=o||{};
   const vs=o.vs?'<span class="d-vs">'+esc(o.vs)+'</span>':'';
   const at=o.tip?tip(o.tip):'';
-  const txt=D.fmtDelta(mode,v);
-  if(Math.abs(v)<(mode==='fte'?0.05:0.5))return '<span class="delta flat"'+at+'>0'+vs+'</span>';
+  /* Доля меняется в ПУНКТАХ, а не в процентах: «доля выросла на 5%»
+     и «доля выросла на 5 п.п.» — разные величины, и путать их нельзя. */
+  const pp=mode==='pp';
+  const txt=pp?D.fmtPp(v):D.fmtDelta(mode,v);
+  if(Math.abs(v)<(pp||mode==='fte'?0.05:0.5))
+    return '<span class="delta flat"'+at+'>'+(pp?D.fmtPp(0):'0')+vs+'</span>';
   if(!o.rate)return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=o.lowerBetter?v<0:v>0;
   return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
@@ -86,7 +90,33 @@ function kpi(o){
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
     '<div class="k-row">'+(o.row2||'')+'</div>';
+  /* Двойная карточка: слева те же четыре строки, справа врезка. Врезка
+     в карточке однажды уже не сработала — на график оставалось меньше
+     двухсот пикселей, и разбивка мельчила имена до нечитаемого. Здесь
+     карточка занимает ДВЕ колонки из четырёх, то есть половину полосы:
+     врезке достаётся втрое больше места, и это не тот же случай.
+     Правило простое: врезка живёт только в двойной карточке. */
+  if(o.aside)return '<div class="kpi wide'+(o.cls?' '+o.cls:'')+'">'+
+    '<div class="h-left">'+body+'</div><div class="h-aside">'+o.aside+'</div></div>';
   return '<div class="kpi'+(o.cls?' '+o.cls:'')+'">'+body+'</div>';
+}
+
+/* ---------- Полоса состояний с подписями ----------
+   Риска показывает форму, подписи под ней — числа. Пока числа жили только
+   в подсказке, карточка отвечала «в порядке ли данные» и молчала о том,
+   чего именно не хватает: чтобы узнать, сколько человек перебрали ставку,
+   приходилось водить мышью по риске. */
+function stateBar(items,total){
+  const sum=total||items.reduce((a,x)=>a+x.value,0);
+  if(!sum)return '';
+  return '<div class="state-bar">'+miniBar(items,sum)+
+    '<div class="sb-keys">'+items.map(x=>'<span class="sb-k"'+
+      tip({title:x.name,
+        rows:[{label:'Сотрудников',value:D.fmtInt(x.value),color:x.color},
+              {label:'Доля',value:D.fmtPct(x.value/sum*100,x.value/sum*100<10?1:0)}],
+        note:x.hint||null})+'>'+
+      '<i style="background:'+x.color+'"></i>'+esc(x.short||x.name)+
+      '<b>'+D.fmtInt(x.value)+'</b></span>').join('')+'</div></div>';
 }
 
 /* ---------- Мини-полоса состава ----------
@@ -211,6 +241,116 @@ function barTable(o){
     '</td><td class="lead">'+o.totalVal1+'</td>'+
     (o.col2?'<td>'+o.totalVal2+'</td>':'')+'<td>100%</td><td class="barcell"></td></tr>';
   return h+'</tbody></table></div>';
+}
+
+/* ============================================================================
+   metricTable — метрики по периодам: строки метрики, столбцы месяцы
+   ------------------------------------------------------------------------
+   Форма для блока движения. Графиком встречных потоков это было ровно одно
+   сообщение — «приход и уход одного размера», — а вопросов к движению
+   гораздо больше: сколько именно вошло в марте, вырос ли найм к февралю,
+   где сальдо ушло в минус. Ответ на каждый из них в стопке приходилось
+   читать наведением по одному столбцу за раз.
+
+   Таблица снимает и переключатель видов движения: виды стоят строками
+   и видны все сразу, поэтому переключать нечего.
+
+   Строки собраны в группы — состояние, приход, уход, — и группы отбиты
+   строкой-заголовком. Внутри группы порядок тот же, что в водопаде
+   и трансформере: сначала найм, потом вход.
+   ========================================================================== */
+const RKIND={
+  val:  (v,mode)=>D.fmtVal(mode,v),
+  int:  v=>D.fmtInt(v),
+  pct:  v=>D.fmtPct(v,Math.abs(v)<10?1:0),
+  delta:(v,mode)=>D.fmtDelta(mode,v),
+  pp:   v=>D.fmtPp(v)
+};
+function mEps(kind,mode){
+  if(kind==='pp'||kind==='pct')return 0.05;
+  return mode==='fte'?0.05:0.5;
+}
+function mcell(v,r,mode){
+  /* Прочерк значит «величины не существует»: у первого периода нет
+     предыдущего, и прирост к нему не ноль, а ничто. */
+  if(v==null)return '—';
+  const kind=r.kind||'val';
+  if(Math.abs(v)<mEps(kind,mode)&&kind!=='pct')return zero();
+  return RKIND[kind](v,mode);
+}
+function metricTable(o){
+  const mode=o.mode, cols=o.cols, rows=o.rows;
+  const span=cols.length+2;
+  let h='<table class="ptable dense pivot mtable"><thead><tr><th class="txt">'+
+    esc(o.dimName||'Метрика')+'</th>';
+  cols.forEach(b=>{
+    h+='<th'+(b.partial?tip({title:b.label+' '+b.year,
+      text:'Неполный период на краю окна: сравнивать его с полными нельзя.'}):'')+'>'+
+      esc(b.label)+(b.partial?'·':'')+'<span class="hint-col">'+esc(b.year)+'</span></th>';
+  });
+  h+='<th class="vs">'+esc(o.totalHead||'Итого')+'</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    if(r.group){
+      h+='<tr class="grp-row"><td class="txt" colspan="'+span+'">'+esc(r.name)+
+        (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+'</td></tr>';
+      return;
+    }
+    let max=0;
+    r.values.forEach(v=>{if(v!=null&&Math.abs(v)>max)max=Math.abs(v)});
+    h+='<tr class="'+(r.strong?'sum':'')+'">'+
+      '<td class="txt"'+(r.hint?tip({title:r.name,text:r.hint}):'')+'>'+
+        '<span class="row-body">'+esc(r.name)+
+        (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+'</span></td>';
+    r.values.forEach((v,i)=>{
+      /* Заливка показывает, где сосредоточена величина ВНУТРИ СТРОКИ:
+         метрики в соседних строках разного порядка, и общий на таблицу
+         масштаб красил бы найм ярко, а изменение аллокации — никак. */
+      const st=r.flow&&v!=null?heat(r.flow,v,max):'';
+      h+='<td'+st+tip({title:cols[i].label+' '+cols[i].year,
+        rows:[{label:r.name,value:v==null?'—':RKIND[r.kind||'val'](v,mode),color:r.color||null}],
+        note:cols[i].partial?'неполный период на краю окна':null})+'>'+
+        mcell(v,r,mode)+'</td>';
+    });
+    const t=r.total!=null?r.total
+      :r.agg==='sum'?r.values.reduce((a,v)=>a+(v||0),0)
+      :r.agg==='last'?r.values[r.values.length-1]:null;
+    h+='<td class="lead vs">'+mcell(t,r,mode)+'</td></tr>';
+  });
+  return h+'</tbody></table>';
+}
+
+/* ============================================================================
+   dataTable — обычная таблица: шапка и строки готовых значений
+   ------------------------------------------------------------------------
+   Нужна там, где строки не метрики и не разрезы отчёта, а список: продукты
+   с их статусом верификации, разрез со здоровьем по состояниям. Экран
+   передаёт значения и признаки, а не разметку: собирать <td> в экране
+   нельзя, иначе таблицы разъедутся между вкладками.
+
+   Ячейка: {v, txt, chip:'good|bad|neutral', sub, tip, lead, muted}
+   ========================================================================== */
+function cellHtml(c,tag){
+  if(c==null)return '<'+tag+'></'+tag+'>';
+  const cls=[c.txt?'txt':'',c.lead?'lead':'',c.vs?'vs':'',c.muted?'muted-c':''].filter(Boolean).join(' ');
+  const body=c.chip
+    ? '<span class="sig-chip '+c.chip+'">'+esc(c.v)+'</span>'
+    : esc(c.v)+(c.sub?'<span class="unit-sub">'+esc(c.sub)+'</span>':'');
+  return '<'+tag+(cls?' class="'+cls+'"':'')+(c.tip?tip(c.tip):'')+'>'+body+'</'+tag+'>';
+}
+function dataTable(o){
+  let h='<table class="ptable dense pivot dtable"><thead><tr>';
+  o.head.forEach(c=>{
+    h+='<th'+([c.txt?'txt':'',c.vs?'vs':''].filter(Boolean).length
+      ? ' class="'+[c.txt?'txt':'',c.vs?'vs':''].filter(Boolean).join(' ')+'"':'')+
+      (c.tip?tip(c.tip):'')+'>'+esc(c.name)+
+      (c.sub?'<span class="hint-col">'+esc(c.sub)+'</span>':'')+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  o.rows.forEach(r=>{
+    h+='<tr'+(r.cls?' class="'+r.cls+'"':'')+'>'+r.cells.map(c=>cellHtml(c,'td')).join('')+'</tr>';
+  });
+  if(o.total)h+='<tr class="total">'+o.total.map(c=>cellHtml(c,'td')).join('')+'</tr>';
+  return h+'</tbody></table>';
 }
 
 /* ============================================================================
@@ -480,6 +620,6 @@ function empty(title,text){
   return '<div class="empty"><b>'+esc(title)+'</b>'+esc(text)+'</div>';
 }
 
-window.PXUI={esc,tip,delta,info,kpi,miniBar,panel,subTabs,select,picker,barTable,
+window.PXUI={esc,tip,delta,info,kpi,miniBar,stateBar,metricTable,dataTable,panel,subTabs,select,picker,barTable,
   pivot,COLS,colsFor,valOf,cellText,seriesTable,matrixTable,legend,note,empty,plural,heat};
 })();

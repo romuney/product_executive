@@ -19,16 +19,30 @@ const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI, SC=window.PXSCREEN;
 
 /* ---------- Состояние ---------- */
 const DEF={
-  mode:'hc', tab:'overview',
+  mode:'hc', tab:'movement',
   i0:D.N-12, i1:D.N-1, gran:'m',
   prods:[], segs:[], mainOnly:false,
   prof:'', grade:'', loc:'', emp:'',
-  dimA:'domain', dimB:'product', open:[], moveView:'io',
+  dimA:'domain', dimB:'product', open:[],
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
-  my:'prof', mxd:'grade',
+  my:'prof', mxd:'grade', hdim:'prof',
   pview:'sum', evt:'', q:'', pAll:false,
   treeOpen:[]
 };
+/* Вкладки: движение, трансформер, здоровье. Ключ вкладки — он же имя экрана
+   в PXSCREEN, поэтому список нигде не дублируется. Список сотрудников
+   вкладкой не стоит: он второй режим панели «Движение персонала», куда
+   ведёт клик по числу движения. */
+const TABS=[
+  ['movement','Движение'],
+  ['transformer','Трансформер'],
+  ['health','Здоровье']
+];
+function screenOf(tab){return SC[tab]||SC.movement}
+/* Режим «люди / аллокации» есть не у каждой вкладки: у здоровья он не
+   применим по природе метрик. Спрашиваем сам экран, а не держим второй
+   список вкладок здесь. */
+function usesMode(tab){return screenOf(tab).usesMode!==false}
 const S=Object.assign({},DEF);
 
 /* Состояние запроса для модели. Отдельная функция, потому что prodSet —
@@ -65,6 +79,10 @@ function fromURL(){
     else S[k]=v;
   });
   if(S.i1<S.i0)S.i1=S.i0;
+  /* Ссылка на прежний главный экран не должна ломаться: вкладка «Ресурсы
+     и движение» разошлась на полосу KPI над вкладками и вкладку движения. */
+  if(S.tab==='overview')S.tab='movement';
+  if(!SC[S.tab])S.tab=DEF.tab;
 }
 
 /* ---------- Полка фильтров ---------- */
@@ -249,7 +267,10 @@ function chips(){
   });
   let h=out.map(c=>'<span class="chip">'+U.esc(c[1])+
     '<button class="x" data-unchip="'+c[0]+'" aria-label="Снять фильтр">×</button></span>').join('');
-  h+='<span class="chip bench">Режим: <b>'+(S.mode==='fte'?'аллокации, FTE':'уникальные люди')+'</b></span>';
+  /* Чипы режима нет на вкладке, у которой режима нет: она сообщала бы
+     о переключателе, которого на экране не видно. */
+  if(usesMode(S.tab))
+    h+='<span class="chip bench">Режим: <b>'+(S.mode==='fte'?'аллокации, FTE':'уникальные люди')+'</b></span>';
   return h;
 }
 
@@ -263,24 +284,39 @@ function reporthead(){
     '<h1 class="rh-title">'+U.esc(scope)+'</h1>'+
     '<div class="chips">'+chips()+'</div></div>'+
     '<div class="rh-side">'+
-      '<span class="period">'+U.esc(SC.overview.periodName(q()))+'</span>'+
+      '<span class="period">'+U.esc(SC.kpi.periodName(q()))+'</span>'+
       '<button class="btn ghost" data-help="1">Как читать отчёт</button>'+
       '<button class="btn" data-link="1">Скопировать ссылку</button>'+
     '</div></div>';
 }
 
+/* ---------- Полоса режима ----------
+   Стоит ПОД вкладками, потому что управляет их содержимым, а не полосой KPI:
+   в полосе обе главные метрики стоят рядом и всегда, а режим лишь
+   подсвечивает ту, в которой считает вкладка.
+
+   У вкладки без режима полосы нет вовсе, а не стоит выключенной: выключенный
+   переключатель обещает, что его можно включить. Вместо неё — строка о том,
+   в чём вкладка считает и почему иначе не может. */
 function modeRow(){
+  const sc=screenOf(S.tab);
+  if(!usesMode(S.tab))return '<div class="moderow static">'+
+    '<span class="lbl">Считаем в</span>'+
+    '<span class="mode-fix">'+U.esc(sc.modeFix||'людях')+'</span>'+
+    '<span class="sp"></span>'+
+    '<span class="hint-txt">'+U.esc(sc.modeNote||'')+'</span></div>';
   return '<div class="moderow">'+
     '<span class="lbl">Считаем в</span>'+
     U.subTabs([['hc','Люди',{title:'Люди',text:'Уникальные сотрудники. Человек, стоящий на трёх продуктах, считается один раз.'}],
                ['fte','Аллокации, FTE',{title:'Аллокации',text:'Сумма процентов занятости. Один человек на 50% и 50% даёт 1,0 FTE.'}]],
       S.mode,'mode')+
     '<span class="sp"></span>'+
-    '<span class="hint-txt">Меняет смысл всех чисел отчёта разом</span>'+
-    '</div>'+
-    '<div class="tabs" role="tablist">'+
-      tab('overview','Ресурсы и движение')+tab('transformer','Трансформер')+
+    '<span class="hint-txt">Меняет смысл всех чисел вкладки разом</span>'+
     '</div>';
+}
+function tabRow(){
+  return '<div class="tabs" role="tablist">'+
+    TABS.map(t=>tab(t[0],t[1])).join('')+'</div>';
 }
 function tab(k,name){
   return '<button class="tab'+(S.tab===k?' active':'')+'" data-tab="'+k+'" role="tab"'+
@@ -295,8 +331,12 @@ function render(animate){
   document.getElementById('shelfBody').innerHTML=shelf();
   document.getElementById('reporthead').innerHTML=reporthead();
   const view=document.getElementById('view');
-  view.innerHTML=modeRow()+
-    (S.tab==='transformer'?SC.transformer.render(st):SC.overview.render(st));
+  /* Порядок блоков — это порядок вопросов. Что сейчас со срезом (полоса KPI,
+     одна на все вкладки) → о чём говорим (вкладки) → в чём считаем (режим) →
+     сам ответ. Полоса стоит выше вкладок, потому что не принадлежит ни одной
+     из них: уходя смотреть здоровье, пользователь не должен терять из виду,
+     сколько всего людей в срезе. */
+  view.innerHTML=SC.kpi.render(st)+tabRow()+modeRow()+screenOf(S.tab).render(st);
   /* Пресет периода подсвечивается по факту, а не по памяти: пользователь мог
      подвинуть границы руками, и тогда пресет уже не тот. */
   const sel=document.querySelector('[data-sel="periodPreset"]');
@@ -391,7 +431,6 @@ document.addEventListener('click',e=>{
   }
   if((el=hit('data-mode'))){S.mode=el.getAttribute('data-mode');fixMetric();return schedule()}
   if((el=hit('data-gran'))){S.gran=el.getAttribute('data-gran');return schedule()}
-  if((el=hit('data-move'))){S.moveView=el.getAttribute('data-move');return schedule()}
   if((el=hit('data-tview'))){S.tview=el.getAttribute('data-tview');return schedule()}
   if((el=hit('data-tab'))){S.tab=el.getAttribute('data-tab');return schedule()}
   /* Легенда — управление сериями графика, а не картинка. Перерисовывается
@@ -414,7 +453,7 @@ document.addEventListener('click',e=>{
   if((el=hit('data-drill'))){
     const [evt,dim,val]=el.getAttribute('data-drill').split('|');
     if(val)applyRowFilter(dim,val);
-    S.evt=evt;S.q='';S.pAll=false;S.pview='people';
+    S.evt=evt;S.q='';S.pAll=false;S.pview='people';S.tab='movement';
     return schedule();
   }
   if((el=hit('data-pview'))){S.pview=el.getAttribute('data-pview');return schedule()}

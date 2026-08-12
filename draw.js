@@ -273,8 +273,16 @@ function drawLine(a,w,h){
   const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
   const all=ser.slice().concat(a.bench||[]);
-  const max=niceMax(all);
+  /* Верх шкалы можно задать снаружи — и только верх: у доли он равен ста
+     процентам всегда, иначе восемьдесят процентов упираются в потолок
+     и читаются как сто. Низ остаётся константным нулём, задать его нечем. */
+  const max=o.max||niceMax(all);
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+  /* Доля пишется процентом, а изменение — пунктами: «плюс 5%» и «плюс
+     5 п.п.» это разные величины, и путать их в подписи нельзя. */
+  const pct=o.fmt==='pct';
+  const F=v=>pct?CD.fmtPct(v,v<10?1:0):fv(o,v);
+  const FD=v=>pct?CD.fmtPp(v):fd(o,v);
 
   let s=header(w,o.title,o.legend,{lock:true,info:o.info});
   s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
@@ -292,17 +300,17 @@ function drawLine(a,w,h){
 
   ser.forEach((v,i)=>{
     const cx=x0+bandW*(i+0.5), cy=Y(v);
-    const rows=[{label:o.name||'Значение',value:fv(o,v),color:o.color||C_LINE}];
-    if(a.bench)rows.push({label:o.benchName||'база',value:fv(o,a.bench[i]),color:C_BENCH,dash:true});
+    const rows=[{label:o.name||'Значение',value:F(v),color:o.color||C_LINE}];
+    if(a.bench)rows.push({label:o.benchName||'база',value:F(a.bench[i]),color:C_BENCH,dash:true});
     const dly=DRAW_MS*(i/Math.max(1,ser.length-1))*0.9;
     s+='<g class="ptg"'+tip({title:tickTitle(ticks[i]),rows,
-        note:i>0?'к предыдущему периоду: '+fd(o,v-ser[i-1]):null})+'>';
+        note:i>0?'к предыдущему периоду: '+FD(v-ser[i-1]):null})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
     if(a.bench)s+='<circle class="dotb" cx="'+num(cx)+'" cy="'+num(Y(a.bench[i]))+'" r="0" fill="'+C_BENCH+'"/>';
     s+='<circle class="dot" cx="'+num(cx)+'" cy="'+num(cy)+'" r="3.4" fill="#fff" stroke="'+(o.color||C_LINE)+'"'
       +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
     s+='</g>';
-    s+=txt(cx,cy-VAL_DY,fv(o,v),valOpt({delay:dly}));
+    s+=txt(cx,cy-VAL_DY,F(v),valOpt({delay:dly}));
   });
   return svg(w,h,s);
 }
@@ -371,96 +379,88 @@ function drawSupply(a,w,h){
 }
 
 /* ============================================================================
-   2б. Встречные потоки со СТРУКТУРОЙ: пришло вверх, ушло вниз.
+   2б. Бублик: часть от целого.
    ------------------------------------------------------------------------
-   Каждое плечо — стопка: ближе к оси стоит то, что важнее прочитать первым
-   (найм сверху вниз к оси, отток снизу вверх к оси), дальше от оси —
-   вторичное движение. Итог плеча подписан снаружи стопки, состав читается
-   цветом и подсказкой.
+   Единственный вид, где доля показывается углом, а не длиной, и появляется
+   он только там, где ЗАРАНЕЕ ПОНЯТНО, что принято за сто процентов:
+   все продукты среза, весь план по ставкам. Если целое приходится
+   объяснять словами, кольцо не подходит — там таблица или каскад.
 
-   Почему стопка, а не четыре бара рядом: рядом стоящие бары читаются как
-   четыре независимые категории, а это два потока, каждый из двух частей.
-   Итог «сколько всего пришло» в четырёх барах приходилось складывать в уме.
+   В центре стоит само целое, а не доля: доля живёт крупной цифрой карточки,
+   и повторять её внутри кольца незачем. Кольцо отвечает на другой вопрос —
+   «сто процентов это сколько и из чего».
+
+   Части подписаны справа, значением и долей: угол показывает форму, число
+   читается точно. Открытая часть плана — белая с обводкой, ровно как белая
+   часть бара в ресурсообеспеченности: одна и та же сущность обязана
+   выглядеть одинаково во всём отчёте.
    ========================================================================== */
-function drawStackDiverge(a,w,h){
-  const ticks=a.ticks, o=a.opt||{};
-  const off=offOf(o);
-  const up=a.up.filter(x=>!off.has(x.sid)), dn=a.down.filter(x=>!off.has(x.sid));
+function arcPath(cx,cy,R,r,a0,a1){
+  const P=(ang,rad)=>[cx+rad*Math.sin(ang),cy-rad*Math.cos(ang)];
+  const big=(a1-a0)>Math.PI?1:0;
+  const p0=P(a0,R),p1=P(a1,R),p2=P(a1,r),p3=P(a0,r);
+  return 'M'+num(p0[0])+' '+num(p0[1])+
+    'A'+num(R)+' '+num(R)+' 0 '+big+' 1 '+num(p1[0])+' '+num(p1[1])+
+    'L'+num(p2[0])+' '+num(p2[1])+
+    'A'+num(r)+' '+num(r)+' 0 '+big+' 0 '+num(p3[0])+' '+num(p3[1])+'Z';
+}
+/* Целая часть — не дуга в 360°, а два полукольца: дуга, у которой начало
+   совпадает с концом, в SVG схлопывается в ничто. */
+function ringPath(cx,cy,R,r){
+  return arcPath(cx,cy,R,r,0,Math.PI)+arcPath(cx,cy,R,r,Math.PI,Math.PI*2);
+}
+function drawDonut(a,w,h){
+  const o=a.opt||{}, parts=a.parts, ctr=a.center||null;
   const hh=headH(o.title,o.legend);
-  h=h||o.h||320;
-  const top=hh+LBL_ROOM, bot=h-AXIS_H;
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
-  const sumAt=(arr,i)=>arr.reduce((s,x)=>s+x.series[i],0);
-  const upT=ticks.map((_,i)=>sumAt(up,i)), dnT=ticks.map((_,i)=>sumAt(dn,i));
-  const zero=top+(bot-top)/2;
-  const arm=Math.max(8,(bot-top)/2-LBL_ROOM);
-  const max=niceMax(upT.concat(dnT));
-  const bw=Math.min(52,bandW*0.58);
+  h=h||o.h||132;
+  const total=parts.reduce((s,p)=>s+p.value,0);
+  /* Размер кольца — от меньшей стороны: карточка в полосе KPI и узкая,
+     и низкая, и кольцо обязано остаться круглым в обеих. */
+  const size=Math.max(56,Math.min(h-hh-6,w*0.46,132));
+  const R=size/2, r=R*0.615;
+  const cx=PAD_X+R, cy=hh+(h-hh)/2;
 
-  let s=header(w,o.title,o.legend,{off:o.off,info:o.info});
-  s+=axisX(ticks,x0,bandW,top,bot,bot+15);
-  s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
-  ticks.forEach((t,i)=>{
-    const cx=x0+bandW*(i+0.5);
-    const hUp=(upT[i]/max)*arm, hDn=(dnT[i]/max)*arm;
-    /* Подсказка у каждого плеча своя: одна на восемь строк не помещается
-       и перестаёт объяснять точку — она начинает заменять таблицу. */
-    const tipUp={title:tickTitle(t),
-      rows:up.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
-      note:[(a.upWord||'всего пришло')+': '+fv(o,upT[i]),
-            'сальдо периода: '+fd(o,upT[i]-dnT[i])]};
-    const tipDn={title:tickTitle(t),
-      rows:dn.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
-      note:[(a.dnWord||'всего ушло')+': '+fv(o,dnT[i]),
-            'сальдо периода: '+fd(o,upT[i]-dnT[i])]};
-    /* Подписано ТОЛЬКО плечо целиком. Цифра в каждом сегменте превращала
-       график в таблицу: двенадцать периодов по четыре числа читать всё равно
-       никто не станет, а итог плеча — то, ради чего сюда смотрят. Состав
-       разбирается наведением или выключением серии в легенде. */
-    /* Стопка — ОДИН бар, разрезанный на части, а не набор кубиков. Поэтому
-       ни зазоров между сегментами, ни скруглений внутри: скруглён только
-       ВНЕШНИЙ край плеча — тот, которым бар заканчивается. Всё остальное
-       обрезано соседним сегментом или осью.
-
-       Край определяется по факту отрисовки, а не по порядку в массиве:
-       выключил вход — верхним становится найм, и скругление переезжает
-       к нему само. Ровно так же ведёт себя занятая часть под квотой. */
-    const segU=up.map(x=>(x.series[i]/max)*arm);
-    const segD=dn.map(x=>(x.series[i]/max)*arm);
-    let lastU=-1;segU.forEach((v,k)=>{if(v>0.5)lastU=k});
-    let lastD=-1;segD.forEach((v,k)=>{if(v>0.5)lastD=k});
-
-    s+='<g class="barg"'+tip(tipUp)+'>';
-    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(zero-hh)+'"/>';
-    let acc=0;
-    up.forEach((x,k)=>{
-      const seg=segU[k];
-      if(seg>0.5){
-        const y=zero-acc-seg, ex=' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"';
-        s+=(k===lastU?barUp(cx-bw/2,y,bw,seg,x.color,ex):rect(cx-bw/2,y,bw,seg,x.color,0,ex));
-        acc+=seg;
-      }
-    });
-    s+='</g>';
-    s+='<g class="barg"'+tip(tipDn)+'>';
-    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(zero)+'" width="'+num(bandW)+'" height="'+num(bot-zero)+'"/>';
-    acc=0;
-    dn.forEach((x,k)=>{
-      const seg=segD[k];
-      if(seg>0.5){
-        const y=zero+acc, ex=' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"';
-        s+=(k===lastD?barDown(cx-bw/2,y,bw,seg,x.color,ex):rect(cx-bw/2,y,bw,seg,x.color,0,ex));
-        acc+=seg;
-      }
-    });
-    s+='</g>';
-    /* Итог прихода стоит НАД стопкой, итог ухода — ПОД ней: число уходит
-       в ту же сторону, в какую растёт плечо. */
-    if(upT[i]>0)s+=txt(cx,zero-hUp-VAL_DY,fv(o,upT[i]),valOpt({delay:240+i*26}));
-    if(dnT[i]>0)s+=txt(cx,Math.min(zero+hDn+VAL_DY+4,bot-2),fv(o,dnT[i]),valOpt({delay:240+i*26}));
+  let s=header(w,o.title,o.legend,{lock:true,info:o.info});
+  let acc=0;
+  parts.forEach((p,i)=>{
+    const share=total?p.value/total:0;
+    if(share<=0)return;
+    const a0=acc*Math.PI*2, a1=(acc+share)*Math.PI*2;
+    acc+=share;
+    const extra=' class="arc" style="animation-delay:'+(i*90)+'ms"'+
+      (p.hollow?' stroke="'+(p.stroke||p.color)+'" stroke-width="1.4"':'')+
+      tip({title:p.name,
+        rows:[{label:o.unit||'Значение',value:p.text||CD.fmtInt(p.value),color:p.color}],
+        note:[CD.fmtPct(share*100,share*100<10?1:0)+' от целого',p.hint||null]});
+    s+='<path d="'+(share>0.9999?ringPath(cx,cy,R,r):arcPath(cx,cy,R,r,a0,a1))+
+      '" fill="'+p.color+'"'+extra+'/>';
+  });
+  if(!total)s+='<path d="'+ringPath(cx,cy,R,r)+'" fill="#f0f1f3"/>';
+  /* Центр: сколько всего и чего. Это и есть ответ на «что принято
+     за сто процентов». */
+  if(ctr){
+    s+=txt(cx,cy+(ctr.caption?1:5),ctr.value,{size:Math.min(19,R*0.52),weight:800,fill:C_INK});
+    if(ctr.caption)s+=txt(cx,cy+15,ctr.caption,{size:10.5,weight:600,fill:C_AXIS});
+  }
+  /* Подписи частей — справа столбиком, по центру кольца по вертикали.
+     Каждая строка: марка, имя, значение и доля. */
+  const lx=PAD_X+size+13, entryH=29;
+  let ly=cy-(parts.length*entryH)/2+11;
+  parts.forEach(p=>{
+    const share=total?p.value/total*100:0;
+    s+=(p.hollow
+      ? '<rect x="'+num(lx)+'" y="'+num(ly-8)+'" width="10" height="10" rx="2" fill="#fff" stroke="'+
+        (p.stroke||p.color)+'" stroke-width="1.4"/>'
+      : rect(lx,ly-8,10,10,p.color,2));
+    s+=txt(lx+16,ly,p.name,{size:11,fill:C_LABEL,anchor:'start'});
+    s+=txt(lx+16,ly+13,(p.text||CD.fmtInt(p.value))+' · '+CD.fmtPct(share,share<10?1:0),
+      {size:10.5,weight:700,fill:C_AXIS,anchor:'start'});
+    ly+=entryH;
   });
   return svg(w,h,s);
 }
+
+
 /* ============================================================================
    2в. Разложение итога: каскад СВЕРХУ ВНИЗ.
    ------------------------------------------------------------------------
@@ -546,68 +546,6 @@ function drawBreakdown(a,w,h){
       ' data-seg="'+p.key+'" tabindex="0" role="button"'+
       ' aria-pressed="'+(p.on?'true':'false')+'"');
     rem=to;
-  });
-  return svg(w,h,s);
-}
-
-/* ============================================================================
-   4. Панели друг под другом: несколько метрик за один период.
-      У каждой своя шкала от нуля и своя полная ось X под ней — одна общая
-      ось внизу заставляла бегать глазами через весь блок.
-
-      Панель с сальдо уходит в минус, и ноль у неё поднимается внутрь поля:
-      месяц, где аллокацию урезали сильнее, чем добрали, обязан рисоваться
-      столбцом ВНИЗ. Пока ноль стоял на дне, отрицательный столбец не
-      рисовался вовсе, а его подпись уезжала на подписи месяцев и перекрывала
-      их — читалось так, будто в этом месяце не было ничего.
-
-      Ось X при этом остаётся на дне панели: подписи периодов у всех панелей
-      блока обязаны стоять на одной линии, иначе их не сопоставить.
-   ========================================================================== */
-function drawPanels(a,w,h){
-  const ps=a.panels, ticks=a.ticks, o=a.opt||{};
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
-  const GAP=STACK_GAP, HEAD=16, PLOT_MIN=58;
-  const minPanel=HEAD+LBL_ROOM+PLOT_MIN+AXIS_H+GAP;
-  h=Math.max(h||o.h||340,ps.length*minPanel+14);
-  const panelH=(h-14)/ps.length;
-  let s='';
-  ps.forEach((p,pi)=>{
-    const base=pi*panelH;
-    const top=base+HEAD+LBL_ROOM, bot=base+panelH-AXIS_H-GAP;
-    /* Поле делится между плечами по их реальной величине, а не пополам:
-       пустое нижнее плечо на панели без минусов — та же серая пустота.
-       Под нижним плечом резервируется строка на подпись, иначе минусовое
-       число снова легло бы на подписи месяцев. Круглый максимум здесь
-       не нужен: оси значений нет, каждый столбец подписан. */
-    const posM=Math.max(0,Math.max.apply(null,p.series));
-    const negM=Math.max(0,-Math.min.apply(null,p.series));
-    const neg=negM>0;
-    const span=posM+negM||1;
-    const band=(bot-top)-(neg?LBL_ROOM:0);
-    const zero=top+(posM/span)*band;
-    const Y=v=>zero-(v/span)*band;
-    s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-    s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
-    ticks.forEach((t,i)=>{if(t.isYearStart&&i>0)s+=line(x0+bandW*i,top,x0+bandW*i,bot,C_DIV,1,'4 3')});
-    const pd=pi*140, bw=Math.min(56,bandW*0.64);
-    p.series.forEach((v,i)=>{
-      const cx=x0+bandW*(i+0.5), y=Y(v), dn=v<0;
-      s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
-        rows:[{label:p.name,value:fd(o,v),color:p.color||C_LINE}],note:p.note})+'>';
-      s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
-      /* Цвет несёт знак: сальдо в плюс и сальдо в минус — разные события,
-         и красить их одинаково значит прятать разницу. */
-      const col=dn?(p.colorDn||C_DN):(p.color||C_LINE);
-      s+=(dn?barDown(cx-bw/2,zero,bw,y-zero,col,' class="bar dn" style="animation-delay:'+(pd+i*24)+'ms"')
-            :barUp(cx-bw/2,y,bw,zero-y,col,' class="bar up" style="animation-delay:'+(pd+i*24)+'ms"'));
-      s+='</g>';
-      /* Подпись уходит в ту же сторону, что и столбец, и всегда остаётся
-         внутри панели: у самого дна она встаёт над осью X, а не на ней. */
-      const ly=dn?Math.min(y+VAL_DY+4,bot-2):y-VAL_DY;
-      s+=txt(cx,ly,neg?fd(o,v):fv(o,v),valOpt({delay:pd+300+i*24}));
-    });
-    s+=axisX(ticks,x0,bandW,bot,bot,bot+15);
   });
   return svg(w,h,s);
 }
@@ -700,12 +638,13 @@ function sparkBars(series,w,h,o){
    перерисовывается под фактическую ширину: меняется ГЕОМЕТРИЯ, а не масштаб
    всего SVG. Иначе на телефоне подписи стали бы нечитаемыми.
    ========================================================================== */
-const KINDS={line:drawLine,supply:drawSupply,sdiverge:drawStackDiverge,
-             panels:drawPanels,waterfall:drawWaterfall,breakdown:drawBreakdown};
-/* Композиционные виды блокируются целиком: водопад и разложение держатся
-   на всех своих столбцах, и «убрать серию» там означает сломать смысл,
-   а не убрать лишнее. */
-const LOCKED={waterfall:1,breakdown:1};
+const KINDS={line:drawLine,supply:drawSupply,donut:drawDonut,
+             waterfall:drawWaterfall,breakdown:drawBreakdown};
+/* Композиционные виды блокируются целиком: водопад, разложение и бублик
+   держатся на всех своих частях, и «убрать серию» там означает сломать
+   смысл, а не убрать лишнее. У бублика это ещё и арифметика: выключенная
+   часть перестала бы складываться в сто процентов. */
+const LOCKED={waterfall:1,breakdown:1,donut:1};
 const NOMINAL_W=900;
 let _specs=new Map(), _sid=0;
 /* Какие серии выключены. Живёт отдельно от _specs и НЕ чистится в reset():

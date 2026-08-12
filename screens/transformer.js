@@ -134,11 +134,11 @@ function render(st){
       '</div>';
 
   return U.panel({title:'Трансформер',
-    sub:'период '+window.PXSCREEN.overview.periodName(st)+
+    sub:'период '+window.PXSCREEN.kpi.periodName(st)+
       ' · гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
     tabs,body:ctl+(view==='dyn'?dynView(st,m):mtxView(st,m))});
 }
 
 window.PXSCREEN=window.PXSCREEN||{};
-window.PXSCREEN.transformer={render};
+window.PXSCREEN.transformer={render,usesMode:true};
 })();

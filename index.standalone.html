@@ -215,6 +215,11 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
   color:var(--muted);font-weight:800}
 .moderow .sp{flex:1}
 .hint-txt{font-size:var(--fs-note);color:var(--muted);font-weight:600;max-width:520px;text-align:right}
+/* Вкладка без режима: вместо выключенного переключателя — фиксированная
+   единица счёта. Выключенный переключатель обещает, что его можно включить,
+   а здесь включать нечего: у метрик вкладки другой знаменатель. */
+.moderow.static .mode-fix{font-size:var(--fs-body);font-weight:800;color:var(--ink);
+  background:#f0f1f3;border-radius:var(--r-pill);padding:6px var(--s6)}
 .tabs{display:flex;gap:var(--s10);border-bottom:1px solid var(--line);margin:0 0 var(--s9)}
 .tab{border:0;background:none;padding:0 0 var(--s5);font:inherit;font-size:var(--fs-lead);
   font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -243,6 +248,40 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .kpi .k-row:empty{margin:0}
 .kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
 .kpi.lead-card{outline:2px solid var(--act);outline-offset:-2px}
+/* Двойная карточка: слева те же четыре строки, справа врезка. Из subgrid она
+   выходит намеренно — её содержимое раскладывается по горизонтали. Соседние
+   карточки продолжают выравниваться между собой.
+
+   Врезка внутри карточки однажды уже не сработала: в одинарной карточке
+   на график оставалось меньше двухсот пикселей, и разбивка мельчила имена
+   до нечитаемого. Здесь карточка занимает две колонки из четырёх — половину
+   полосы, — и врезке достаётся втрое больше места. Правило: врезка живёт
+   ТОЛЬКО в двойной карточке.
+
+   Левая колонка ужимается, а не толкает врезку: пока она стояла
+   flex:0 0 auto, длинная подпись под числом съедала всю ширину карточки,
+   и графику доставался ноль. */
+.kpi.wide{grid-column:span 2;grid-row:span 4;display:flex;align-items:stretch;
+  gap:var(--s7);min-width:0}
+.kpi.wide .h-left{display:flex;flex-direction:column;min-width:118px;flex:0 1 auto;
+  max-width:52%}
+.kpi.wide .h-left .k-row:first-of-type{margin-top:auto}
+.kpi.wide .h-left .k-sub{white-space:normal;line-height:1.35}
+.kpi.wide .h-aside{flex:1;min-width:0;display:flex;flex-direction:column;
+  justify-content:center;border-left:1px solid var(--line2);padding-left:var(--s7)}
+.kpi.wide .h-aside .svgchart{flex:1;min-height:0}
+.kpi.wide .h-cap{font-size:var(--fs-cap);color:var(--muted);font-weight:600;
+  margin-bottom:var(--s2);line-height:1.35}
+.kpi.wide .h-cap b{color:var(--ink2)}
+/* Состояния ставки: риска и числа под ней. Числа стоят на экране, а не только
+   в подсказке, — карточка обязана отвечать не только «в порядке ли данные»,
+   но и «чего именно не хватает». */
+.state-bar{display:flex;flex-direction:column;gap:var(--s4)}
+.sb-keys{display:flex;flex-wrap:wrap;gap:var(--s3) var(--s6)}
+.sb-k{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-cap);
+  color:var(--muted);font-weight:600;cursor:help;white-space:nowrap}
+.sb-k i{width:8px;height:8px;border-radius:2px;flex:0 0 auto}
+.sb-k b{color:var(--ink2);font-weight:800;font-variant-numeric:tabular-nums}
 /* Одна высота строк во всей полосе: карточка — subgrid на четыре строки
    родителя. Перенос заголовка в одной карточке добавляет строку ВСЕМ, зато
    значения и подписи остаются на одном уровне. @supports обязателен: без
@@ -407,10 +446,34 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
 .stable th,.mtx th{text-align:right}
 .stable th.txt,.mtx th.txt{text-align:left}
 
+/* ---------- Метрики по периодам ----------
+   Строки — метрики, столбцы — периоды. Группа строк отбита строкой-шапкой:
+   без неё «выход с продукта» и «прирост численности» стоят в одном списке
+   и читаются как однородные величины, хотя одна из них — поток, а другая
+   состояние. Итоговые строки группы набраны жирнее: они и есть то, ради
+   чего группу читают. */
+.mtable .grp-row td{background:#f4f5f7;font-size:var(--fs-cap);text-transform:uppercase;
+  letter-spacing:.3px;color:var(--ink2);font-weight:800;padding-top:var(--s4);
+  padding-bottom:var(--s4)}
+.mtable .grp-row td .unit-sub{display:inline;margin-left:var(--s4);text-transform:none;
+  letter-spacing:0}
+.mtable tr.sum td{font-weight:800;color:var(--ink);background:#fcfcfd}
+.mtable td.txt{white-space:normal}
+.mtable th.txt{min-width:220px}
+.dtable td.muted-c{color:var(--muted2)}
+.dtable td.txt .unit-sub{white-space:normal}
+.dtable th.txt{min-width:200px}
+
 /* ---------- Разбивка полосой в ячейке ----------
-   Кольца и горизонтальные бар-чарты для разбивок запрещены: доля читается
-   по числу точнее, чем по углу сектора. Полоса растёт от левого края —
-   у всех строк общий старт, поэтому длины сравниваются глазом. */
+   Горизонтальный бар-чарт ВМЕСТО таблицы для разбивок запрещён: доля
+   читается по числу точнее, чем по углу или по длине. Полоса растёт
+   от левого края — у всех строк общий старт, поэтому длины сравниваются
+   глазом, а числа стоят рядом в своей колонке.
+
+   Кольцо — исключение ровно на два случая: верификация и укомплектованность.
+   Там сама метрика ЕСТЬ доля, целое известно заранее (продукты среза, план
+   по ставкам), частей всего две, и числа по-прежнему подписаны рядом.
+   Разбивку на четыре и больше категорий кольцом не показываем. */
 .btable td.barcell,.btable th.bar-th{text-align:left;padding-left:var(--pad-cell)}
 /* Пояснение под именем строки переносится по словам. Общий запрет переносов
    в таблицах касается ЧИСЛОВЫХ колонок — их ужимать нельзя. Здесь же
@@ -459,6 +522,10 @@ select,.ctl select{appearance:none;border:1px solid var(--line);background:#fff;
   animation:tp-draw .76s cubic-bezier(.4,0,.2,1) both}
 .svgchart.anim .lnb{animation:tp-fade .5s ease-out both;animation-delay:.1s}
 .svgchart.anim .fade,.svgchart.anim .dot{animation:tp-fade .3s ease-out both}
+/* Дуга кольца проявляется, а не выкручивается из нуля: вращающийся сектор
+   читается как загрузка, а не как доля. */
+.svgchart.anim .arc{animation:tp-fade .42s ease-out both}
+.arc{cursor:help}
 
 /* ===== Список сотрудников ===== */
 .plist-tools{align-items:flex-end}
@@ -606,6 +673,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 }
 @media(max-width:900px){
   .kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)}
+  /* Двойная карточка на планшете занимает всю ширину и раскладывается
+     сверху вниз: врезка рядом с числом в 160px не читается. */
+  .kpi.wide{flex-direction:column;gap:var(--s5)}
+  .kpi.wide .h-left{max-width:none}
+  .kpi.wide .h-aside{border-left:0;border-top:1px solid var(--line2);
+    padding-left:0;padding-top:var(--s5);min-height:118px}
   /* На узком экране таблица прокручивается, а не переносится: ужать числовые
      колонки нельзя — между значениями останется меньше воздуха, чем внутри них. */
   .tbl-wrap{overflow-x:auto}
@@ -615,6 +688,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 }
 @media(max-width:640px){
   .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}
+  .kpi.wide{grid-column:span 1}
   .sub-tabs{display:flex;overflow-x:auto;max-width:100%}
   .panel-h{padding:var(--s6)}.panel-b{padding:var(--s5)}
   .content{padding:var(--s6)}
@@ -684,7 +758,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
         <label>Люди и аллокации — разные числа, и оба верные</label>
         <div class="fhint">Аллокация — процент занятости человека на продукте, поэтому один человек
           живёт сразу на нескольких продуктах. В режиме «Люди» он считается один раз, в режиме
-          «Аллокации» — своими процентами. Переключатель наверху меняет смысл всех чисел разом.</div>
+          «Аллокации» — своими процентами. Переключатель под вкладками меняет смысл всех чисел
+          вкладки разом. На вкладке «Здоровье» его нет: сумма аллокаций считается по человеку
+          целиком, а верификация — по продукту, и делить их на проценты не на что.</div>
       </div>
       <div class="fgrp">
         <label>Сумма по продуктам больше итога — так и должно быть</label>
@@ -692,6 +768,14 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
           продуктов он аллоцирован, а в итоге считается один раз. По этой же причине переходы между
           продуктами внутри выбранного среза видны в строках и схлопываются в итоге: портфель они
           не меняют.</div>
+      </div>
+      <div class="fgrp">
+        <label>Полоса KPI одна на все вкладки</label>
+        <div class="fhint">Наверху стоит состояние среза: сколько людей и ставок, здоровье
+          аллокаций, верификация и укомплектованность. Оно не меняется при переходе между
+          вкладками — вкладка отвечает на вопрос «как менялось», полоса на вопрос «что сейчас».
+          У верификации и укомплектованности доля показана кольцом: это те две метрики, где
+          заранее известно, что принято за сто процентов.</div>
       </div>
       <div class="fgrp">
         <label>Четыре вида движения, а не два</label>
@@ -1166,10 +1250,13 @@ function fmtDelta(mode,v){
   if(Math.abs(v)<(mode==='fte'?0.05:0.5))return '0';
   return (v>0?'+':'')+fmtVal(mode,v);
 }
+/* Минус у доли — типографский, как и везде в отчёте: дефис короче и ниже,
+   и в колонке чисел он выпадает из ряда. Доля бывает отрицательной только
+   там, где это прирост, — и там знак читается первым. */
 function fmtPct(v,d){
   if(v==null)return '—';
-  const s=(+v).toFixed(d==null?1:d).replace('.',',');
-  return (v<0?'':'')+s+'%';
+  const s=Math.abs(+v).toFixed(d==null?1:d).replace('.',',');
+  return (v<0?MINUS:'')+s+'%';
 }
 function fmtPp(v){
   if(Math.abs(v)<0.05)return '0'+THIN+'п.п.';
@@ -1390,11 +1477,16 @@ function segments(st){
 }
 
 /* Здоровье считается по ЧЕЛОВЕКУ, а не по паре: перебор ставки возникает
-   именно из суммы по всем продуктам, и на отдельной паре его не видно. */
-function health(st){
-  const m=st.i1;
-  const out=HEALTH.map(h=>({key:h.key,name:h.name,hint:h.hint,bad:h.bad,people:0}));
-  const idx=Object.create(null);out.forEach((o,i)=>{idx[o.key]=i});
+   именно из суммы по всем продуктам, и на отдельной паре его не видно.
+
+   Один проход на все виды здоровья: месяц приходит параметром, а группировка —
+   функцией. Пока месяц был зашит в st.i1, здоровье умело отвечать только
+   «как сейчас», и на вопрос «становится лучше или нет» отчёту было нечем
+   ответить. Теперь тот же счётчик считает любой месяц окна, и из него
+   собирается динамика. */
+function healthScan(st,m,keyOf){
+  const out=new Map();
+  const blank=()=>{const o=Object.create(null);HEALTH.forEach(h=>{o[h.key]=0});return o};
   const inSet=Object.create(null);
   ALLOC.forEach(a=>{
     if(!inScope(st,a.prod))return;
@@ -1411,9 +1503,39 @@ function health(st){
       if(sumPct[p.id][m]>0)return;                 /* аллоцирован, но вне среза */
       if(!inScope(st,PIDX[p.home]))return;
     }
-    out[idx[healthOf(sumPct[p.id][m])]].people++;
+    const k=keyOf?keyOf(p):'*';
+    let row=out.get(k);
+    if(!row){row=blank();out.set(k,row)}
+    row[healthOf(sumPct[p.id][m])]++;
   });
   return out;
+}
+function health(st,m){
+  m=m==null?st.i1:m;
+  const c=healthScan(st,m,null).get('*');
+  return HEALTH.map(h=>({key:h.key,name:h.name,hint:h.hint,bad:h.bad,
+    people:c?c[h.key]:0}));
+}
+/* Здоровье в разрезе. Разрез только по свойствам ЧЕЛОВЕКА: здоровье считается
+   по сумме аллокаций человека, и разложить его по продуктам нельзя — перебор
+   ставки возникает из нескольких продуктов сразу и ни одному из них
+   не принадлежит. */
+const HEALTH_DIMS=['prof','grade','loc','emp'];
+function healthBy(st,dimKey,m){
+  m=m==null?st.i1:m;
+  const d=DIM_BY_KEY[HEALTH_DIMS.indexOf(dimKey)>=0?dimKey:'prof'];
+  const map=healthScan(st,m,p=>d.of(null,p,m,st));
+  const rows=[];
+  map.forEach((counts,name)=>{
+    let total=0;HEALTH.forEach(h=>{total+=counts[h.key]});
+    let bad=0;HEALTH.forEach(h=>{if(h.bad)bad+=counts[h.key]});
+    rows.push({name,counts,total,bad,norm:counts.norm,
+      share:total?counts.norm/total*100:0});
+  });
+  const ord=DIM_ORDER[d.key];
+  if(ord)rows.sort((a,b)=>ord.indexOf(a.name)-ord.indexOf(b.name));
+  else rows.sort((a,b)=>b.total-a.total);
+  return rows;
 }
 
 /* Доля верифицированных продуктов. Считается по продуктам в срезе, у которых
@@ -1438,6 +1560,63 @@ function verification(st,m){
   });
   return {total,ok,share:total?ok/total*100:0,fteOk,fteAll,
           fteShare:fteAll?fteOk/fteAll*100:0};
+}
+
+/* ---------- Верификация по продуктам ----------
+   Доля верифицированных без имён продуктов — это оценка без адресата: с ней
+   нельзя пойти и подтвердить состав. Строка знает, сколько людей стоит
+   за неподтверждённым продуктом, — именно этим измеряется цена расхождения
+   в P&L. Неподтверждённые идут первыми: это список работы, а не справочник. */
+function verifyProducts(st,m){
+  m=m==null?st.i1:m;
+  const cnt=new Int32Array(NPROD), fte=new Float32Array(NPROD);
+  ALLOC.forEach(a=>{
+    if(!inScope(st,a.prod))return;
+    const p=PEOPLE[a.pid];
+    if(!personPass(st,p))return;
+    const v=active(st,a,p,m);
+    if(!v)return;
+    cnt[a.prod]++;fte[a.prod]+=v/100;
+  });
+  const out=[];
+  PRODUCTS.forEach((p,i)=>{
+    if(!cnt[i])return;                       /* пустой продукт подтверждать нечего */
+    const from=p.verifiedFrom!=null&&m>=p.verifiedFrom?p.verifiedFrom:null;
+    out.push({name:p.name,domName:p.domName,people:cnt[i],fte:fte[i],
+      verified:from!=null,from});
+  });
+  out.sort((a,b)=>(a.verified-b.verified)||(b.people-a.people));
+  return out;
+}
+
+/* ---------- Модель вкладки «Здоровье» ----------
+   Считается ОТДЕЛЬНО от model(): вкладка одна, а модель отчёта собирается
+   на каждый рендер, и гонять по всем вёдрам полный проход по людям ради
+   блока, который сейчас не на экране, незачем.
+
+   Всё здесь считается в ЛЮДЯХ и не зависит от режима отчёта: 70% человека
+   нельзя проверить на ставку, а продукт нельзя верифицировать на 70%. */
+function healthModel(st){
+  const bks=buckets(st.i0,st.i1,st.gran);
+  const hst=Object.assign({},st,{mode:'hc'});
+  const states=HEALTH.map(h=>({key:h.key,name:h.name,hint:h.hint,bad:h.bad,values:[]}));
+  const total=[],normShare=[],badTotal=[],verify=[];
+  bks.forEach(b=>{
+    const hs=health(hst,b.to);
+    let tot=0,bad=0,norm=0;
+    hs.forEach((x,i)=>{
+      states[i].values.push(x.people);
+      tot+=x.people;
+      if(x.bad)bad+=x.people;
+      if(x.key==='norm')norm=x.people;
+    });
+    total.push(tot);badTotal.push(bad);
+    normShare.push(tot?norm/tot*100:0);
+    verify.push(verification(hst,b.to));
+  });
+  return {bks,states,total,badTotal,normShare,verify,
+    now:health(hst,st.i1),
+    products:verifyProducts(hst,st.i1)};
 }
 
 /* Ресурсообеспеченность: занятые ставки и открытые квоты на продукте.
@@ -1588,6 +1767,10 @@ function model(st){
     stock:b.stock,flow:b.flow,
     supply:supply(st,bks,tot),
     quota:quotaTotal(st,st.i1),
+    /* Квоты на начало периода — то же «было», что и у численности: месяц
+       перед окном. Без него укомплектованность не с чем сравнить, а вопрос
+       «стало лучше или хуже» без сравнения не отвечается. */
+    quotaStart:quotaTotal(st,Math.max(0,st.i0-1)),
     head:headline(st),
     /* Разложение сегментов считается БЕЗ фильтра по сегментам: когда одна
        категория выбрана, на экране всё равно должно быть видно, частью
@@ -1705,11 +1888,12 @@ window.PXDATA={
   MONTHS,N,mLabel,mLabelFull,buckets,GRAN,
   DOMAINS,PRODUCTS,PROD,DOM,PIDX,NPROD,
   PROFS,GRADES,LOCS,EMPS,
-  SEGMENTS,SEG_KEYS,SEG_BY_KEY,segOf,scopeSeg,HEALTH,healthOf,
+  SEGMENTS,SEG_KEYS,SEG_BY_KEY,segOf,scopeSeg,HEALTH,healthOf,HEALTH_DIMS,
   DIMS,DIM_BY_KEY,DIM_ORDER,SERIES_METRICS,
   PEOPLE,ALLOC,sumPct,mainProd,openQuota,
   THIN,MINUS,fmtInt,fmtFte,fmtVal,fmtDelta,fmtPct,fmtPp,
   prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification,
+  health,healthBy,healthModel,verifyProducts,
   quotaOf,quotaTotal,EVENTS,EVENT_BY_KEY,peopleList,personEvents
 };
 })();
@@ -1991,8 +2175,16 @@ function drawLine(a,w,h){
   const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
   const all=ser.slice().concat(a.bench||[]);
-  const max=niceMax(all);
+  /* Верх шкалы можно задать снаружи — и только верх: у доли он равен ста
+     процентам всегда, иначе восемьдесят процентов упираются в потолок
+     и читаются как сто. Низ остаётся константным нулём, задать его нечем. */
+  const max=o.max||niceMax(all);
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+  /* Доля пишется процентом, а изменение — пунктами: «плюс 5%» и «плюс
+     5 п.п.» это разные величины, и путать их в подписи нельзя. */
+  const pct=o.fmt==='pct';
+  const F=v=>pct?CD.fmtPct(v,v<10?1:0):fv(o,v);
+  const FD=v=>pct?CD.fmtPp(v):fd(o,v);
 
   let s=header(w,o.title,o.legend,{lock:true,info:o.info});
   s+=axisX(ticks,x0,bandW,plotTop,plotBot,plotBot+15);
@@ -2010,17 +2202,17 @@ function drawLine(a,w,h){
 
   ser.forEach((v,i)=>{
     const cx=x0+bandW*(i+0.5), cy=Y(v);
-    const rows=[{label:o.name||'Значение',value:fv(o,v),color:o.color||C_LINE}];
-    if(a.bench)rows.push({label:o.benchName||'база',value:fv(o,a.bench[i]),color:C_BENCH,dash:true});
+    const rows=[{label:o.name||'Значение',value:F(v),color:o.color||C_LINE}];
+    if(a.bench)rows.push({label:o.benchName||'база',value:F(a.bench[i]),color:C_BENCH,dash:true});
     const dly=DRAW_MS*(i/Math.max(1,ser.length-1))*0.9;
     s+='<g class="ptg"'+tip({title:tickTitle(ticks[i]),rows,
-        note:i>0?'к предыдущему периоду: '+fd(o,v-ser[i-1]):null})+'>';
+        note:i>0?'к предыдущему периоду: '+FD(v-ser[i-1]):null})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
     if(a.bench)s+='<circle class="dotb" cx="'+num(cx)+'" cy="'+num(Y(a.bench[i]))+'" r="0" fill="'+C_BENCH+'"/>';
     s+='<circle class="dot" cx="'+num(cx)+'" cy="'+num(cy)+'" r="3.4" fill="#fff" stroke="'+(o.color||C_LINE)+'"'
       +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
     s+='</g>';
-    s+=txt(cx,cy-VAL_DY,fv(o,v),valOpt({delay:dly}));
+    s+=txt(cx,cy-VAL_DY,F(v),valOpt({delay:dly}));
   });
   return svg(w,h,s);
 }
@@ -2089,96 +2281,88 @@ function drawSupply(a,w,h){
 }
 
 /* ============================================================================
-   2б. Встречные потоки со СТРУКТУРОЙ: пришло вверх, ушло вниз.
+   2б. Бублик: часть от целого.
    ------------------------------------------------------------------------
-   Каждое плечо — стопка: ближе к оси стоит то, что важнее прочитать первым
-   (найм сверху вниз к оси, отток снизу вверх к оси), дальше от оси —
-   вторичное движение. Итог плеча подписан снаружи стопки, состав читается
-   цветом и подсказкой.
+   Единственный вид, где доля показывается углом, а не длиной, и появляется
+   он только там, где ЗАРАНЕЕ ПОНЯТНО, что принято за сто процентов:
+   все продукты среза, весь план по ставкам. Если целое приходится
+   объяснять словами, кольцо не подходит — там таблица или каскад.
 
-   Почему стопка, а не четыре бара рядом: рядом стоящие бары читаются как
-   четыре независимые категории, а это два потока, каждый из двух частей.
-   Итог «сколько всего пришло» в четырёх барах приходилось складывать в уме.
+   В центре стоит само целое, а не доля: доля живёт крупной цифрой карточки,
+   и повторять её внутри кольца незачем. Кольцо отвечает на другой вопрос —
+   «сто процентов это сколько и из чего».
+
+   Части подписаны справа, значением и долей: угол показывает форму, число
+   читается точно. Открытая часть плана — белая с обводкой, ровно как белая
+   часть бара в ресурсообеспеченности: одна и та же сущность обязана
+   выглядеть одинаково во всём отчёте.
    ========================================================================== */
-function drawStackDiverge(a,w,h){
-  const ticks=a.ticks, o=a.opt||{};
-  const off=offOf(o);
-  const up=a.up.filter(x=>!off.has(x.sid)), dn=a.down.filter(x=>!off.has(x.sid));
+function arcPath(cx,cy,R,r,a0,a1){
+  const P=(ang,rad)=>[cx+rad*Math.sin(ang),cy-rad*Math.cos(ang)];
+  const big=(a1-a0)>Math.PI?1:0;
+  const p0=P(a0,R),p1=P(a1,R),p2=P(a1,r),p3=P(a0,r);
+  return 'M'+num(p0[0])+' '+num(p0[1])+
+    'A'+num(R)+' '+num(R)+' 0 '+big+' 1 '+num(p1[0])+' '+num(p1[1])+
+    'L'+num(p2[0])+' '+num(p2[1])+
+    'A'+num(r)+' '+num(r)+' 0 '+big+' 0 '+num(p3[0])+' '+num(p3[1])+'Z';
+}
+/* Целая часть — не дуга в 360°, а два полукольца: дуга, у которой начало
+   совпадает с концом, в SVG схлопывается в ничто. */
+function ringPath(cx,cy,R,r){
+  return arcPath(cx,cy,R,r,0,Math.PI)+arcPath(cx,cy,R,r,Math.PI,Math.PI*2);
+}
+function drawDonut(a,w,h){
+  const o=a.opt||{}, parts=a.parts, ctr=a.center||null;
   const hh=headH(o.title,o.legend);
-  h=h||o.h||320;
-  const top=hh+LBL_ROOM, bot=h-AXIS_H;
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
-  const sumAt=(arr,i)=>arr.reduce((s,x)=>s+x.series[i],0);
-  const upT=ticks.map((_,i)=>sumAt(up,i)), dnT=ticks.map((_,i)=>sumAt(dn,i));
-  const zero=top+(bot-top)/2;
-  const arm=Math.max(8,(bot-top)/2-LBL_ROOM);
-  const max=niceMax(upT.concat(dnT));
-  const bw=Math.min(52,bandW*0.58);
+  h=h||o.h||132;
+  const total=parts.reduce((s,p)=>s+p.value,0);
+  /* Размер кольца — от меньшей стороны: карточка в полосе KPI и узкая,
+     и низкая, и кольцо обязано остаться круглым в обеих. */
+  const size=Math.max(56,Math.min(h-hh-6,w*0.46,132));
+  const R=size/2, r=R*0.615;
+  const cx=PAD_X+R, cy=hh+(h-hh)/2;
 
-  let s=header(w,o.title,o.legend,{off:o.off,info:o.info});
-  s+=axisX(ticks,x0,bandW,top,bot,bot+15);
-  s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
-  ticks.forEach((t,i)=>{
-    const cx=x0+bandW*(i+0.5);
-    const hUp=(upT[i]/max)*arm, hDn=(dnT[i]/max)*arm;
-    /* Подсказка у каждого плеча своя: одна на восемь строк не помещается
-       и перестаёт объяснять точку — она начинает заменять таблицу. */
-    const tipUp={title:tickTitle(t),
-      rows:up.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
-      note:[(a.upWord||'всего пришло')+': '+fv(o,upT[i]),
-            'сальдо периода: '+fd(o,upT[i]-dnT[i])]};
-    const tipDn={title:tickTitle(t),
-      rows:dn.map(x=>({label:x.name,value:fv(o,x.series[i]),color:x.color})),
-      note:[(a.dnWord||'всего ушло')+': '+fv(o,dnT[i]),
-            'сальдо периода: '+fd(o,upT[i]-dnT[i])]};
-    /* Подписано ТОЛЬКО плечо целиком. Цифра в каждом сегменте превращала
-       график в таблицу: двенадцать периодов по четыре числа читать всё равно
-       никто не станет, а итог плеча — то, ради чего сюда смотрят. Состав
-       разбирается наведением или выключением серии в легенде. */
-    /* Стопка — ОДИН бар, разрезанный на части, а не набор кубиков. Поэтому
-       ни зазоров между сегментами, ни скруглений внутри: скруглён только
-       ВНЕШНИЙ край плеча — тот, которым бар заканчивается. Всё остальное
-       обрезано соседним сегментом или осью.
-
-       Край определяется по факту отрисовки, а не по порядку в массиве:
-       выключил вход — верхним становится найм, и скругление переезжает
-       к нему само. Ровно так же ведёт себя занятая часть под квотой. */
-    const segU=up.map(x=>(x.series[i]/max)*arm);
-    const segD=dn.map(x=>(x.series[i]/max)*arm);
-    let lastU=-1;segU.forEach((v,k)=>{if(v>0.5)lastU=k});
-    let lastD=-1;segD.forEach((v,k)=>{if(v>0.5)lastD=k});
-
-    s+='<g class="barg"'+tip(tipUp)+'>';
-    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(zero-hh)+'"/>';
-    let acc=0;
-    up.forEach((x,k)=>{
-      const seg=segU[k];
-      if(seg>0.5){
-        const y=zero-acc-seg, ex=' class="bar up" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"';
-        s+=(k===lastU?barUp(cx-bw/2,y,bw,seg,x.color,ex):rect(cx-bw/2,y,bw,seg,x.color,0,ex));
-        acc+=seg;
-      }
-    });
-    s+='</g>';
-    s+='<g class="barg"'+tip(tipDn)+'>';
-    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(zero)+'" width="'+num(bandW)+'" height="'+num(bot-zero)+'"/>';
-    acc=0;
-    dn.forEach((x,k)=>{
-      const seg=segD[k];
-      if(seg>0.5){
-        const y=zero+acc, ex=' class="bar dn" data-s="'+x.sid+'" style="animation-delay:'+(i*26)+'ms"';
-        s+=(k===lastD?barDown(cx-bw/2,y,bw,seg,x.color,ex):rect(cx-bw/2,y,bw,seg,x.color,0,ex));
-        acc+=seg;
-      }
-    });
-    s+='</g>';
-    /* Итог прихода стоит НАД стопкой, итог ухода — ПОД ней: число уходит
-       в ту же сторону, в какую растёт плечо. */
-    if(upT[i]>0)s+=txt(cx,zero-hUp-VAL_DY,fv(o,upT[i]),valOpt({delay:240+i*26}));
-    if(dnT[i]>0)s+=txt(cx,Math.min(zero+hDn+VAL_DY+4,bot-2),fv(o,dnT[i]),valOpt({delay:240+i*26}));
+  let s=header(w,o.title,o.legend,{lock:true,info:o.info});
+  let acc=0;
+  parts.forEach((p,i)=>{
+    const share=total?p.value/total:0;
+    if(share<=0)return;
+    const a0=acc*Math.PI*2, a1=(acc+share)*Math.PI*2;
+    acc+=share;
+    const extra=' class="arc" style="animation-delay:'+(i*90)+'ms"'+
+      (p.hollow?' stroke="'+(p.stroke||p.color)+'" stroke-width="1.4"':'')+
+      tip({title:p.name,
+        rows:[{label:o.unit||'Значение',value:p.text||CD.fmtInt(p.value),color:p.color}],
+        note:[CD.fmtPct(share*100,share*100<10?1:0)+' от целого',p.hint||null]});
+    s+='<path d="'+(share>0.9999?ringPath(cx,cy,R,r):arcPath(cx,cy,R,r,a0,a1))+
+      '" fill="'+p.color+'"'+extra+'/>';
+  });
+  if(!total)s+='<path d="'+ringPath(cx,cy,R,r)+'" fill="#f0f1f3"/>';
+  /* Центр: сколько всего и чего. Это и есть ответ на «что принято
+     за сто процентов». */
+  if(ctr){
+    s+=txt(cx,cy+(ctr.caption?1:5),ctr.value,{size:Math.min(19,R*0.52),weight:800,fill:C_INK});
+    if(ctr.caption)s+=txt(cx,cy+15,ctr.caption,{size:10.5,weight:600,fill:C_AXIS});
+  }
+  /* Подписи частей — справа столбиком, по центру кольца по вертикали.
+     Каждая строка: марка, имя, значение и доля. */
+  const lx=PAD_X+size+13, entryH=29;
+  let ly=cy-(parts.length*entryH)/2+11;
+  parts.forEach(p=>{
+    const share=total?p.value/total*100:0;
+    s+=(p.hollow
+      ? '<rect x="'+num(lx)+'" y="'+num(ly-8)+'" width="10" height="10" rx="2" fill="#fff" stroke="'+
+        (p.stroke||p.color)+'" stroke-width="1.4"/>'
+      : rect(lx,ly-8,10,10,p.color,2));
+    s+=txt(lx+16,ly,p.name,{size:11,fill:C_LABEL,anchor:'start'});
+    s+=txt(lx+16,ly+13,(p.text||CD.fmtInt(p.value))+' · '+CD.fmtPct(share,share<10?1:0),
+      {size:10.5,weight:700,fill:C_AXIS,anchor:'start'});
+    ly+=entryH;
   });
   return svg(w,h,s);
 }
+
+
 /* ============================================================================
    2в. Разложение итога: каскад СВЕРХУ ВНИЗ.
    ------------------------------------------------------------------------
@@ -2264,68 +2448,6 @@ function drawBreakdown(a,w,h){
       ' data-seg="'+p.key+'" tabindex="0" role="button"'+
       ' aria-pressed="'+(p.on?'true':'false')+'"');
     rem=to;
-  });
-  return svg(w,h,s);
-}
-
-/* ============================================================================
-   4. Панели друг под другом: несколько метрик за один период.
-      У каждой своя шкала от нуля и своя полная ось X под ней — одна общая
-      ось внизу заставляла бегать глазами через весь блок.
-
-      Панель с сальдо уходит в минус, и ноль у неё поднимается внутрь поля:
-      месяц, где аллокацию урезали сильнее, чем добрали, обязан рисоваться
-      столбцом ВНИЗ. Пока ноль стоял на дне, отрицательный столбец не
-      рисовался вовсе, а его подпись уезжала на подписи месяцев и перекрывала
-      их — читалось так, будто в этом месяце не было ничего.
-
-      Ось X при этом остаётся на дне панели: подписи периодов у всех панелей
-      блока обязаны стоять на одной линии, иначе их не сопоставить.
-   ========================================================================== */
-function drawPanels(a,w,h){
-  const ps=a.panels, ticks=a.ticks, o=a.opt||{};
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/ticks.length;
-  const GAP=STACK_GAP, HEAD=16, PLOT_MIN=58;
-  const minPanel=HEAD+LBL_ROOM+PLOT_MIN+AXIS_H+GAP;
-  h=Math.max(h||o.h||340,ps.length*minPanel+14);
-  const panelH=(h-14)/ps.length;
-  let s='';
-  ps.forEach((p,pi)=>{
-    const base=pi*panelH;
-    const top=base+HEAD+LBL_ROOM, bot=base+panelH-AXIS_H-GAP;
-    /* Поле делится между плечами по их реальной величине, а не пополам:
-       пустое нижнее плечо на панели без минусов — та же серая пустота.
-       Под нижним плечом резервируется строка на подпись, иначе минусовое
-       число снова легло бы на подписи месяцев. Круглый максимум здесь
-       не нужен: оси значений нет, каждый столбец подписан. */
-    const posM=Math.max(0,Math.max.apply(null,p.series));
-    const negM=Math.max(0,-Math.min.apply(null,p.series));
-    const neg=negM>0;
-    const span=posM+negM||1;
-    const band=(bot-top)-(neg?LBL_ROOM:0);
-    const zero=top+(posM/span)*band;
-    const Y=v=>zero-(v/span)*band;
-    s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-    s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
-    ticks.forEach((t,i)=>{if(t.isYearStart&&i>0)s+=line(x0+bandW*i,top,x0+bandW*i,bot,C_DIV,1,'4 3')});
-    const pd=pi*140, bw=Math.min(56,bandW*0.64);
-    p.series.forEach((v,i)=>{
-      const cx=x0+bandW*(i+0.5), y=Y(v), dn=v<0;
-      s+='<g class="barg"'+tip({title:tickTitle(ticks[i]),
-        rows:[{label:p.name,value:fd(o,v),color:p.color||C_LINE}],note:p.note})+'>';
-      s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
-      /* Цвет несёт знак: сальдо в плюс и сальдо в минус — разные события,
-         и красить их одинаково значит прятать разницу. */
-      const col=dn?(p.colorDn||C_DN):(p.color||C_LINE);
-      s+=(dn?barDown(cx-bw/2,zero,bw,y-zero,col,' class="bar dn" style="animation-delay:'+(pd+i*24)+'ms"')
-            :barUp(cx-bw/2,y,bw,zero-y,col,' class="bar up" style="animation-delay:'+(pd+i*24)+'ms"'));
-      s+='</g>';
-      /* Подпись уходит в ту же сторону, что и столбец, и всегда остаётся
-         внутри панели: у самого дна она встаёт над осью X, а не на ней. */
-      const ly=dn?Math.min(y+VAL_DY+4,bot-2):y-VAL_DY;
-      s+=txt(cx,ly,neg?fd(o,v):fv(o,v),valOpt({delay:pd+300+i*24}));
-    });
-    s+=axisX(ticks,x0,bandW,bot,bot,bot+15);
   });
   return svg(w,h,s);
 }
@@ -2418,12 +2540,13 @@ function sparkBars(series,w,h,o){
    перерисовывается под фактическую ширину: меняется ГЕОМЕТРИЯ, а не масштаб
    всего SVG. Иначе на телефоне подписи стали бы нечитаемыми.
    ========================================================================== */
-const KINDS={line:drawLine,supply:drawSupply,sdiverge:drawStackDiverge,
-             panels:drawPanels,waterfall:drawWaterfall,breakdown:drawBreakdown};
-/* Композиционные виды блокируются целиком: водопад и разложение держатся
-   на всех своих столбцах, и «убрать серию» там означает сломать смысл,
-   а не убрать лишнее. */
-const LOCKED={waterfall:1,breakdown:1};
+const KINDS={line:drawLine,supply:drawSupply,donut:drawDonut,
+             waterfall:drawWaterfall,breakdown:drawBreakdown};
+/* Композиционные виды блокируются целиком: водопад, разложение и бублик
+   держатся на всех своих частях, и «убрать серию» там означает сломать
+   смысл, а не убрать лишнее. У бублика это ещё и арифметика: выключенная
+   часть перестала бы складываться в сто процентов. */
+const LOCKED={waterfall:1,breakdown:1,donut:1};
 const NOMINAL_W=900;
 let _specs=new Map(), _sid=0;
 /* Какие серии выключены. Живёт отдельно от _specs и НЕ чистится в reset():
@@ -2559,8 +2682,12 @@ function delta(mode,v,o){
   o=o||{};
   const vs=o.vs?'<span class="d-vs">'+esc(o.vs)+'</span>':'';
   const at=o.tip?tip(o.tip):'';
-  const txt=D.fmtDelta(mode,v);
-  if(Math.abs(v)<(mode==='fte'?0.05:0.5))return '<span class="delta flat"'+at+'>0'+vs+'</span>';
+  /* Доля меняется в ПУНКТАХ, а не в процентах: «доля выросла на 5%»
+     и «доля выросла на 5 п.п.» — разные величины, и путать их нельзя. */
+  const pp=mode==='pp';
+  const txt=pp?D.fmtPp(v):D.fmtDelta(mode,v);
+  if(Math.abs(v)<(pp||mode==='fte'?0.05:0.5))
+    return '<span class="delta flat"'+at+'>'+(pp?D.fmtPp(0):'0')+vs+'</span>';
   if(!o.rate)return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=o.lowerBetter?v<0:v>0;
   return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
@@ -2584,7 +2711,33 @@ function kpi(o){
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
     '<div class="k-row">'+(o.row2||'')+'</div>';
+  /* Двойная карточка: слева те же четыре строки, справа врезка. Врезка
+     в карточке однажды уже не сработала — на график оставалось меньше
+     двухсот пикселей, и разбивка мельчила имена до нечитаемого. Здесь
+     карточка занимает ДВЕ колонки из четырёх, то есть половину полосы:
+     врезке достаётся втрое больше места, и это не тот же случай.
+     Правило простое: врезка живёт только в двойной карточке. */
+  if(o.aside)return '<div class="kpi wide'+(o.cls?' '+o.cls:'')+'">'+
+    '<div class="h-left">'+body+'</div><div class="h-aside">'+o.aside+'</div></div>';
   return '<div class="kpi'+(o.cls?' '+o.cls:'')+'">'+body+'</div>';
+}
+
+/* ---------- Полоса состояний с подписями ----------
+   Риска показывает форму, подписи под ней — числа. Пока числа жили только
+   в подсказке, карточка отвечала «в порядке ли данные» и молчала о том,
+   чего именно не хватает: чтобы узнать, сколько человек перебрали ставку,
+   приходилось водить мышью по риске. */
+function stateBar(items,total){
+  const sum=total||items.reduce((a,x)=>a+x.value,0);
+  if(!sum)return '';
+  return '<div class="state-bar">'+miniBar(items,sum)+
+    '<div class="sb-keys">'+items.map(x=>'<span class="sb-k"'+
+      tip({title:x.name,
+        rows:[{label:'Сотрудников',value:D.fmtInt(x.value),color:x.color},
+              {label:'Доля',value:D.fmtPct(x.value/sum*100,x.value/sum*100<10?1:0)}],
+        note:x.hint||null})+'>'+
+      '<i style="background:'+x.color+'"></i>'+esc(x.short||x.name)+
+      '<b>'+D.fmtInt(x.value)+'</b></span>').join('')+'</div></div>';
 }
 
 /* ---------- Мини-полоса состава ----------
@@ -2709,6 +2862,116 @@ function barTable(o){
     '</td><td class="lead">'+o.totalVal1+'</td>'+
     (o.col2?'<td>'+o.totalVal2+'</td>':'')+'<td>100%</td><td class="barcell"></td></tr>';
   return h+'</tbody></table></div>';
+}
+
+/* ============================================================================
+   metricTable — метрики по периодам: строки метрики, столбцы месяцы
+   ------------------------------------------------------------------------
+   Форма для блока движения. Графиком встречных потоков это было ровно одно
+   сообщение — «приход и уход одного размера», — а вопросов к движению
+   гораздо больше: сколько именно вошло в марте, вырос ли найм к февралю,
+   где сальдо ушло в минус. Ответ на каждый из них в стопке приходилось
+   читать наведением по одному столбцу за раз.
+
+   Таблица снимает и переключатель видов движения: виды стоят строками
+   и видны все сразу, поэтому переключать нечего.
+
+   Строки собраны в группы — состояние, приход, уход, — и группы отбиты
+   строкой-заголовком. Внутри группы порядок тот же, что в водопаде
+   и трансформере: сначала найм, потом вход.
+   ========================================================================== */
+const RKIND={
+  val:  (v,mode)=>D.fmtVal(mode,v),
+  int:  v=>D.fmtInt(v),
+  pct:  v=>D.fmtPct(v,Math.abs(v)<10?1:0),
+  delta:(v,mode)=>D.fmtDelta(mode,v),
+  pp:   v=>D.fmtPp(v)
+};
+function mEps(kind,mode){
+  if(kind==='pp'||kind==='pct')return 0.05;
+  return mode==='fte'?0.05:0.5;
+}
+function mcell(v,r,mode){
+  /* Прочерк значит «величины не существует»: у первого периода нет
+     предыдущего, и прирост к нему не ноль, а ничто. */
+  if(v==null)return '—';
+  const kind=r.kind||'val';
+  if(Math.abs(v)<mEps(kind,mode)&&kind!=='pct')return zero();
+  return RKIND[kind](v,mode);
+}
+function metricTable(o){
+  const mode=o.mode, cols=o.cols, rows=o.rows;
+  const span=cols.length+2;
+  let h='<table class="ptable dense pivot mtable"><thead><tr><th class="txt">'+
+    esc(o.dimName||'Метрика')+'</th>';
+  cols.forEach(b=>{
+    h+='<th'+(b.partial?tip({title:b.label+' '+b.year,
+      text:'Неполный период на краю окна: сравнивать его с полными нельзя.'}):'')+'>'+
+      esc(b.label)+(b.partial?'·':'')+'<span class="hint-col">'+esc(b.year)+'</span></th>';
+  });
+  h+='<th class="vs">'+esc(o.totalHead||'Итого')+'</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    if(r.group){
+      h+='<tr class="grp-row"><td class="txt" colspan="'+span+'">'+esc(r.name)+
+        (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+'</td></tr>';
+      return;
+    }
+    let max=0;
+    r.values.forEach(v=>{if(v!=null&&Math.abs(v)>max)max=Math.abs(v)});
+    h+='<tr class="'+(r.strong?'sum':'')+'">'+
+      '<td class="txt"'+(r.hint?tip({title:r.name,text:r.hint}):'')+'>'+
+        '<span class="row-body">'+esc(r.name)+
+        (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+'</span></td>';
+    r.values.forEach((v,i)=>{
+      /* Заливка показывает, где сосредоточена величина ВНУТРИ СТРОКИ:
+         метрики в соседних строках разного порядка, и общий на таблицу
+         масштаб красил бы найм ярко, а изменение аллокации — никак. */
+      const st=r.flow&&v!=null?heat(r.flow,v,max):'';
+      h+='<td'+st+tip({title:cols[i].label+' '+cols[i].year,
+        rows:[{label:r.name,value:v==null?'—':RKIND[r.kind||'val'](v,mode),color:r.color||null}],
+        note:cols[i].partial?'неполный период на краю окна':null})+'>'+
+        mcell(v,r,mode)+'</td>';
+    });
+    const t=r.total!=null?r.total
+      :r.agg==='sum'?r.values.reduce((a,v)=>a+(v||0),0)
+      :r.agg==='last'?r.values[r.values.length-1]:null;
+    h+='<td class="lead vs">'+mcell(t,r,mode)+'</td></tr>';
+  });
+  return h+'</tbody></table>';
+}
+
+/* ============================================================================
+   dataTable — обычная таблица: шапка и строки готовых значений
+   ------------------------------------------------------------------------
+   Нужна там, где строки не метрики и не разрезы отчёта, а список: продукты
+   с их статусом верификации, разрез со здоровьем по состояниям. Экран
+   передаёт значения и признаки, а не разметку: собирать <td> в экране
+   нельзя, иначе таблицы разъедутся между вкладками.
+
+   Ячейка: {v, txt, chip:'good|bad|neutral', sub, tip, lead, muted}
+   ========================================================================== */
+function cellHtml(c,tag){
+  if(c==null)return '<'+tag+'></'+tag+'>';
+  const cls=[c.txt?'txt':'',c.lead?'lead':'',c.vs?'vs':'',c.muted?'muted-c':''].filter(Boolean).join(' ');
+  const body=c.chip
+    ? '<span class="sig-chip '+c.chip+'">'+esc(c.v)+'</span>'
+    : esc(c.v)+(c.sub?'<span class="unit-sub">'+esc(c.sub)+'</span>':'');
+  return '<'+tag+(cls?' class="'+cls+'"':'')+(c.tip?tip(c.tip):'')+'>'+body+'</'+tag+'>';
+}
+function dataTable(o){
+  let h='<table class="ptable dense pivot dtable"><thead><tr>';
+  o.head.forEach(c=>{
+    h+='<th'+([c.txt?'txt':'',c.vs?'vs':''].filter(Boolean).length
+      ? ' class="'+[c.txt?'txt':'',c.vs?'vs':''].filter(Boolean).join(' ')+'"':'')+
+      (c.tip?tip(c.tip):'')+'>'+esc(c.name)+
+      (c.sub?'<span class="hint-col">'+esc(c.sub)+'</span>':'')+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  o.rows.forEach(r=>{
+    h+='<tr'+(r.cls?' class="'+r.cls+'"':'')+'>'+r.cells.map(c=>cellHtml(c,'td')).join('')+'</tr>';
+  });
+  if(o.total)h+='<tr class="total">'+o.total.map(c=>cellHtml(c,'td')).join('')+'</tr>';
+  return h+'</tbody></table>';
 }
 
 /* ============================================================================
@@ -2978,64 +3241,98 @@ function empty(title,text){
   return '<div class="empty"><b>'+esc(title)+'</b>'+esc(text)+'</div>';
 }
 
-window.PXUI={esc,tip,delta,info,kpi,miniBar,panel,subTabs,select,picker,barTable,
+window.PXUI={esc,tip,delta,info,kpi,miniBar,stateBar,metricTable,dataTable,panel,subTabs,select,picker,barTable,
   pivot,COLS,colsFor,valOf,cellText,seriesTable,matrixTable,legend,note,empty,plural,heat};
 })();
 
 </script>
 <script>
 /* ============================================================================
-   screens/overview.js — вкладка «Ресурсы и движение». Неймспейс: PXSCREEN.overview
+   screens/kpi.js — полоса KPI. Неймспейс: PXSCREEN.kpi
 
-   Одна вкладка = один вопрос целиком: из кого сейчас состоит продукт и как
-   этот состав менялся. Поэтому здесь стоят рядом состояние (сколько людей,
-   сколько аллокаций, сколько открытых квот), качество данных (сегменты,
-   здоровье, верификация) и движение (динамика, водопад, трансформер).
-   Разносить это по вкладкам нельзя: ответ собирается из всех трёх частей.
+   Полоса стоит НАД вкладками и видна на любой из них: это состояние среза,
+   а не содержимое одного экрана. Вкладка отвечает на вопрос «как менялось»,
+   полоса — на вопрос «что сейчас», и второй вопрос не должен исчезать,
+   когда пользователь ушёл смотреть здоровье или трансформер.
 
-   Экран не пишет разметку сам — только собирает данные и зовёт PXUI/PXDRAW.
+   Отсюда же следует, что полоса НЕ ЗАВИСИТ ОТ РЕЖИМА «люди / аллокации»:
+   переключатель стоит ниже вкладок и управляет их содержимым. Обе главные
+   метрики стоят в полосе рядом и всегда, а режим лишь подсвечивает ту,
+   в которой считает вкладка.
+
+   Три карточки двойные, две обычные — полоса ложится в четыре колонки
+   двумя строками без пустых клеток: 1+1+2 и 2+2. Двойная ширина здесь не
+   украшение, а условие читаемости: во врезку идут кольцо с подписями частей
+   и полоса состояний с числами, а им нужно место. В одинарной карточке
+   такая врезка уже пробовалась и не работала.
+
+   Верификация и укомплектованность показаны бубликом. Это единственные
+   метрики отчёта, где заранее известно, что принято за сто процентов:
+   продукты среза и план по ставкам. Крупной цифрой стоит доля, кольцо
+   показывает, из чего она сложилась, в центре кольца — само целое.
+   Одна и та же величина не повторяется дважды.
    ========================================================================== */
 (function(){
 'use strict';
 const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI;
-/* Список людей живёт в своём файле и грузится ПОСЛЕ этого, поэтому берётся
-   в момент вызова, а не в момент определения модуля. */
-function PL(){return window.PXSCREEN.people}
 
-/* Подпись периода живёт в одном месте: «за период» без названия периода
-   читается как отклонение от чего угодно. */
 function periodName(st){
   return D.MONTHS[st.i0].label+' '+D.MONTHS[st.i0].y+' — '+D.MONTHS[st.i1].label+' '+D.MONTHS[st.i1].y;
 }
+/* Короткие имена состояний — только для подписей под риской: место там
+   на два слова, а полное имя всегда остаётся в подсказке. */
+const HSHORT={norm:'ровно 100%',over:'больше 100%',under:'30–99%',
+              low:'меньше 30%',zero:'ноль'};
+const HCOL={norm:G.C_GREEN,over:G.C_RED,under:G.C_FLAT,low:G.C_RED,zero:G.C_RED};
 
-/* ---------- Полоса KPI ----------
-   Пять равных карточек: пять чисел, которыми открывается разговор.
-   Карточка — это одно число, дельта и подпись; график внутрь карточки
-   не помещается читаемым. Разложение состава какое-то время жило врезкой
-   в двойной карточке «Уникальные сотрудники» — там оно мельчило имена
-   и доли до нечитаемого, поэтому уехало отдельной панелью над водопадом.
-
-   Здоровье аллокаций осталось карточкой с риской: вопрос «в порядке ли
-   данные» требует одного числа и сигнала, а не таблицы на треть экрана.
-   Подробности — по наведению и в трансформере по разрезу «сегмент». */
-function kpis(m,st){
+function render(st,m){
+  m=m||D.model(st);
   const hc=m.head.hc, fte=m.head.fte, v=m.verify, v0=m.verifyStart;
-  const openNow=m.supply.open[m.supply.open.length-1];
-  const filled=m.supply.filled[m.supply.filled.length-1];
-  const plan=openNow+filled;
+  /* Квота открывается на ставку, а не на процент, поэтому укомплектованность
+     считается в людях в обоих режимах отчёта — как и сама квота. Полоса
+     стоит выше переключателя режима, и зависеть от него не может. */
+  const openNow=m.quota, filled=hc.end, plan=openNow+filled;
   const fillPct=plan?filled/plan*100:0;
+  const plan0=m.quotaStart+hc.begin;
+  const fill0=plan0?hc.begin/plan0*100:0;
   const perHead=hc.end?fte.end/hc.end:0;
-  const mode=st.mode;
+  /* Подсветка главной метрики стоит ровно тогда, когда у вкладки есть
+     переключатель режима. На вкладке здоровья его нет — и подсвечивать
+     нечего: там всё считается в людях. Источник правды один — сам экран. */
+  const sc=window.PXSCREEN[st.tab];
+  const mode=st.mode, lead=!(sc&&sc.usesMode===false);
 
   const hTotal=m.health.reduce((a,h)=>a+h.people,0);
   const hNorm=m.health.filter(h=>h.key==='norm')[0].people;
   const hBad=m.health.filter(h=>h.bad).reduce((a,h)=>a+h.people,0);
   const hShare=hTotal?hNorm/hTotal*100:0;
-  const HCOL={norm:G.C_GREEN,over:G.C_RED,under:G.C_FLAT,low:G.C_RED,zero:G.C_RED};
-  const hItems=m.health.map(h=>({name:h.name,value:h.people,hint:h.hint,color:HCOL[h.key]}));
+  const hItems=m.health.map(h=>({name:h.name,short:HSHORT[h.key],value:h.people,
+    hint:h.hint,color:HCOL[h.key]}));
 
-  return '<div class="kpis n5">'+
-    U.kpi({label:'Уникальные сотрудники',cls:mode==='hc'?'lead-card':'',
+  /* Верификация: зелёный и красный здесь уместны — это ровно тот случай,
+     когда у величины есть оценка. Неподтверждённая аллокация идёт в P&L
+     как есть, поэтому «ждёт подтверждения» — не нейтральная категория. */
+  const vDonut=G.chart('donut',{
+    parts:[{name:'Подтверждено',value:v.ok,color:G.C_GREEN,
+            hint:'владелец продукта подтвердил состав команды'},
+           {name:'Ждут подтверждения',value:v.total-v.ok,color:G.C_RED,
+            hint:'состав не подтверждён — P&L считается по неподтверждённым данным'}],
+    center:{value:D.fmtInt(v.total),caption:'продуктов'}},
+    {fill:true,h:132,unit:'Продуктов'});
+
+  /* Укомплектованность: белая часть с обводкой — открытая квота, ровно как
+     белая часть бара в ресурсообеспеченности. Оценка живёт в дельте,
+     а не в цвете: занятая ставка не «хорошо», открытая не «плохо». */
+  const fDonut=G.chart('donut',{
+    parts:[{name:'Занято',value:filled,color:G.C_TOTAL,
+            hint:'люди, стоящие на продуктах среза'},
+           {name:'Открытые квоты',value:openNow,color:'#fff',hollow:true,stroke:G.C_QUOTA,
+            hint:'позиция заведена, но не закрыта'}],
+    center:{value:D.fmtInt(plan),caption:'ставок в плане'}},
+    {fill:true,h:132,unit:'Ставок'});
+
+  return '<div class="kpis n4">'+
+    U.kpi({label:'Уникальные сотрудники',cls:lead&&mode==='hc'?'lead-card':'',
       info:U.info({title:'Уникальные сотрудники',
         text:'Люди, у которых в выбранном срезе есть хотя бы одна аллокация. Человек, стоящий на трёх продуктах, посчитан один раз.',
         note:'Именно по этой метрике считаются HR-показатели: текучесть и оценки привязаны к человеку, а не к проценту его занятости.'}),
@@ -3044,7 +3341,7 @@ function kpis(m,st){
         tip:{title:'Изменение за период',text:'Разница между концом и началом периода: '+periodName(st)+'.'}}),
       row2:'<span class="k-sub">на начало '+D.fmtInt(hc.begin)+'</span>'})+
 
-    U.kpi({label:'Сумма аллокаций, FTE',cls:mode==='fte'?'lead-card':'',
+    U.kpi({label:'Сумма аллокаций, FTE',cls:lead&&mode==='fte'?'lead-card':'',
       info:U.info({title:'Сумма аллокаций',
         text:'Сумма процентов занятости всех людей на продуктах среза, делённая на сто. Один человек на 50% и 50% даёт 1,0 FTE.',
         note:'Метрика отвечает на вопрос «сколько ставок стоит команда», а не «сколько в ней людей».'}),
@@ -3054,44 +3351,93 @@ function kpis(m,st){
 
     U.kpi({label:'Здоровье аллокаций',
       info:U.info({title:'Здоровье аллокаций',
-        text:'Доля сотрудников, у которых сумма аллокаций по всем продуктам равна ровно ста процентам. Наведите на риску, чтобы увидеть остальные состояния.',
-        note:'Данные каталога продуктов идут в расчёт P&L, поэтому расхождения правятся в каталоге, а не в отчёте.'}),
+        text:'Доля сотрудников, у которых сумма аллокаций по всем продуктам равна ровно ста процентам.',
+        rows:D.HEALTH.map(h=>({label:h.hint,value:h.name,color:HCOL[h.key]})),
+        note:['Считается по человеку, а не по паре: перебор ставки возникает из суммы по всем продуктам сразу.',
+              'Динамика и разрезы — на вкладке «Здоровье»: одного числа мало, чтобы понять, становится лучше или хуже.']}),
       value:D.fmtPct(hShare,0),
       row1:hBad
         ? '<span class="sig-chip bad">проблемных '+D.fmtInt(hBad)+'</span>'
         : '<span class="sig-chip good">расхождений нет</span>',
-      row2:U.miniBar(hItems,hTotal)})+
+      row2:'<span class="k-sub">всего в срезе '+D.fmtInt(hTotal)+'</span>',
+      aside:'<div class="h-cap">Состояния ставки · <b>'+D.fmtInt(hTotal)+' человек</b></div>'+
+        U.stateBar(hItems,hTotal)})+
 
-    U.kpi({label:'Продуктов в срезе',
-      info:U.info({title:'Верификация аллокаций',
-        text:'Доля продуктов, владельцы которых подтвердили состав команды. Данные каталога продуктов используются для расчёта P&L, поэтому неподтверждённая аллокация — это неверный P&L.',
-        note:'Считаются только продукты, на которых есть хотя бы один человек: пустой продукт подтверждать нечего.'}),
-      value:D.fmtInt(v.total),
-      row1:'<span class="sig-chip '+(v.share>=80?'good':v.share<60?'bad':'neutral')+'">верифицировано '+
-        D.fmtInt(v.ok)+' из '+D.fmtInt(v.total)+'</span>',
-      row2:'<span class="k-sub">'+D.fmtPct(v.share,0)+', на начало периода '+D.fmtPct(v0.share,0)+'</span>'})+
+    U.kpi({label:'Верификация аллокаций',
+      info:U.info({title:'Доля верифицированных продуктов',
+        text:'Владелец продукта подтвердил состав команды. За сто процентов приняты продукты среза, на которых есть хотя бы один человек: пустой продукт подтверждать нечего.',
+        note:['Данные каталога идут в расчёт P&L, поэтому неподтверждённая аллокация — это неверный P&L.',
+              'Какие именно продукты не подтверждены — на вкладке «Здоровье».']}),
+      value:D.fmtPct(v.share,0),
+      row1:U.delta('pp',v.share-v0.share,{vs:'к началу периода',rate:true,
+        tip:{title:'Изменение доли',text:'Разница с началом периода в процентных пунктах.'}}),
+      row2:'<span class="k-sub">на начало периода '+D.fmtPct(v0.share,0)+'</span>',
+      aside:'<div class="h-cap">100% = <b>продукты среза</b></div>'+vDonut})+
 
-    U.kpi({label:'Открытые квоты',
-      info:U.info({title:'Открытые квоты',
-        text:'Незакрытые позиции, заведённые на продуктах среза. Квота считается на продукте, поэтому её видно и в моменте, и в динамике.',
-        note:'Укомплектованность = занято / (занято + открытые квоты).'}),
-      value:D.fmtInt(openNow),
-      row1:'<span class="sig-chip '+(fillPct>=90?'good':fillPct<80?'bad':'neutral')+'">укомплектованность '+
-        D.fmtPct(fillPct,0)+'</span>',
-      row2:'<span class="k-sub">закрыто наймом за период '+D.fmtInt(m.head.hc.hire)+'</span>'})+
+    U.kpi({label:'Укомплектованность квот',
+      info:U.info({title:'Укомплектованность',
+        text:'Занято ÷ (занято + открытые квоты). За сто процентов принят план по продуктам среза: люди на продуктах плюс незакрытые позиции.',
+        note:['Квота открывается на ставку, а не на процент, поэтому и в режиме аллокаций она считается в штатных единицах.',
+              'Наймом за период закрыто '+D.fmtInt(hc.hire)+'.']}),
+      value:D.fmtPct(fillPct,0),
+      row1:U.delta('pp',fillPct-fill0,{vs:'к началу периода',rate:true,
+        tip:{title:'Изменение укомплектованности',text:'Разница с началом периода в процентных пунктах.'}}),
+      row2:'<span class="k-sub">открыто '+D.fmtInt(openNow)+' квот</span>',
+      aside:'<div class="h-cap">100% = <b>план по продуктам</b></div>'+fDonut})+
   '</div>';
 }
+
+window.PXSCREEN=window.PXSCREEN||{};
+window.PXSCREEN.kpi={render,periodName};
+})();
+
+</script>
+<script>
+/* ============================================================================
+   screens/movement.js — вкладка «Движение». Неймспейс: PXSCREEN.movement
+
+   Вкладка отвечает на один вопрос: как менялся состав продукта. Слева
+   уровень — сколько занято и сколько ещё открыто; справа колонка из состава
+   команды и водопада: из кого состоит то число, которым водопад заканчивается,
+   и из чего это изменение сложилось. Ниже таблица движения по периодам,
+   под ней — то же движение в разрезе и поимённо.
+
+   Состояние среза — сколько людей, какое здоровье, какая верификация —
+   живёт в полосе KPI над вкладками и здесь не повторяется.
+
+   Движение показано ТАБЛИЦЕЙ, а не встречными стопками. Стопка отвечала
+   ровно на один вопрос — «приход и уход одного размера», — а всё остальное
+   приходилось доставать наведением по одному столбцу за раз: сколько именно
+   вошло в марте, вырос ли найм к февралю, где сальдо ушло в минус.
+   В таблице виды движения стоят строками и читаются все сразу, поэтому
+   переключателя видов движения больше нет: переключать нечего.
+
+   Экран не пишет разметку сам — только собирает данные и зовёт PXUI/PXDRAW.
+   ========================================================================== */
+(function(){
+'use strict';
+const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI;
+/* Список людей живёт в своём файле и грузится ПОСЛЕ этого, поэтому берётся
+   в момент вызова, а не в момент определения модуля. */
+function PL(){return window.PXSCREEN.people}
+function periodName(st){return window.PXSCREEN.kpi.periodName(st)}
+
+/* Что означает каждый цвет движения. Живёт рядом с графиком и таблицей,
+   а не сноской под панелью: вопрос «а что тут сиреневое» возникает у самой
+   марки. */
+const LEG_HINT={
+  hire:'Новый и в компании, и на продукте',
+  in:  'Уже работал в компании, но не на этом продукте',
+  attr:'Ушёл из компании',
+  out: 'Ушёл с продукта, но остался в компании',
+  gain:'Процент вырос у того, кто с продукта не уходил',
+  cut: 'Процент снизился у того, кто с продукта не уходил'
+};
 
 /* ---------- Состав команды ----------
    Стоит НАД водопадом и в одной с ним колонке, потому что разбирает то самое
    число, которым водопад заканчивается: «на конец периода 581» → «вот из кого
-   эти 581 состоят». Читается сверху вниз как один сюжет, а не как два блока
-   в разных концах экрана.
-
-   Отдельная панель, а не врезка в карточку: внутри карточки на разложение
-   оставалось меньше двухсот пикселей ширины, имена сегментов приходилось
-   резать до «прямые / шаренные / 30–50 / <30», а доли набирать девятым
-   кеглем. Разбивка, которую нельзя прочитать, не разбивка.
+   эти 581 состоят». Читается сверху вниз как один сюжет.
 
    Целое здесь считается БЕЗ фильтра по сегментам — так возвращает модель.
    Иначе выбор одной категории съедал бы ориентир, частью которого она
@@ -3145,111 +3491,110 @@ function waterfall(m,st){
     hint:'аллокация закрылась вместе с увольнением'});
   steps.push({name:'На конец периода',short:'На конец',total:true,value:t.end});
   /* fill:true — водопад берёт высоту из панели, а не из константы: он стоит
-     рядом со стопкой из двух графиков, и колонки обязаны заканчиваться
-     на одной линии. Иначе под узкой панелью копится серая пустота.
-     h — только для первой отрисовки до замера: с составом над водопадом
-     колонке достаётся примерно столько. */
+     под составом и забирает остаток колонки, чтобы низ обеих колонок совпал.
+     h — только для первой отрисовки до замера. */
   return G.chart('waterfall',{steps},{mode,fill:true,h:300});
 }
 
-/* ---------- Динамика ----------
-   Одна панель, два графика друг под другом с общей осью времени: сверху
-   уровень (сколько занято и сколько ещё открыто), снизу движение, которое
-   этот уровень меняет. Раньше это были разные блоки в разных местах экрана,
-   и связь «столько пришло — вот настолько вырос уровень» приходилось
-   держать в голове.
-
-   Отдельной под-вкладки «Уровень» больше нет: уровень теперь всегда стоит
-   верхней панелью, и переключать нечего. */
-/* Что означает каждый цвет стопки. Живёт рядом с графиком, а не сноской
-   под панелью: вопрос «а что тут сиреневое» возникает у самой марки. */
-const LEG_HINT={
-  hire:'Новый и в компании, и на продукте',
-  in:  'Уже работал в компании, но не на этом продукте',
-  attr:'Ушёл из компании',
-  out: 'Ушёл с продукта, но остался в компании',
-  gain:'Процент вырос у того, кто с продукта не уходил',
-  cut: 'Процент снизился у того, кто с продукта не уходил'
-};
-function dynamics(m,st){
-  const ticks=m.bks, mode=st.mode, f=m.flow;
-  const view=st.moveView==='kinds'?'kinds':'io';
-  /* Высоты подобраны так, чтобы обе панели блока помещались в один экран
-     ноутбука вместе с полосой KPI: растянутый на всю страницу график не
-     сообщает больше, он просто заставляет крутить. */
-  const fte=mode==='fte';
-  const top=G.chart('supply',{filled:m.supply.filled,open:m.supply.open,ticks},
-    {mode,h:196,title:'Ресурсообеспеченность: занято и открытые квоты',
-     info:{title:'Как читать: ресурсообеспеченность',
-       text:'Один столбец на период. Он показывает не только сколько людей есть, но и сколько ещё нужно: план это занятая часть плюс незакрытые квоты.',
-       rows:[{label:'Занято — люди на продуктах среза',value:'заливка',color:G.C_TOTAL},
-             {label:'Открытые квоты — позиция заведена, но не закрыта',value:'обводка',color:G.C_TOTAL},
-             {label:'Подпись над столбцом — план: занято плюс квоты',value:'число'}],
-       note:['Клик по легенде убирает серию с графика и из шкалы.',
-             'Квота открывается на ставку, поэтому и в режиме аллокаций она в штатных единицах.']},
+/* ---------- Уровень ----------
+   Сколько занято и сколько ещё открыто. Это единственная величина вкладки,
+   у которой форма важнее числа: план по продуктам растёт и падает целиком,
+   и бар показывает это одним взглядом. Всё остальное движение — числа,
+   и они живут в таблице ниже. */
+function level(m,st){
+  /* Заголовка внутри графика нет: он остался бы вторым именем той же панели.
+     Пока панель держала два графика, каждому нужно было своё имя; теперь
+     график в панели один, и панель называет его сама. */
+  const info={title:'Как читать: ресурсообеспеченность',
+    text:'Один столбец на период. Он показывает не только сколько людей есть, но и сколько ещё нужно: план это занятая часть плюс незакрытые квоты.',
+    rows:[{label:'Занято — люди на продуктах среза',value:'заливка',color:G.C_TOTAL},
+          {label:'Открытые квоты — позиция заведена, но не закрыта',value:'обводка',color:G.C_TOTAL},
+          {label:'Подпись над столбцом — план: занято плюс квоты',value:'число'}],
+    note:['Клик по легенде убирает серию с графика и из шкалы.',
+          'Квота открывается на ставку, поэтому и в режиме аллокаций она в штатных единицах.']};
+  const chart=G.chart('supply',{filled:m.supply.filled,open:m.supply.open,ticks:m.bks},
+    {mode:st.mode,fill:true,h:420,
      legend:[{name:'занято',color:G.C_TOTAL,sid:'filled'},
              {name:'открытые квоты',color:G.C_TOTAL,hollow:true,sid:'open'}]});
-  let bottom;
-  if(view==='io'){
-    /* Рост и снижение аллокации стоят в тех же плечах, что и приход с уходом,
-       и дальше всех от оси. Без них плечи не сходятся с уровнем над ними:
-       в режиме аллокаций месяц может не дать ни одного найма и ни одного
-       выхода, а занятость всё равно упадёт — людям просто урезали проценты.
-       Пока этих сегментов не было, разницу «пришло минус ушло» невозможно
-       было свести с изменением верхнего графика, и график молча врал. */
-    const up=[{sid:'hire',name:'Найм на продукт',color:G.C_HIRE,series:f.hire},
-              {sid:'in',  name:'Вход на продукт',color:G.C_IN,  series:f.inp}];
-    const down=[{sid:'attr',name:'Отток из компании',color:G.C_ATTR,series:f.attr},
-                {sid:'out', name:'Выход с продукта', color:G.C_OUT, series:f.out}];
-    const legend=[{name:'найм',color:G.C_HIRE,sid:'hire'},
-                  {name:'вход',color:G.C_IN,sid:'in'},
-                  {name:'отток',color:G.C_ATTR,sid:'attr'},
-                  {name:'выход',color:G.C_OUT,sid:'out'}];
-    if(fte){
-      up.push({sid:'gain',name:'Рост аллокации',color:G.C_UP,series:f.up});
-      down.push({sid:'cut',name:'Снижение аллокации',color:G.C_DN,series:f.dn});
-      legend.push({name:'рост',color:G.C_UP,sid:'gain'});
-      legend.push({name:'снижение',color:G.C_DN,sid:'cut'});
-    }
-    /* fill:true — стопка забирает остаток высоты панели. Уровень сверху стоит
-       своей высотой: он читается по подписям, и растягивать его незачем.
-       Без этого панель тянулась до высоты соседней колонки, а график оставался
-       прежним — и под ним копилась та самая серая пустота. */
-    bottom=G.chart('sdiverge',{ticks,up,down,
-      upWord:fte?'всего прибавилось':'всего пришло',
-      dnWord:fte?'всего убавилось':'всего ушло'},
-      {mode,h:262,fill:true,
-       title:fte?'Движение: прибавило вверх, убавило вниз'
-                :'Движение: пришло вверх, ушло вниз',
-       info:{title:'Как читать: движение',
-         text:'Один поток в двух направлениях. Вверх то, что прибавило ресурс на продуктах, вниз то, что убавило. Плечо — один бар, разрезанный на части; ближе к оси стоит основное движение.',
-         rows:legend.map(l=>({label:LEG_HINT[l.sid],value:l.name,color:l.color})),
-         note:['Подписано плечо целиком — состав читается цветом и наведением.',
-           'Разница плеч равна изменению верхнего графика за тот же период: '+
-           (fte?'рост и снижение аллокации входят в плечи наравне с приходом и уходом.'
-               :'в режиме людей аллокация не меняется — человек не может прийти на 30% себя.')]},
-       legend});
-  }else{
-    const panels=[
-      {name:'Найм на продукт',series:f.hire,color:G.C_HIRE},
-      {name:'Вход на продукт',series:f.inp,color:G.C_IN},
-      {name:'Отток из компании',series:f.attr,color:G.C_ATTR},
-      {name:'Выход с продукта',series:f.out,color:G.C_OUT}
-    ];
-    if(fte){
-      panels.push({name:'Изменение аллокации, сальдо',
-        series:f.up.map((v,i)=>v-f.dn[i]),color:G.C_UP,colorDn:G.C_DN,
-        note:'рост минус снижение процентов у тех, кто остался на продукте'});
-    }
-    bottom=G.chart('panels',{panels,ticks},{mode,h:panels.length*98});
-  }
-  const tabs=U.subTabs([
-    ['io','Пришло и ушло',{title:'Пришло и ушло',text:'Один поток в двух направлениях: вверх приход, вниз уход. Каждое плечо — стопка, ближе к оси стоит основное движение.'}],
-    ['kinds','По видам движения',{title:'По видам движения',text:'Каждый вид движения отдельной панелью с общей осью времени и своей шкалой от нуля.'}]
-  ],view,'move');
-  return U.panel({title:'Динамика ресурсов и движения',
-    sub:'гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
-    tabs,body:'<div class="chart-stack">'+top+bottom+'</div>',cls:'p-dyn'});
+  return U.panel({title:'Ресурсообеспеченность'+U.info(info),
+    sub:'занято и открытые квоты · гранулярность: '+
+      D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
+    bodyCls:'fill-b',cls:'p-dyn',body:chart});
+}
+
+/* ---------- Движение по периодам ----------
+   Строки — метрики, столбцы — периоды. Первая группа отвечает на вопрос
+   «сколько стало», и в ней же стоит прирост к предыдущему периоду: без него
+   таблица показывает уровни, но молчит о том, растём мы или падаем. */
+function flow(m,st){
+  const f=m.flow, mode=st.mode, n=m.bks.length, fte=mode==='fte';
+  const prev=(arr,i)=>i>0?arr[i-1]:m.tot.begin;
+  const net=m.stock.map((v,i)=>v-prev(m.stock,i));
+  const netPct=m.stock.map((v,i)=>{const p=prev(m.stock,i);return p?(v-p)/p*100:null});
+  const inSum=m.bks.map((b,i)=>f.hire[i]+f.inp[i]+(fte?f.up[i]:0));
+  const outSum=m.bks.map((b,i)=>f.out[i]+f.attr[i]+(fte?f.dn[i]:0));
+
+  const rows=[
+    {group:true,name:'Состояние',note:'на конец периода'},
+    {name:'Численность на конец',kind:'val',values:m.stock,agg:'last',
+     hint:'Значение на последний месяц периода. Складывать численность по месяцам нельзя, поэтому в колонке «За период» стоит последний столбец.'},
+    {name:'Прирост к предыдущему периоду',kind:'delta',values:net,
+     total:m.tot.delta,strong:true,
+     hint:'Разница с предыдущим периодом. У первого столбца сравнение идёт с месяцем перед окном, в колонке «За период» — прирост за всё окно.'},
+    {name:'Прирост к предыдущему периоду, %',kind:'pct',values:netPct,
+     total:m.tot.begin?m.tot.delta/m.tot.begin*100:null,
+     hint:'Тот же прирост в процентах от предыдущего периода.'},
+
+    {group:true,name:fte?'Прибавило':'Пришло',note:'суммируется внутри периода'},
+    {name:'Найм на продукт',kind:'val',values:f.hire,agg:'sum',flow:'hire',color:G.C_HIRE,
+     hint:LEG_HINT.hire},
+    {name:'Вход на продукт',kind:'val',values:f.inp,agg:'sum',flow:'in',color:G.C_IN,
+     hint:LEG_HINT.in}
+  ];
+  /* Рост и снижение аллокации стоят в тех же группах, что приход и уход.
+     Без них группы не сходятся с уровнем: в режиме аллокаций месяц может
+     не дать ни одного найма и ни одного выхода, а занятость всё равно
+     упадёт — людям просто урезали проценты. */
+  if(fte)rows.push({name:'Рост аллокации',kind:'val',values:f.up,agg:'sum',
+    flow:'up',color:G.C_UP,hint:LEG_HINT.gain});
+  rows.push({name:fte?'Всего прибавилось':'Всего пришло',kind:'val',values:inSum,
+    agg:'sum',strong:true});
+
+  rows.push({group:true,name:fte?'Убавило':'Ушло',note:'суммируется внутри периода'});
+  rows.push({name:'Выход с продукта',kind:'val',values:f.out,agg:'sum',flow:'out',
+    color:G.C_OUT,hint:LEG_HINT.out});
+  rows.push({name:'Отток из компании',kind:'val',values:f.attr,agg:'sum',flow:'attr',
+    color:G.C_ATTR,hint:LEG_HINT.attr});
+  if(fte)rows.push({name:'Снижение аллокации',kind:'val',values:f.dn,agg:'sum',
+    flow:'dn',color:G.C_DN,hint:LEG_HINT.cut});
+  rows.push({name:fte?'Всего убавилось':'Всего ушло',kind:'val',values:outSum,
+    agg:'sum',strong:true});
+
+  rows.push({name:'Сальдо движения',kind:'delta',
+    values:inSum.map((v,i)=>v-outSum[i]),total:m.tot.delta,strong:true,
+    hint:'Пришло минус ушло. Сходится с приростом численности в каждом периоде — тот же инвариант, что и в водопаде.'});
+
+  const legend=[{label:LEG_HINT.hire,value:'Найм',color:G.C_HIRE},
+                {label:LEG_HINT.in,value:'Вход',color:G.C_IN},
+                fte?{label:LEG_HINT.gain,value:'Рост',color:G.C_UP}:null,
+                fte?{label:LEG_HINT.cut,value:'Снижение',color:G.C_DN}:null,
+                {label:LEG_HINT.out,value:'Выход',color:G.C_OUT},
+                {label:LEG_HINT.attr,value:'Отток',color:G.C_ATTR}].filter(Boolean);
+  const body='<div class="tbl-wrap">'+U.metricTable({rows,cols:m.bks,mode,
+      dimName:'Метрика',totalHead:'За период'})+'</div>'+
+    U.note('Запасы берутся на конец периода, потоки суммируются внутри него: '+
+      'поэтому «За период» у численности повторяет последний столбец, а у движения '+
+      'складывает все.'+
+      (fte?'':' Изменения аллокации в режиме людей нет: человек не может прийти на 30% себя.'));
+  return U.panel({title:'Движение по периодам'+U.info({
+      title:'Как читать: движение по периодам',
+      text:'Строки — виды движения, столбцы — периоды. Отдельного переключателя видов движения нет: все виды стоят рядом и читаются сразу. Заливка ячейки показывает, где величина сосредоточена ВНУТРИ строки.',
+      rows:legend,
+      note:['Первая группа — состояние: сколько стало и насколько это больше предыдущего периода.',
+            'Сальдо движения внизу равно приросту численности в каждом периоде — это проверяется автоматически.']}),
+    sub:'гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase()+
+      ' · '+U.plural(n,'период','периода','периодов')+': '+n,
+    body});
 }
 
 /* ---------- Движение персонала: сводная и деталка ----------
@@ -3259,12 +3604,10 @@ function dynamics(m,st){
    Это ОДИН блок, а не два, потому что вопрос один: клик по числу движения
    и есть переход «сколько» → «кто». Пока деталка была отдельной вкладкой,
    этот клик выбрасывал читателя в другой конец отчёта: он не успевал понять,
-   что произошло, и терял таблицу, из которой пришёл. Возврат теперь тот же
-   переключатель, которым ушёл, и сводная остаётся ровно в том состоянии,
-   в каком её оставили — раскрытые строки и разрез не сбрасываются.
+   что произошло, и терял таблицу, из которой пришёл.
 
-   Три уровня и матрица живут на второй вкладке: там это отдельная работа,
-   а не взгляд по дороге. */
+   Три уровня и матрица живут на вкладке «Трансформер»: там это отдельная
+   работа, а не взгляд по дороге. */
 function pivotSum(m,st){
   const rows=st.dimB?D.rows2(st,st.dimA,st.dimB):D.rows(st,st.dimA);
   const dimName=D.DIM_BY_KEY[st.dimA].name;
@@ -3286,7 +3629,7 @@ function pivotSum(m,st){
         'с прочерком: раскладывать их по профессиям и грейдам не на чем.'));
 }
 const PIVOT_INFO={title:'Как читать: сводная движения',
-  text:'Те же метрики, что на графиках выше, но в разрезе. Строки раскрываются до второго уровня, каретка у ИТОГО раскрывает и сворачивает всё дерево разом.',
+  text:'Те же метрики, что в таблице выше, но в разрезе. Строки раскрываются до второго уровня, каретка у ИТОГО раскрывает и сворачивает всё дерево разом.',
   note:['Сумма по строкам больше итога, когда разрез привязан к продукту: человек на трёх продуктах попадает в три строки, а в итог считается один раз. В режиме аллокаций проценты складываются и сумма сходится точно.',
         'Переходы между продуктами внутри среза видны в строках и схлопываются в итоге — портфель они не меняют.',
         'Числа движения кликаются: клик открывает деталку по этим людям в этой же панели.']};
@@ -3307,20 +3650,16 @@ function render(st){
   const m=D.model(st);
   if(!m.verify.total)return U.empty('На выбранных продуктах никого нет',
     'Снимите один из фильтров слева — например, сегмент аллокации или грейд.');
-  /* Порядок блоков — это порядок вопросов. Сколько людей → из кого они
-     состоят → как менялось → где именно менялось.
+  /* Порядок блоков — это порядок вопросов. Сколько есть и сколько ещё нужно →
+     из кого состоит и из чего сложилось изменение → как оно шло по периодам →
+     где именно происходило и с кем конкретно.
 
-     Динамика стоит слева и шире: это главный сюжет экрана, и читают его
-     первым. Справа колонка из двух панелей: состав команды и водопад.
-     Состав сверху, потому что он разбирает то число, которым водопад
-     заканчивается, и потому что читать сверху вниз «из кого состоит →
-     как получилось» естественнее, чем наоборот.
-
-     Высоту колонки задаёт динамика. Состав занимает свои пять строк,
-     водопад забирает весь остаток: график умеет занять любую высоту,
-     и серой пустоте под колонкой взяться неоткуда. */
-  return kpis(m,st)+'<div class="stack">'+
-    '<div class="grid-60-40">'+dynamics(m,st)+
+     Уровень стоит слева и шире, справа колонка из двух панелей: состав
+     сверху, водопад под ним. Высоту колонки задаёт уровень, водопад
+     забирает весь остаток — низ обеих колонок совпадает, серой пустоте
+     взяться неоткуда. */
+  return '<div class="stack">'+
+    '<div class="grid-60-40">'+level(m,st)+
       '<div class="col">'+composition(m,st)+
       U.panel({title:'Как изменилось за период'+U.info({
           title:'Как читать: водопад',
@@ -3336,11 +3675,11 @@ function render(st){
         cls:'p-wf',bodyCls:'fill-b',
         body:waterfall(m,st)})+
       '</div>'+
-    '</div>'+pivot(m,st)+'</div>';
+    '</div>'+flow(m,st)+pivot(m,st)+'</div>';
 }
 
 window.PXSCREEN=window.PXSCREEN||{};
-window.PXSCREEN.overview={render,periodName};
+window.PXSCREEN.movement={render,periodName,usesMode:true};
 })();
 
 </script>
@@ -3481,13 +3820,229 @@ function render(st){
       '</div>';
 
   return U.panel({title:'Трансформер',
-    sub:'период '+window.PXSCREEN.overview.periodName(st)+
+    sub:'период '+window.PXSCREEN.kpi.periodName(st)+
       ' · гранулярность: '+D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
     tabs,body:ctl+(view==='dyn'?dynView(st,m):mtxView(st,m))});
 }
 
 window.PXSCREEN=window.PXSCREEN||{};
-window.PXSCREEN.transformer={render};
+window.PXSCREEN.transformer={render,usesMode:true};
+})();
+
+</script>
+<script>
+/* ============================================================================
+   screens/health.js — вкладка «Здоровье». Неймспейс: PXSCREEN.health
+
+   Здоровье аллокаций и доля верификации до сих пор жили одним числом
+   в полосе KPI. Число отвечает «сколько сейчас» и молчит о главном:
+   становится лучше или хуже и за счёт чего. Отсюда отдельная вкладка —
+   та же пара метрик, но в динамике, по периодам, поимённо по продуктам
+   и в разрезах.
+
+   ПЕРЕКЛЮЧАТЕЛЬ «ЛЮДИ / АЛЛОКАЦИИ» К ЭТОЙ ВКЛАДКЕ НЕ ПРИМЕНИМ, и его тут
+   нет вовсе, а не стоит выключенным. Причина в природе метрик: здоровье —
+   это сумма аллокаций ЧЕЛОВЕКА по всем продуктам сразу (перебор ставки
+   не принадлежит ни одному продукту и на паре не виден), а верификация —
+   свойство ПРОДУКТА (подтвердить состав команды на 70% нельзя). Поэтому
+   всё на вкладке считается в людях и продуктах.
+
+   Экран не пишет разметку сам — только собирает данные и зовёт PXUI/PXDRAW.
+   ========================================================================== */
+(function(){
+'use strict';
+const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI;
+
+const HCOL={norm:G.C_GREEN,over:G.C_RED,under:G.C_FLAT,low:G.C_RED,zero:G.C_RED};
+function periodName(st){return window.PXSCREEN.kpi.periodName(st)}
+/* Прирост к предыдущему периоду. У первого столбца предыдущего нет, и там
+   стоит прочерк, а не ноль: ноль сказал бы «не изменилось». */
+function deltas(arr){return arr.map((v,i)=>i?v-arr[i-1]:null)}
+
+/* ---------- Тренд ----------
+   Две доли, две линии, общая шкала от нуля до ста. Верх шкалы задан явно:
+   у доли он всегда сто процентов, иначе восемьдесят упираются в потолок
+   и читаются как «почти всё». */
+function trend(h,st){
+  const ticks=h.bks;
+  const top=G.chart('line',{series:h.normShare,ticks},
+    {h:196,fmt:'pct',max:100,color:G.C_GREEN,name:'Доля со ставкой ровно 100%',
+     title:'Здоровье: доля сотрудников со ставкой ровно 100%',
+     info:{title:'Как читать: здоровье в динамике',
+       text:'Доля людей, у которых сумма аллокаций по всем продуктам равна ровно ста процентам. Остальные состояния — перебор, недобор и ноль — в таблице ниже.',
+       rows:[{label:'Доля со ставкой ровно 100%',value:'линия',color:G.C_GREEN}],
+       note:['Шкала от нуля до ста процентов: подогнанный под данные потолок превратил бы восемьдесят процентов в «почти всё».',
+             'В подсказке точки — изменение к предыдущему периоду в процентных пунктах.']}});
+  const bottom=G.chart('line',{series:h.verify.map(v=>v.share),ticks},
+    {h:196,fmt:'pct',max:100,color:G.C_LINE,name:'Доля верифицированных продуктов',
+     title:'Верификация: доля продуктов с подтверждённым составом',
+     info:{title:'Как читать: верификация в динамике',
+       text:'Доля продуктов среза, владельцы которых подтвердили состав команды. В знаменателе только продукты, на которых есть хотя бы один человек.',
+       rows:[{label:'Доля верифицированных продуктов',value:'линия',color:G.C_LINE}],
+       note:'Часть продуктов подтверждается в середине окна — отсюда динамика доли.'}});
+  return U.panel({title:'Становится лучше или хуже',
+    sub:'период '+periodName(st)+' · гранулярность: '+
+      D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase(),
+    body:'<div class="chart-stack">'+top+bottom+'</div>'+
+      U.note('Обе величины — доли, поэтому их изменение считается в процентных пунктах, '+
+        'а не в процентах: «доля выросла на 5%» и «доля выросла на 5 п.п.» — разные числа.')});
+}
+
+/* ---------- Здоровье по периодам ---------- */
+function healthRows(h){
+  const rows=[{group:true,name:'Состояние сотрудников',note:'на конец периода'}];
+  h.states.forEach(s=>{
+    rows.push({name:s.name,kind:'int',values:s.values,agg:'last',hint:s.hint,
+      color:HCOL[s.key]});
+  });
+  rows.push({name:'Всего сотрудников',kind:'int',values:h.total,agg:'last',strong:true,
+    hint:'Люди, попавшие в срез, включая тех, у кого нет ни одной аллокации: без них исчезла бы целая проблемная категория.'});
+  rows.push({group:true,name:'Оценка',note:'доля и её изменение'});
+  rows.push({name:'Доля со ставкой ровно 100%',kind:'pct',values:h.normShare,agg:'last',
+    strong:true,hint:'Главная метрика здоровья: сумма аллокаций по всем продуктам равна ровно ста процентам.'});
+  rows.push({name:'Изменение доли к предыдущему периоду',kind:'pp',values:deltas(h.normShare),
+    total:h.normShare[h.normShare.length-1]-h.normShare[0],
+    hint:'В процентных пунктах. В колонке «За период» — разница между последним и первым периодом окна.'});
+  rows.push({name:'Проблемных сотрудников',kind:'int',values:h.badTotal,agg:'last',
+    hint:'Состояния, которые требуют правки в каталоге: больше 100%, меньше 30% и нулевая аллокация.'});
+  return rows;
+}
+
+/* ---------- Верификация по периодам ---------- */
+function verifyRows(h){
+  const share=h.verify.map(v=>v.share);
+  return [
+    {group:true,name:'Продукты среза',note:'на конец периода'},
+    {name:'Продуктов с людьми',kind:'int',values:h.verify.map(v=>v.total),agg:'last',
+     hint:'Продукты, на которых есть хотя бы один человек: пустой продукт подтверждать нечего, и он не попадает в знаменатель.'},
+    {name:'Состав подтверждён',kind:'int',values:h.verify.map(v=>v.ok),agg:'last',
+     hint:'Владелец продукта подтвердил состав команды.'},
+    {name:'Ждут подтверждения',kind:'int',values:h.verify.map(v=>v.total-v.ok),agg:'last',
+     hint:'Состав не подтверждён — P&L по этим продуктам считается по неподтверждённым данным.'},
+    {group:true,name:'Оценка',note:'доля и её изменение'},
+    {name:'Доля верифицированных',kind:'pct',values:share,agg:'last',strong:true},
+    {name:'Изменение доли к предыдущему периоду',kind:'pp',values:deltas(share),
+     total:share[share.length-1]-share[0],
+     hint:'В процентных пунктах. В колонке «За период» — разница между последним и первым периодом окна.'}
+  ];
+}
+
+/* ---------- Детализация: какие именно продукты не подтверждены ----------
+   Доля без имён — оценка без адресата: с ней нельзя пойти и подтвердить
+   состав. Неподтверждённые идут первыми, и рядом стоит цена вопроса —
+   сколько людей и ставок считается по неподтверждённым данным. */
+function products(h){
+  const rows=h.products.map(p=>({
+    cells:[
+      {v:p.name,txt:true,sub:p.domName},
+      {v:D.fmtInt(p.people)},
+      {v:D.fmtFte(p.fte)},
+      {v:p.verified?'подтверждён':'ждёт подтверждения',chip:p.verified?'good':'bad'},
+      {v:p.verified?D.mLabel(p.from):'—',muted:!p.verified}
+    ]
+  }));
+  const wait=h.products.filter(p=>!p.verified);
+  const waitPeople=wait.reduce((a,p)=>a+p.people,0);
+  const waitFte=wait.reduce((a,p)=>a+p.fte,0);
+  return U.panel({title:'Верификация по продуктам'+U.info({
+      title:'Как читать: верификация по продуктам',
+      text:'Тот же знаменатель, что у доли в полосе KPI, но поимённо. Неподтверждённые продукты стоят первыми: это список работы, а не справочник.',
+      rows:[{label:'Владелец подтвердил состав команды',value:'подтверждён',color:G.C_GREEN},
+            {label:'Состав не подтверждён — P&L считается по этим данным как есть',value:'ждёт',color:G.C_RED}],
+      note:'Людей и FTE в строке ИТОГО — цена вопроса: столько ресурса уходит в P&L по неподтверждённым данным.'}),
+    sub:'на конец периода · '+U.plural(h.products.length,'продукт','продукта','продуктов')+
+      ': '+h.products.length,
+    body:'<div class="tbl-wrap">'+U.dataTable({
+      head:[{name:'Продукт',txt:true},{name:'Людей'},{name:'FTE'},
+            {name:'Статус',sub:'состав команды'},{name:'Подтверждён',sub:'с месяца'}],
+      rows,
+      total:[{v:'ИТОГО ждут подтверждения',txt:true},
+             {v:D.fmtInt(waitPeople)},{v:D.fmtFte(waitFte)},
+             {v:D.fmtInt(wait.length)+' из '+D.fmtInt(h.products.length)},{v:''}]
+    })+'</div>'});
+}
+
+/* ---------- Здоровье в разрезе ----------
+   Разрез только по свойствам человека: здоровье считается по сумме аллокаций
+   человека по ВСЕМ продуктам, поэтому по продуктам оно не раскладывается —
+   перебор ставки не принадлежит ни одному из них. */
+function byDim(st){
+  const dim=D.HEALTH_DIMS.indexOf(st.hdim)>=0?st.hdim:'prof';
+  const rows=D.healthBy(st,dim,st.i1);
+  const head=[{name:D.DIM_BY_KEY[dim].name,txt:true}]
+    .concat(D.HEALTH.map(x=>({name:x.name,tip:{title:x.name,text:x.hint}})))
+    .concat([{name:'Всего',vs:true},{name:'Доля 100%',sub:'здоровье разреза'}]);
+  const totals=Object.create(null);D.HEALTH.forEach(x=>{totals[x.key]=0});
+  let all=0;
+  rows.forEach(r=>{all+=r.total;D.HEALTH.forEach(x=>{totals[x.key]+=r.counts[x.key]})});
+  const body=U.dataTable({
+    head,
+    rows:rows.map(r=>({cells:[{v:r.name,txt:true}]
+      .concat(D.HEALTH.map(x=>({v:D.fmtInt(r.counts[x.key]),
+        tip:{title:r.name+' · '+x.name,
+          rows:[{label:'Сотрудников',value:D.fmtInt(r.counts[x.key]),color:HCOL[x.key]},
+                {label:'Доля в строке',value:D.fmtPct(r.total?r.counts[x.key]/r.total*100:0,0)}],
+          note:x.hint}})))
+      .concat([{v:D.fmtInt(r.total),vs:true,lead:true},
+               {v:D.fmtPct(r.share,0)}])})),
+    total:[{v:'ИТОГО',txt:true}]
+      .concat(D.HEALTH.map(x=>({v:D.fmtInt(totals[x.key])})))
+      .concat([{v:D.fmtInt(all),vs:true},
+               {v:D.fmtPct(all?totals.norm/all*100:0,0)}])
+  });
+  const ctl='<div class="h-ctl">'+
+    U.select('hdim',D.HEALTH_DIMS.map(k=>[k,D.DIM_BY_KEY[k].name]),dim,'Разрез')+
+    '</div>';
+  return U.panel({title:'Здоровье в разрезе'+U.info({
+      title:'Как читать: здоровье в разрезе',
+      text:'Те же пять состояний, но разложенные по свойству человека. Последняя колонка — доля со ставкой ровно 100% внутри строки: по ней видно, где именно данные хуже.',
+      rows:D.HEALTH.map(x=>({label:x.hint,value:x.name,color:HCOL[x.key]})),
+      note:['Разрез только по свойствам человека: по продуктам здоровье не раскладывается — сумма аллокаций считается по всем продуктам сразу, и перебор ставки не принадлежит ни одному из них.',
+            'Итог здесь больше числа сотрудников на продуктах: в него входят люди без единой аллокации.']}),
+    sub:'на конец периода',tabs:ctl,
+    body:'<div class="tbl-wrap">'+body+'</div>'});
+}
+
+function render(st){
+  const m=D.model(st);
+  if(!m.verify.total)return U.empty('На выбранных продуктах никого нет',
+    'Снимите один из фильтров слева — например, сегмент аллокации или грейд.');
+  const h=D.healthModel(st);
+  const gran=D.GRAN.filter(g=>g.key===st.gran)[0].name.toLowerCase();
+  /* Таблицы стоят ДРУГ ПОД ДРУГОМ, а не рядом: двенадцать месяцев
+     в половине ширины не помещаются, и таблица начинает прокручиваться
+     вбок внутри панели — тогда динамика, ради которой она здесь, видна
+     по шесть месяцев за раз. */
+  return '<div class="stack">'+
+    trend(h,st)+
+    U.panel({title:'Здоровье аллокаций по периодам'+U.info({
+        title:'Как читать: здоровье по периодам',
+        text:'Пять состояний строками, периоды столбцами. Здоровье считается по человеку, а не по паре «человек × продукт»: перебор ставки возникает из суммы по всем продуктам сразу.',
+        rows:D.HEALTH.map(x=>({label:x.hint,value:x.name,color:HCOL[x.key]})),
+        note:'Пять состояний вместо трёх заявленных: без «ровно 100%» и «от 30 до 99%» бакеты не покрывают всех, и доли не складываются в сто процентов.'}),
+      sub:'гранулярность: '+gran,
+      body:'<div class="tbl-wrap">'+U.metricTable({rows:healthRows(h),cols:h.bks,
+        mode:'hc',dimName:'Состояние',totalHead:'За период'})+'</div>'})+
+    U.panel({title:'Верификация по периодам'+U.info({
+        title:'Как читать: верификация по периодам',
+        text:'Сколько продуктов в знаменателе, сколько из них подтверждено и как менялась доля. Считаются продукты среза, на которых есть хотя бы один человек.',
+        note:'Изменение доли — в процентных пунктах: доля не может вырасти «на 5%».'}),
+      sub:'гранулярность: '+gran,
+      body:'<div class="tbl-wrap">'+U.metricTable({rows:verifyRows(h),cols:h.bks,
+        mode:'hc',dimName:'Показатель',totalHead:'За период'})+'</div>'})+
+    products(h)+
+    byDim(st)+
+  '</div>';
+}
+
+window.PXSCREEN=window.PXSCREEN||{};
+/* usesMode:false — единственный источник правды о том, что переключатель
+   «люди / аллокации» к этой вкладке не применим. Приложение читает его
+   и не рисует полосу режима, полоса KPI — и не подсвечивает главную
+   метрику. Список вкладок, у которых режима нет, нигде не дублируется. */
+window.PXSCREEN.health={render,usesMode:false,modeFix:'людях и продуктах',
+  modeNote:'Здоровье считается по человеку целиком, а верификация — по продукту: '+
+    '70% человека нельзя проверить на ставку, а продукт нельзя подтвердить на 70%'};
 })();
 
 </script>
@@ -3692,16 +4247,30 @@ const D=window.PXDATA, G=window.PXDRAW, U=window.PXUI, SC=window.PXSCREEN;
 
 /* ---------- Состояние ---------- */
 const DEF={
-  mode:'hc', tab:'overview',
+  mode:'hc', tab:'movement',
   i0:D.N-12, i1:D.N-1, gran:'m',
   prods:[], segs:[], mainOnly:false,
   prof:'', grade:'', loc:'', emp:'',
-  dimA:'domain', dimB:'product', open:[], moveView:'io',
+  dimA:'domain', dimB:'product', open:[],
   tview:'dyn', tmetric:'stock', t1:'domain', t2:'product', t3:'', topen:[],
-  my:'prof', mxd:'grade',
+  my:'prof', mxd:'grade', hdim:'prof',
   pview:'sum', evt:'', q:'', pAll:false,
   treeOpen:[]
 };
+/* Вкладки: движение, трансформер, здоровье. Ключ вкладки — он же имя экрана
+   в PXSCREEN, поэтому список нигде не дублируется. Список сотрудников
+   вкладкой не стоит: он второй режим панели «Движение персонала», куда
+   ведёт клик по числу движения. */
+const TABS=[
+  ['movement','Движение'],
+  ['transformer','Трансформер'],
+  ['health','Здоровье']
+];
+function screenOf(tab){return SC[tab]||SC.movement}
+/* Режим «люди / аллокации» есть не у каждой вкладки: у здоровья он не
+   применим по природе метрик. Спрашиваем сам экран, а не держим второй
+   список вкладок здесь. */
+function usesMode(tab){return screenOf(tab).usesMode!==false}
 const S=Object.assign({},DEF);
 
 /* Состояние запроса для модели. Отдельная функция, потому что prodSet —
@@ -3738,6 +4307,10 @@ function fromURL(){
     else S[k]=v;
   });
   if(S.i1<S.i0)S.i1=S.i0;
+  /* Ссылка на прежний главный экран не должна ломаться: вкладка «Ресурсы
+     и движение» разошлась на полосу KPI над вкладками и вкладку движения. */
+  if(S.tab==='overview')S.tab='movement';
+  if(!SC[S.tab])S.tab=DEF.tab;
 }
 
 /* ---------- Полка фильтров ---------- */
@@ -3922,7 +4495,10 @@ function chips(){
   });
   let h=out.map(c=>'<span class="chip">'+U.esc(c[1])+
     '<button class="x" data-unchip="'+c[0]+'" aria-label="Снять фильтр">×</button></span>').join('');
-  h+='<span class="chip bench">Режим: <b>'+(S.mode==='fte'?'аллокации, FTE':'уникальные люди')+'</b></span>';
+  /* Чипы режима нет на вкладке, у которой режима нет: она сообщала бы
+     о переключателе, которого на экране не видно. */
+  if(usesMode(S.tab))
+    h+='<span class="chip bench">Режим: <b>'+(S.mode==='fte'?'аллокации, FTE':'уникальные люди')+'</b></span>';
   return h;
 }
 
@@ -3936,24 +4512,39 @@ function reporthead(){
     '<h1 class="rh-title">'+U.esc(scope)+'</h1>'+
     '<div class="chips">'+chips()+'</div></div>'+
     '<div class="rh-side">'+
-      '<span class="period">'+U.esc(SC.overview.periodName(q()))+'</span>'+
+      '<span class="period">'+U.esc(SC.kpi.periodName(q()))+'</span>'+
       '<button class="btn ghost" data-help="1">Как читать отчёт</button>'+
       '<button class="btn" data-link="1">Скопировать ссылку</button>'+
     '</div></div>';
 }
 
+/* ---------- Полоса режима ----------
+   Стоит ПОД вкладками, потому что управляет их содержимым, а не полосой KPI:
+   в полосе обе главные метрики стоят рядом и всегда, а режим лишь
+   подсвечивает ту, в которой считает вкладка.
+
+   У вкладки без режима полосы нет вовсе, а не стоит выключенной: выключенный
+   переключатель обещает, что его можно включить. Вместо неё — строка о том,
+   в чём вкладка считает и почему иначе не может. */
 function modeRow(){
+  const sc=screenOf(S.tab);
+  if(!usesMode(S.tab))return '<div class="moderow static">'+
+    '<span class="lbl">Считаем в</span>'+
+    '<span class="mode-fix">'+U.esc(sc.modeFix||'людях')+'</span>'+
+    '<span class="sp"></span>'+
+    '<span class="hint-txt">'+U.esc(sc.modeNote||'')+'</span></div>';
   return '<div class="moderow">'+
     '<span class="lbl">Считаем в</span>'+
     U.subTabs([['hc','Люди',{title:'Люди',text:'Уникальные сотрудники. Человек, стоящий на трёх продуктах, считается один раз.'}],
                ['fte','Аллокации, FTE',{title:'Аллокации',text:'Сумма процентов занятости. Один человек на 50% и 50% даёт 1,0 FTE.'}]],
       S.mode,'mode')+
     '<span class="sp"></span>'+
-    '<span class="hint-txt">Меняет смысл всех чисел отчёта разом</span>'+
-    '</div>'+
-    '<div class="tabs" role="tablist">'+
-      tab('overview','Ресурсы и движение')+tab('transformer','Трансформер')+
+    '<span class="hint-txt">Меняет смысл всех чисел вкладки разом</span>'+
     '</div>';
+}
+function tabRow(){
+  return '<div class="tabs" role="tablist">'+
+    TABS.map(t=>tab(t[0],t[1])).join('')+'</div>';
 }
 function tab(k,name){
   return '<button class="tab'+(S.tab===k?' active':'')+'" data-tab="'+k+'" role="tab"'+
@@ -3968,8 +4559,12 @@ function render(animate){
   document.getElementById('shelfBody').innerHTML=shelf();
   document.getElementById('reporthead').innerHTML=reporthead();
   const view=document.getElementById('view');
-  view.innerHTML=modeRow()+
-    (S.tab==='transformer'?SC.transformer.render(st):SC.overview.render(st));
+  /* Порядок блоков — это порядок вопросов. Что сейчас со срезом (полоса KPI,
+     одна на все вкладки) → о чём говорим (вкладки) → в чём считаем (режим) →
+     сам ответ. Полоса стоит выше вкладок, потому что не принадлежит ни одной
+     из них: уходя смотреть здоровье, пользователь не должен терять из виду,
+     сколько всего людей в срезе. */
+  view.innerHTML=SC.kpi.render(st)+tabRow()+modeRow()+screenOf(S.tab).render(st);
   /* Пресет периода подсвечивается по факту, а не по памяти: пользователь мог
      подвинуть границы руками, и тогда пресет уже не тот. */
   const sel=document.querySelector('[data-sel="periodPreset"]');
@@ -4064,7 +4659,6 @@ document.addEventListener('click',e=>{
   }
   if((el=hit('data-mode'))){S.mode=el.getAttribute('data-mode');fixMetric();return schedule()}
   if((el=hit('data-gran'))){S.gran=el.getAttribute('data-gran');return schedule()}
-  if((el=hit('data-move'))){S.moveView=el.getAttribute('data-move');return schedule()}
   if((el=hit('data-tview'))){S.tview=el.getAttribute('data-tview');return schedule()}
   if((el=hit('data-tab'))){S.tab=el.getAttribute('data-tab');return schedule()}
   /* Легенда — управление сериями графика, а не картинка. Перерисовывается
@@ -4087,7 +4681,7 @@ document.addEventListener('click',e=>{
   if((el=hit('data-drill'))){
     const [evt,dim,val]=el.getAttribute('data-drill').split('|');
     if(val)applyRowFilter(dim,val);
-    S.evt=evt;S.q='';S.pAll=false;S.pview='people';
+    S.evt=evt;S.q='';S.pAll=false;S.pview='people';S.tab='movement';
     return schedule();
   }
   if((el=hit('data-pview'))){S.pview=el.getAttribute('data-pview');return schedule()}

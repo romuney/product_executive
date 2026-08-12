@@ -448,10 +448,13 @@ function fmtDelta(mode,v){
   if(Math.abs(v)<(mode==='fte'?0.05:0.5))return '0';
   return (v>0?'+':'')+fmtVal(mode,v);
 }
+/* Минус у доли — типографский, как и везде в отчёте: дефис короче и ниже,
+   и в колонке чисел он выпадает из ряда. Доля бывает отрицательной только
+   там, где это прирост, — и там знак читается первым. */
 function fmtPct(v,d){
   if(v==null)return '—';
-  const s=(+v).toFixed(d==null?1:d).replace('.',',');
-  return (v<0?'':'')+s+'%';
+  const s=Math.abs(+v).toFixed(d==null?1:d).replace('.',',');
+  return (v<0?MINUS:'')+s+'%';
 }
 function fmtPp(v){
   if(Math.abs(v)<0.05)return '0'+THIN+'п.п.';
@@ -672,11 +675,16 @@ function segments(st){
 }
 
 /* Здоровье считается по ЧЕЛОВЕКУ, а не по паре: перебор ставки возникает
-   именно из суммы по всем продуктам, и на отдельной паре его не видно. */
-function health(st){
-  const m=st.i1;
-  const out=HEALTH.map(h=>({key:h.key,name:h.name,hint:h.hint,bad:h.bad,people:0}));
-  const idx=Object.create(null);out.forEach((o,i)=>{idx[o.key]=i});
+   именно из суммы по всем продуктам, и на отдельной паре его не видно.
+
+   Один проход на все виды здоровья: месяц приходит параметром, а группировка —
+   функцией. Пока месяц был зашит в st.i1, здоровье умело отвечать только
+   «как сейчас», и на вопрос «становится лучше или нет» отчёту было нечем
+   ответить. Теперь тот же счётчик считает любой месяц окна, и из него
+   собирается динамика. */
+function healthScan(st,m,keyOf){
+  const out=new Map();
+  const blank=()=>{const o=Object.create(null);HEALTH.forEach(h=>{o[h.key]=0});return o};
   const inSet=Object.create(null);
   ALLOC.forEach(a=>{
     if(!inScope(st,a.prod))return;
@@ -693,9 +701,39 @@ function health(st){
       if(sumPct[p.id][m]>0)return;                 /* аллоцирован, но вне среза */
       if(!inScope(st,PIDX[p.home]))return;
     }
-    out[idx[healthOf(sumPct[p.id][m])]].people++;
+    const k=keyOf?keyOf(p):'*';
+    let row=out.get(k);
+    if(!row){row=blank();out.set(k,row)}
+    row[healthOf(sumPct[p.id][m])]++;
   });
   return out;
+}
+function health(st,m){
+  m=m==null?st.i1:m;
+  const c=healthScan(st,m,null).get('*');
+  return HEALTH.map(h=>({key:h.key,name:h.name,hint:h.hint,bad:h.bad,
+    people:c?c[h.key]:0}));
+}
+/* Здоровье в разрезе. Разрез только по свойствам ЧЕЛОВЕКА: здоровье считается
+   по сумме аллокаций человека, и разложить его по продуктам нельзя — перебор
+   ставки возникает из нескольких продуктов сразу и ни одному из них
+   не принадлежит. */
+const HEALTH_DIMS=['prof','grade','loc','emp'];
+function healthBy(st,dimKey,m){
+  m=m==null?st.i1:m;
+  const d=DIM_BY_KEY[HEALTH_DIMS.indexOf(dimKey)>=0?dimKey:'prof'];
+  const map=healthScan(st,m,p=>d.of(null,p,m,st));
+  const rows=[];
+  map.forEach((counts,name)=>{
+    let total=0;HEALTH.forEach(h=>{total+=counts[h.key]});
+    let bad=0;HEALTH.forEach(h=>{if(h.bad)bad+=counts[h.key]});
+    rows.push({name,counts,total,bad,norm:counts.norm,
+      share:total?counts.norm/total*100:0});
+  });
+  const ord=DIM_ORDER[d.key];
+  if(ord)rows.sort((a,b)=>ord.indexOf(a.name)-ord.indexOf(b.name));
+  else rows.sort((a,b)=>b.total-a.total);
+  return rows;
 }
 
 /* Доля верифицированных продуктов. Считается по продуктам в срезе, у которых
@@ -720,6 +758,63 @@ function verification(st,m){
   });
   return {total,ok,share:total?ok/total*100:0,fteOk,fteAll,
           fteShare:fteAll?fteOk/fteAll*100:0};
+}
+
+/* ---------- Верификация по продуктам ----------
+   Доля верифицированных без имён продуктов — это оценка без адресата: с ней
+   нельзя пойти и подтвердить состав. Строка знает, сколько людей стоит
+   за неподтверждённым продуктом, — именно этим измеряется цена расхождения
+   в P&L. Неподтверждённые идут первыми: это список работы, а не справочник. */
+function verifyProducts(st,m){
+  m=m==null?st.i1:m;
+  const cnt=new Int32Array(NPROD), fte=new Float32Array(NPROD);
+  ALLOC.forEach(a=>{
+    if(!inScope(st,a.prod))return;
+    const p=PEOPLE[a.pid];
+    if(!personPass(st,p))return;
+    const v=active(st,a,p,m);
+    if(!v)return;
+    cnt[a.prod]++;fte[a.prod]+=v/100;
+  });
+  const out=[];
+  PRODUCTS.forEach((p,i)=>{
+    if(!cnt[i])return;                       /* пустой продукт подтверждать нечего */
+    const from=p.verifiedFrom!=null&&m>=p.verifiedFrom?p.verifiedFrom:null;
+    out.push({name:p.name,domName:p.domName,people:cnt[i],fte:fte[i],
+      verified:from!=null,from});
+  });
+  out.sort((a,b)=>(a.verified-b.verified)||(b.people-a.people));
+  return out;
+}
+
+/* ---------- Модель вкладки «Здоровье» ----------
+   Считается ОТДЕЛЬНО от model(): вкладка одна, а модель отчёта собирается
+   на каждый рендер, и гонять по всем вёдрам полный проход по людям ради
+   блока, который сейчас не на экране, незачем.
+
+   Всё здесь считается в ЛЮДЯХ и не зависит от режима отчёта: 70% человека
+   нельзя проверить на ставку, а продукт нельзя верифицировать на 70%. */
+function healthModel(st){
+  const bks=buckets(st.i0,st.i1,st.gran);
+  const hst=Object.assign({},st,{mode:'hc'});
+  const states=HEALTH.map(h=>({key:h.key,name:h.name,hint:h.hint,bad:h.bad,values:[]}));
+  const total=[],normShare=[],badTotal=[],verify=[];
+  bks.forEach(b=>{
+    const hs=health(hst,b.to);
+    let tot=0,bad=0,norm=0;
+    hs.forEach((x,i)=>{
+      states[i].values.push(x.people);
+      tot+=x.people;
+      if(x.bad)bad+=x.people;
+      if(x.key==='norm')norm=x.people;
+    });
+    total.push(tot);badTotal.push(bad);
+    normShare.push(tot?norm/tot*100:0);
+    verify.push(verification(hst,b.to));
+  });
+  return {bks,states,total,badTotal,normShare,verify,
+    now:health(hst,st.i1),
+    products:verifyProducts(hst,st.i1)};
 }
 
 /* Ресурсообеспеченность: занятые ставки и открытые квоты на продукте.
@@ -870,6 +965,10 @@ function model(st){
     stock:b.stock,flow:b.flow,
     supply:supply(st,bks,tot),
     quota:quotaTotal(st,st.i1),
+    /* Квоты на начало периода — то же «было», что и у численности: месяц
+       перед окном. Без него укомплектованность не с чем сравнить, а вопрос
+       «стало лучше или хуже» без сравнения не отвечается. */
+    quotaStart:quotaTotal(st,Math.max(0,st.i0-1)),
     head:headline(st),
     /* Разложение сегментов считается БЕЗ фильтра по сегментам: когда одна
        категория выбрана, на экране всё равно должно быть видно, частью
@@ -987,11 +1086,12 @@ window.PXDATA={
   MONTHS,N,mLabel,mLabelFull,buckets,GRAN,
   DOMAINS,PRODUCTS,PROD,DOM,PIDX,NPROD,
   PROFS,GRADES,LOCS,EMPS,
-  SEGMENTS,SEG_KEYS,SEG_BY_KEY,segOf,scopeSeg,HEALTH,healthOf,
+  SEGMENTS,SEG_KEYS,SEG_BY_KEY,segOf,scopeSeg,HEALTH,healthOf,HEALTH_DIMS,
   DIMS,DIM_BY_KEY,DIM_ORDER,SERIES_METRICS,
   PEOPLE,ALLOC,sumPct,mainProd,openQuota,
   THIN,MINUS,fmtInt,fmtFte,fmtVal,fmtDelta,fmtPct,fmtPp,
   prodSet,model,totals,rows,rows2,seriesRows,matrix,units,metricsOf,toBuckets,verification,
+  health,healthBy,healthModel,verifyProducts,
   quotaOf,quotaTotal,EVENTS,EVENT_BY_KEY,peopleList,personEvents
 };
 })();
